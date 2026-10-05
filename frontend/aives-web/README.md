@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+# aives-web
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Frontend for AIVES, the AI viva exam system. Built with React, TypeScript, Vite, Tailwind CSS v4 and shadcn/ui.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The dev server proxies `/api` to the backend at `https://localhost:7223` (set `VITE_API_PROXY_TARGET` to change it). For a deployed backend, set `VITE_API_BASE_URL`. See `.env.example`.
+
+## Structure (feature-based)
+
+```text
+src/
+├── app/                 App shell: providers, routes, 404
+├── assets/images/       Static images
+├── components/
+│   ├── ui/              shadcn/ui components (add more with `npx shadcn@latest add <name>`)
+│   └── common/          Shared brand pieces: Logo, Waveform, DotGrid
+├── features/
+│   ├── auth/            Login, register, session, route guards  (public API: index.ts)
+│   ├── landing/         Public landing page and its sections
+│   └── dashboard/       Signed-in home per role
+├── lib/
+│   ├── http/            Axios client and API error mapping
+│   └── utils.ts         `cn()` class helper
+├── index.css            Tailwind + theme tokens (brand colors, fonts, radius)
+└── main.tsx
+```
+
+Rules of thumb:
+
+- A feature owns its `api/`, `components/`, `hooks/`, `lib/`, `pages/` and `types.ts`.
+- Other code imports a feature only through its `index.ts`.
+- `lib/` and `components/` never import from `features/`.
+- Theme colors live in `src/index.css`: `brand` (#0F6CE6), `logo` (#6AA8FF), `sun` (#FFD54A).
