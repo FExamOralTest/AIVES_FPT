@@ -6,17 +6,20 @@ public class RegisterRequest
 {
     [Required]
     [MaxLength(50)]
+    [MinLength(3)]
     public string Username { get; set; } = null!;
 
     [Required]
     [MaxLength(100)]
     public string FullName { get; set; } = null!;
 
+    [Required]
     [EmailAddress]
     [MaxLength(100)]
-    public string? Email { get; set; }
+    public string Email { get; set; } = null!;
 
     [Required]
-    [MinLength(6)]
+    [DataType(DataType.Password)]
+    [StrongPassword]
     public string Password { get; set; } = null!;
 }

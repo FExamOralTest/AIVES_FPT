@@ -3,6 +3,7 @@ using Aives.Application.Auth.DTOs;
 using Aives.Application.Auth.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Aives.Api.Controllers;
 
@@ -40,8 +41,10 @@ public class AuthController : ControllerBase
 
     /// <summary>Login with username and password. Returns JWT.</summary>
     [HttpPost("login")]
+    [EnableRateLimiting("LoginPolicy")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         if (!ModelState.IsValid)
@@ -80,12 +83,41 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>Logout (stateless – client discards token).</summary>
+    /// <summary>Logout (revokes refresh tokens).</summary>
     [HttpPost("logout")]
     [Authorize]
-    public IActionResult Logout()
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Logout()
     {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (int.TryParse(userIdClaim, out var userId))
+        {
+            await _authService.LogoutAsync(userId);
+        }
+
         return Ok(new { message = "Logged out successfully." });
+    }
+
+    /// <summary>Refresh access token using refresh token.</summary>
+    [HttpPost("refresh")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        try
+        {
+            var response = await _authService.RefreshTokenAsync(request);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized(new { message = "Invalid or expired refresh token." });
+        }
     }
 
     /// <summary>
@@ -116,12 +148,13 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Lấy toàn bộ danh sách user — public, không cần token.
-    /// Dùng để xem userId/email của admin trước khi login.
+    /// Lấy toàn bộ danh sách user — chỉ ADMIN mới được truy cập.
     /// </summary>
     [HttpGet("admin/users")]
-    [AllowAnonymous]
+    [Authorize(Roles = "ADMIN")]
     [ProducesResponseType(typeof(IEnumerable<UserDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAllUsers()
     {
         var users = await _authService.GetAllUsersAsync();
@@ -144,7 +177,17 @@ public class AuthController : ControllerBase
 
         try
         {
-            var user = await _authService.UpdateUserAsync(id, request);
+            // Prevent admin from demoting themselves
+            var currentUserIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (int.TryParse(currentUserIdClaim, out var currentUserId) && id == currentUserId)
+            {
+                if (request.Role is not null && request.Role != Aives.Domain.Enums.UserRole.ADMIN)
+                {
+                    return BadRequest(new { message = "Cannot change your own role." });
+                }
+            }
+
+            var user = await _authService.UpdateUserAsync(id, request, currentUserId);
             return Ok(user);
         }
         catch (KeyNotFoundException ex)
