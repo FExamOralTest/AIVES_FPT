@@ -11,25 +11,25 @@ public class EnrollSessionRequest
 
 public class EnrollSessionResponse
 {
-    public int SessionEnrollmentId { get; set; }
-    public int SessionId { get; set; }
-    public string SessionName { get; set; } = null!;
-    public string ExamTitle { get; set; } = null!;
-    public DateTime StartTime { get; set; }
-    public DateTime EndTime { get; set; }
-    public string Status { get; set; } = null!;
+    public int      SessionEnrollmentId { get; set; }
+    public int      SessionId           { get; set; }
+    public string   SessionName         { get; set; } = null!;
+    public string   ExamTitle           { get; set; } = null!;
+    public DateTime StartTime           { get; set; }
+    public DateTime EndTime             { get; set; }
+    public string   Status              { get; set; } = null!;
 }
 
 public class SessionEnrollmentDto
 {
-    public int SessionEnrollmentId { get; set; }
-    public int SessionId { get; set; }
-    public int StudentId { get; set; }
-    public string StudentName { get; set; } = null!;
-    public string StudentEmail { get; set; } = null!;
-    public string Status { get; set; } = null!;
-    public DateTime? EnrolledAt { get; set; }
-    public DateTime? StartedAt { get; set; }
-    public int? CurrentQuestionIndex { get; set; }
-    public int TotalQuestions { get; set; }
+    public int      SessionEnrollmentId  { get; set; }
+    public int      SessionId            { get; set; }
+    public int      StudentId            { get; set; }
+    public string   StudentName          { get; set; } = null!;
+    public string   StudentEmail         { get; set; } = null!;
+    public string   Status               { get; set; } = null!;
+    public DateTime? EnrolledAt          { get; set; }
+    public DateTime? StartedAt           { get; set; }
+    public int?     CurrentQuestionIndex { get; set; }
+    public int      TotalQuestions       { get; set; }
 }

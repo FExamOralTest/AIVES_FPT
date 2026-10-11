@@ -6,16 +6,42 @@ using Microsoft.OpenApi.Models;
 using Npgsql;
 using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
-using Aives.Application.Interfaces.Repositories;
-using Aives.Application.Interfaces.Services;
-using Aives.Infrastructure.Repositories;
-using Aives.Application.Services;
+using Aives.Infrastructure.AI;
+
+// Auth
 using Aives.Application.Auth.Interfaces;
 using Aives.Application.Auth.Services;
 using Aives.Infrastructure.Auth;
+
+// Courses
+using Aives.Application.Courses.Interfaces;
+using Aives.Application.Courses.Services;
+using Aives.Infrastructure.Repositories.Courses;
+
+// Documents
+using Aives.Application.Documents.Interfaces;
+using Aives.Application.Documents.Services;
+using Aives.Infrastructure.Repositories.Documents;
+
+// Exams
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Exams.Services;
-using Aives.Infrastructure.AI;
+using Aives.Infrastructure.Repositories.Exams;
+
+// Questions
+using Aives.Application.Questions.Interfaces;
+using Aives.Application.Questions.Services;
+using Aives.Infrastructure.Repositories.Questions;
+
+// Results
+using Aives.Application.Results.Interfaces;
+using Aives.Application.Results.Services;
+using Aives.Infrastructure.Repositories.Results;
+
+// Users
+using Aives.Application.Users.Interfaces;
+using Aives.Application.Users.Services;
+using Aives.Infrastructure.Repositories.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,8 +58,7 @@ dataSourceBuilder.MapEnum<SubmissionStatus>( "submission_status", new NpgsqlUppe
 dataSourceBuilder.MapEnum<DocType>(          "doc_type",          new NpgsqlUpperCaseTranslator());
 var dataSource = dataSourceBuilder.Build();
 
-builder.Services.AddDbContext<AivesDbContext>(options =>
-    options.UseNpgsql(dataSource));
+builder.Services.AddDbContext<AivesDbContext>(options => options.UseNpgsql(dataSource));
 
 // ──────────────────────────────────────────────
 // 2. JWT Authentication
@@ -62,7 +87,7 @@ builder.Services
 builder.Services.AddAuthorization();
 
 // ──────────────────────────────────────────────
-// 3. Dependency Injection — Auth
+// 3. DI — Auth
 // ──────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService,    AuthService>();
 builder.Services.AddScoped<IJwtService,     JwtService>();
@@ -71,39 +96,57 @@ builder.Services.AddScoped<Aives.Application.Auth.Interfaces.IUserRepository,
                             Aives.Infrastructure.Auth.UserRepository>();
 
 // ──────────────────────────────────────────────
-// 4. Dependency Injection — Repositories
+// 4. DI — Courses
 // ──────────────────────────────────────────────
-builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository,
-                            Aives.Infrastructure.Repositories.UserRepository>();
-builder.Services.AddScoped<ICourseRepository,           CourseRepository>();
+builder.Services.AddScoped<ICourseRepository, CourseRepository>();
+builder.Services.AddScoped<ICourseService,    CourseService>();
+
+// ──────────────────────────────────────────────
+// 5. DI — Documents
+// ──────────────────────────────────────────────
 builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
-builder.Services.AddScoped<IExamRepository,             ExamRepository>();
-builder.Services.AddScoped<IExamSessionRepository,      ExamSessionRepository>();
-builder.Services.AddScoped<IQuestionBankRepository,     QuestionBankRepository>();
-builder.Services.AddScoped<IResultRepository,           ResultRepository>();
+builder.Services.AddScoped<IMarkdownDocumentService,    MarkdownDocumentService>();
+builder.Services.AddScoped<IDocumentService,            DocumentService>();
 
 // ──────────────────────────────────────────────
-// 5. Dependency Injection — Application Services
+// 6. DI — Exams
 // ──────────────────────────────────────────────
-builder.Services.AddScoped<IUserService,            UserService>();
-builder.Services.AddScoped<ICourseService,          CourseService>();
-builder.Services.AddScoped<IDocumentService,        DocumentService>();
-builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
-builder.Services.AddScoped<IExamService,            ExamService>();
-builder.Services.AddScoped<IExamSessionService,     ExamSessionService>();
-builder.Services.AddScoped<IExamHistoryService,     ExamHistoryService>();
+builder.Services.AddScoped<IExamRepository,        ExamRepository>();
+builder.Services.AddScoped<IExamSessionRepository, ExamSessionRepository>();
+builder.Services.AddScoped<IExamService,           ExamService>();
+builder.Services.AddScoped<IExamSessionService,    ExamSessionService>();
+
+// ──────────────────────────────────────────────
+// 7. DI — Questions
+// ──────────────────────────────────────────────
+builder.Services.AddScoped<IQuestionBankRepository, QuestionBankRepository>();
 builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
-builder.Services.AddScoped<IResultService,          ResultService>();
 
-// HttpClient cho AI Service (FastAPI)
+// ──────────────────────────────────────────────
+// 8. DI — Results
+// ──────────────────────────────────────────────
+builder.Services.AddScoped<IResultRepository,   ResultRepository>();
+builder.Services.AddScoped<IResultService,      ResultService>();
+builder.Services.AddScoped<IExamHistoryService, ExamHistoryService>();
+
+// ──────────────────────────────────────────────
+// 9. DI — Users
+// ──────────────────────────────────────────────
+builder.Services.AddScoped<Aives.Application.Users.Interfaces.IUserRepository,
+                            Aives.Infrastructure.Repositories.Users.UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
+
+// ──────────────────────────────────────────────
+// 10. DI — AI (HttpClient)
+// ──────────────────────────────────────────────
 builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
-    client.Timeout = TimeSpan.FromMinutes(5);
+    client.Timeout     = TimeSpan.FromMinutes(5);
 });
 
 // ──────────────────────────────────────────────
-// 6. Controllers + Swagger with JWT
+// 11. Controllers + Swagger with JWT
 // ──────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -135,7 +178,7 @@ builder.Services.AddSwaggerGen(options =>
 var app = builder.Build();
 
 // ──────────────────────────────────────────────
-// 7. Auto-seed on startup
+// 12. Auto-seed on startup
 // ──────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
@@ -146,7 +189,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ──────────────────────────────────────────────
-// 8. Middleware pipeline
+// 13. Middleware pipeline
 // ──────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
@@ -160,18 +203,13 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapGet("/api/health/db", async (AivesDbContext db) =>
-{
-    var canConnect  = await db.Database.CanConnectAsync();
-    var userCount   = await db.Users.CountAsync();
-    var courseCount = await db.Courses.CountAsync();
-    return Results.Ok(new
+    Results.Ok(new
     {
         Status            = "Healthy",
-        DatabaseConnected = canConnect,
-        UserCount         = userCount,
-        CourseCount       = courseCount,
+        DatabaseConnected = await db.Database.CanConnectAsync(),
+        UserCount         = await db.Users.CountAsync(),
+        CourseCount       = await db.Courses.CountAsync(),
         ServerTime        = DateTime.UtcNow
-    });
-});
+    }));
 
 app.Run();
