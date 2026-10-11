@@ -23,6 +23,19 @@ export function formatTimeRange(start: Date, end: Date): string {
 }
 
 // numeric: 'always' keeps "sau 2 ngày" instead of words like "Ngày kia" that read oddly mid-sentence.
+const dateTimeFormat = new Intl.DateTimeFormat('vi-VN', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+/** "14:30 15/10/2026". */
+export function formatDateTime(date: Date): string {
+  return dateTimeFormat.format(date)
+}
+
 const relative = new Intl.RelativeTimeFormat('vi-VN', { numeric: 'always' })
 
 /** "sau 3 ngày", "sau 2 giờ", "15 phút trước". */

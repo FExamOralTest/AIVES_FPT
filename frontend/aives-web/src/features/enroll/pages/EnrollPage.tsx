@@ -15,7 +15,8 @@ import {
   toSessionCode,
   validateCodeBody,
 } from '../lib/sessionCode'
-import type { EnrollSessionResponse, SessionStatus } from '../types'
+import { SESSION_STATUS_LABEL } from '@/lib/domain/sessionStatus'
+import type { EnrollSessionResponse } from '../types'
 
 const ALREADY_ENROLLED = 'You are already enrolled in this session.'
 
@@ -154,11 +155,6 @@ function EnrollForm({ onEnrolled }: { onEnrolled: (session: EnrollSessionRespons
   )
 }
 
-const STATUS_TEXT: Partial<Record<SessionStatus, string>> = {
-  NOT_STARTED: 'Chưa bắt đầu',
-  IN_PROGRESS: 'Đang diễn ra',
-}
-
 function EnrolledCard({
   session,
   onEnrollAnother,
@@ -195,7 +191,7 @@ function EnrolledCard({
         <div className="flex flex-col gap-1 py-3.5 sm:flex-row sm:gap-4">
           <dt className="w-28 shrink-0 text-muted-foreground">Trạng thái</dt>
           <dd className="flex flex-wrap items-center gap-2 font-medium">
-            {STATUS_TEXT[session.status] ?? session.status}
+            {SESSION_STATUS_LABEL[session.status] ?? session.status}
             {!started && (
               <span className="inline-flex items-center gap-1 text-sm font-normal text-muted-foreground">
                 <CalendarClock className="size-4" aria-hidden="true" />
