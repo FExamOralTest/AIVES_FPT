@@ -8,7 +8,7 @@ namespace Aives.Api.Controllers;
 
 [ApiController]
 [Route("api/exam-sessions")]
-[Authorize(Roles = "TEACHER")]
+[Authorize(Roles = "TEACHER,ADMIN")]
 public class ExamSessionsController : ControllerBase
 {
     private readonly IExamSessionService _sessionService;

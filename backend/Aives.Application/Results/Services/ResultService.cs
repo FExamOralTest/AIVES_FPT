@@ -1,6 +1,7 @@
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Results.DTOs;
 using Aives.Application.Results.Interfaces;
+using Aives.Application.Users.Interfaces;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
 
@@ -8,48 +9,54 @@ namespace Aives.Application.Results.Services;
 
 public class ResultService : IResultService
 {
-    private readonly IResultRepository       _resultRepository;
-    private readonly IExamSessionRepository  _sessionRepository;
+    private readonly IResultRepository      _resultRepository;
+    private readonly IExamSessionRepository _sessionRepository;
+    private readonly IUserRepository        _userRepository;
 
-    public ResultService(IResultRepository resultRepository, IExamSessionRepository sessionRepository)
+    public ResultService(
+        IResultRepository      resultRepository,
+        IExamSessionRepository sessionRepository,
+        IUserRepository        userRepository)
     {
         _resultRepository  = resultRepository;
         _sessionRepository = sessionRepository;
+        _userRepository    = userRepository;
     }
 
-    public async Task<IEnumerable<ResultForReviewDto>> GetResultsForReviewAsync(int sessionId, int teacherId)
+    public async Task<IEnumerable<ResultForReviewDto>> GetResultsForReviewAsync(int sessionId, int callerId)
     {
         var session = await _sessionRepository.GetByIdAsync(sessionId)
             ?? throw new KeyNotFoundException("Session not found.");
-        if (session.ScheduledBy != teacherId)
-            throw new UnauthorizedAccessException("Not your session.");
+
+        await EnsureAccessAsync(callerId, session.ScheduledBy);
 
         var results = await _resultRepository.GetBySessionIdWithDetailsAsync(sessionId);
         return results.Select(MapToReviewDto);
     }
 
-    public async Task<ResultForReviewDto> GetResultForReviewAsync(int resultId, int teacherId)
+    public async Task<ResultForReviewDto> GetResultForReviewAsync(int resultId, int callerId)
     {
         var result = await _resultRepository.GetByIdWithDetailsAsync(resultId)
             ?? throw new KeyNotFoundException("Result not found.");
         var session = await _sessionRepository.GetByIdAsync(result.SessionId);
-        if (session?.ScheduledBy != teacherId)
-            throw new UnauthorizedAccessException("Not your session.");
+
+        await EnsureAccessAsync(callerId, session?.ScheduledBy ?? -1);
+
         return MapToReviewDto(result);
     }
 
-    public async Task<ResultForReviewDto> ReviewResultAsync(int resultId, ReviewResultRequest request, int teacherId)
+    public async Task<ResultForReviewDto> ReviewResultAsync(int resultId, ReviewResultRequest request, int callerId)
     {
         var result = await _resultRepository.GetByIdWithDetailsAsync(resultId)
             ?? throw new KeyNotFoundException("Result not found.");
         var session = await _sessionRepository.GetByIdAsync(result.SessionId);
-        if (session?.ScheduledBy != teacherId)
-            throw new UnauthorizedAccessException("Not your session.");
+
+        await EnsureAccessAsync(callerId, session?.ScheduledBy ?? -1);
 
         if (request.FinalScore.HasValue) result.FinalScore = request.FinalScore.Value;
         if (!string.IsNullOrWhiteSpace(request.FinalFeedback)) result.FinalFeedback = request.FinalFeedback;
         result.Status     = SubmissionStatus.REVIEWED;
-        result.ReviewedBy = teacherId;
+        result.ReviewedBy = callerId;
         result.ReviewedAt = DateTime.UtcNow;
 
         foreach (var ansReq in request.AnswerReviews)
@@ -65,20 +72,20 @@ public class ResultService : IResultService
         return MapToReviewDto(result);
     }
 
-    public async Task<ResultForReviewDto> PublishResultAsync(int resultId, int teacherId)
+    public async Task<ResultForReviewDto> PublishResultAsync(int resultId, int callerId)
     {
         var result = await _resultRepository.GetByIdWithDetailsAsync(resultId)
             ?? throw new KeyNotFoundException("Result not found.");
         var session = await _sessionRepository.GetByIdAsync(result.SessionId);
-        if (session?.ScheduledBy != teacherId)
-            throw new UnauthorizedAccessException("Not your session.");
+
+        await EnsureAccessAsync(callerId, session?.ScheduledBy ?? -1);
 
         if (result.Status != SubmissionStatus.REVIEWED && result.Status != SubmissionStatus.PENDING_REVIEW)
             throw new InvalidOperationException("Result must be reviewed before publishing.");
 
         result.Status      = SubmissionStatus.PUBLISHED;
         result.PublishedAt = DateTime.UtcNow;
-        result.ReviewedBy  = result.ReviewedBy ?? teacherId;
+        result.ReviewedBy  = result.ReviewedBy ?? callerId;
         result.ReviewedAt  = result.ReviewedAt ?? DateTime.UtcNow;
         if (!result.FinalScore.HasValue) result.FinalScore = result.AiScore;
 
@@ -86,6 +93,22 @@ public class ResultService : IResultService
         await _resultRepository.SaveChangesAsync();
         return MapToReviewDto(result);
     }
+
+    // ── Helper: Admin bypass, Teacher phải là người tạo session ──────────
+
+    private async Task EnsureAccessAsync(int callerId, int scheduledBy)
+    {
+        if (callerId == scheduledBy) return; // Teacher sở hữu session → OK
+
+        var caller = await _userRepository.GetByIdAsync(callerId)
+            ?? throw new KeyNotFoundException($"User {callerId} not found.");
+
+        if (caller.Role == UserRole.ADMIN) return; // Admin bypass mọi check
+
+        throw new UnauthorizedAccessException("Not your session.");
+    }
+
+    // ── Mapping ───────────────────────────────────────────────────────────
 
     private static ResultForReviewDto MapToReviewDto(Result result) => new()
     {
@@ -105,17 +128,17 @@ public class ResultService : IResultService
         ReviewedAt    = result.ReviewedAt,
         Answers       = result.Answers.Select(a => new AnswerForReviewDto
         {
-            AnswerId      = a.AnswerId,
-            QuestionId    = a.QuestionId,
-            QuestionText  = a.Question?.QuestionText ?? "",
-            StudentAnswer = a.StudentAnswer,
-            Transcript    = a.Transcript,
-            AudioUrl      = a.AudioUrl,
-            AiScore       = a.AiScore,
-            AiFeedback    = a.AiFeedback,
-            FinalScore    = a.FinalScore,
+            AnswerId       = a.AnswerId,
+            QuestionId     = a.QuestionId,
+            QuestionText   = a.Question?.QuestionText ?? "",
+            StudentAnswer  = a.StudentAnswer,
+            Transcript     = a.Transcript,
+            AudioUrl       = a.AudioUrl,
+            AiScore        = a.AiScore,
+            AiFeedback     = a.AiFeedback,
+            FinalScore     = a.FinalScore,
             TeacherComment = a.TeacherComment,
-            IsFollowUp    = a.IsFollowUp ?? false
+            IsFollowUp     = a.IsFollowUp ?? false
         }).ToList()
     };
 }

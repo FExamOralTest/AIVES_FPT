@@ -8,7 +8,7 @@ namespace Aives.Api.Controllers;
 
 [ApiController]
 [Route("api/results")]
-[Authorize(Roles = "TEACHER")]
+[Authorize(Roles = "TEACHER,ADMIN")]
 public class ResultsController : ControllerBase
 {
     private readonly IResultService _resultService;
