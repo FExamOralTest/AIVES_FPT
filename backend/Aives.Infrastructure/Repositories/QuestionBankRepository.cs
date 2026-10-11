@@ -1,4 +1,5 @@
 using Aives.Application.Exams.Interfaces;
+using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
 using Aives.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,7 @@ namespace Aives.Infrastructure.Repositories;
 
 /// <summary>
 /// EF Core implementation của IQuestionBankRepository.
-/// Read-only repository dùng để lấy câu hỏi cho AI filtering và validate.
+/// Dùng để quản lý, truy vấn và ngẫu nhiên hóa câu hỏi từ QuestionBank.
 /// </summary>
 public class QuestionBankRepository : IQuestionBankRepository
 {
@@ -17,6 +18,10 @@ public class QuestionBankRepository : IQuestionBankRepository
     {
         _db = db;
     }
+
+    // ──────────────────────────────────────────────
+    // Các method từ nhánh HEAD
+    // ──────────────────────────────────────────────
 
     public async Task<IEnumerable<QuestionBank>> GetByCourseIdAsync(int courseId, int limit = 50)
     {
@@ -52,5 +57,24 @@ public class QuestionBankRepository : IQuestionBankRepository
     public async Task SaveChangesAsync()
     {
         await _db.SaveChangesAsync();
+    }
+
+    // ──────────────────────────────────────────────
+    // Các method từ nhánh Thinh_Dev
+    // ──────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<QuestionBank>> GetRandomByLevelAsync(
+        int courseId, int level, int count)
+    {
+        if (count <= 0) return [];
+
+        // EF.Functions.Random() → random() tại PostgreSQL, không load toàn bộ bảng
+        return await _db.QuestionBanks
+            .AsNoTracking()
+            .Where(q => q.CourseId == courseId && q.Level == level)
+            .OrderBy(_ => EF.Functions.Random())
+            .Take(count)
+            .ToListAsync();
     }
 }

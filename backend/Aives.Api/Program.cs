@@ -71,23 +71,29 @@ builder.Services.AddScoped<Aives.Application.Auth.Interfaces.IUserRepository,
                             Aives.Infrastructure.Auth.UserRepository>();
 
 // ──────────────────────────────────────────────
-// 3b. Dependency Injection – Exam & ExamSession
+// 4. Dependency Injection — Repositories
 // ──────────────────────────────────────────────
-builder.Services.AddScoped<IExamRepository, ExamRepository>();
-builder.Services.AddScoped<IExamSessionRepository, ExamSessionRepository>();
-builder.Services.AddScoped<IQuestionBankRepository, QuestionBankRepository>();
-builder.Services.AddScoped<IExamService, ExamService>();
-builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
+builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository,
+                            Aives.Infrastructure.Repositories.UserRepository>();
+builder.Services.AddScoped<ICourseRepository,           CourseRepository>();
+builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
+builder.Services.AddScoped<IExamRepository,             ExamRepository>();
+builder.Services.AddScoped<IExamSessionRepository,      ExamSessionRepository>();
+builder.Services.AddScoped<IQuestionBankRepository,     QuestionBankRepository>();
+builder.Services.AddScoped<IResultRepository,           ResultRepository>();
 
 // ──────────────────────────────────────────────
-// 3c. Dependency Injection – Documents, Results, AI
+// 5. Dependency Injection — Application Services
 // ──────────────────────────────────────────────
-builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
-builder.Services.AddScoped<ICourseRepository, CourseRepository>();
-builder.Services.AddScoped<IResultRepository, ResultRepository>();
-builder.Services.AddScoped<IDocumentService, DocumentService>();
-builder.Services.AddScoped<IResultService, ResultService>();
-builder.Services.AddScoped<IAIQuestionService, AIQuestionService>();
+builder.Services.AddScoped<IUserService,            UserService>();
+builder.Services.AddScoped<ICourseService,          CourseService>();
+builder.Services.AddScoped<IDocumentService,        DocumentService>();
+builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
+builder.Services.AddScoped<IExamService,            ExamService>();
+builder.Services.AddScoped<IExamSessionService,     ExamSessionService>();
+builder.Services.AddScoped<IExamHistoryService,     ExamHistoryService>();
+builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
+builder.Services.AddScoped<IResultService,          ResultService>();
 
 // HttpClient cho AI Service (FastAPI)
 builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
@@ -97,7 +103,7 @@ builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
 });
 
 // ──────────────────────────────────────────────
-// 4. Controllers + Swagger with JWT
+// 6. Controllers + Swagger with JWT
 // ──────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -129,16 +135,18 @@ builder.Services.AddSwaggerGen(options =>
 var app = builder.Build();
 
 // ──────────────────────────────────────────────
-// 6. Auto-seed default admin on startup
+// 7. Auto-seed on startup
 // ──────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
     await DatabaseSeeder.SeedAdminAsync(db);
+    await DatabaseSeeder.SeedQuestionBankAsync(db);
+    await DatabaseSeeder.SeedExamDataAsync(db);
 }
 
 // ──────────────────────────────────────────────
-// 7. Middleware pipeline
+// 8. Middleware pipeline
 // ──────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {

@@ -15,9 +15,9 @@ public partial class QuestionBank
 
     public float? MaxScore { get; set; }
 
-    public string? SampleAnswer { get; set; }
-
     public bool? IsFollowUpAllowed { get; set; }
+
+    public int Level { get; set; } // 1: Easy, 2: Medium, 3: Hard
 
     public DateTime? CreatedAt { get; set; }
 
