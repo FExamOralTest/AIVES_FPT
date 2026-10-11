@@ -34,6 +34,10 @@
   --color-brand-soft: var(--brand-soft);
   --color-logo: var(--logo);
   --color-sun: var(--sun);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -72,6 +76,12 @@
   --brand-hover: #0c56b6;
   --brand-soft: #e5f1ff;
   --sun: #ffd54a;
+
+  /* Status text colors keep ≥4.5:1 on their soft backgrounds. */
+  --success: #067647;
+  --success-soft: #ecfdf3;
+  --warning: #93370d;
+  --warning-soft: #fffaeb;
 }
 
 @layer base {

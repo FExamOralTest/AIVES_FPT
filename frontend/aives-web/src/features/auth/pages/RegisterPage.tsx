@@ -8,7 +8,7 @@ import { AuthLayout } from '../components/AuthLayout'
 import { RegisterPanel } from '../components/AuthPanels'
 import { FormField } from '../components/FormField'
 import { SubmitButton } from '../components/SubmitButton'
-import { validateEmail, validatePassword } from '../lib/validation'
+import { PASSWORD_HINT, validateEmail, validatePassword } from '../lib/validation'
 
 type Field = 'username' | 'fullName' | 'email' | 'password' | 'confirmPassword'
 type Values = Record<Field, string>
@@ -20,6 +20,7 @@ function validate(v: Values): Partial<Record<Field, string>> {
 
   if (!v.username.trim()) errors.username = 'Nhập tên đăng nhập.'
   else if (/\s/.test(v.username.trim())) errors.username = 'Tên đăng nhập không chứa khoảng trắng.'
+  else if (v.username.trim().length < 3) errors.username = 'Tên đăng nhập cần ít nhất 3 ký tự.'
   else if (v.username.trim().length > 50) errors.username = 'Tên đăng nhập tối đa 50 ký tự.'
 
   if (!v.fullName.trim()) errors.fullName = 'Nhập họ và tên.'
@@ -107,16 +108,14 @@ export default function RegisterPage() {
             {...bind('username')}
           />
           <FormField label="Email" type="email" autoComplete="email" placeholder="ten@gmail.com" {...bind('email')} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              label="Mật khẩu"
-              type="password"
-              autoComplete="new-password"
-              hint="Ít nhất 6 ký tự."
-              {...bind('password')}
-            />
-            <FormField label="Nhập lại mật khẩu" type="password" autoComplete="new-password" {...bind('confirmPassword')} />
-          </div>
+          <FormField
+            label="Mật khẩu"
+            type="password"
+            autoComplete="new-password"
+            hint={PASSWORD_HINT}
+            {...bind('password')}
+          />
+          <FormField label="Nhập lại mật khẩu" type="password" autoComplete="new-password" {...bind('confirmPassword')} />
         </div>
 
         <SubmitButton pending={submitting}>{submitting ? 'Đang tạo tài khoản…' : 'Tạo tài khoản'}</SubmitButton>
