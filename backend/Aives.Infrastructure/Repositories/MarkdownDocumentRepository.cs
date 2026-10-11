@@ -14,14 +14,14 @@ public class MarkdownDocumentRepository : IMarkdownDocumentRepository
 
     public async Task<IEnumerable<MarkdownDocument>> GetByCourseIdAsync(int courseId)
         => await _db.MarkdownDocuments.AsNoTracking()
-                                      .Include(d => d.Course)
-                                      .Where(d => d.CourseId == courseId)
-                                      .ToListAsync();
+                                          .Include(d => d.Course)
+                                          .Where(d => d.CourseId == courseId)
+                                          .ToListAsync();
 
     public async Task<MarkdownDocument?> GetByIdAsync(int documentId)
         => await _db.MarkdownDocuments.AsNoTracking()
-                                      .Include(d => d.Course)
-                                      .FirstOrDefaultAsync(d => d.DocumentId == documentId);
+                                          .Include(d => d.Course)
+                                          .FirstOrDefaultAsync(d => d.DocumentId == documentId);
 
     public async Task<bool> ExistsByTypeAsync(int courseId, DocType docType, int? excludeDocumentId = null)
         => await _db.MarkdownDocuments.AnyAsync(d =>
@@ -48,6 +48,11 @@ public class MarkdownDocumentRepository : IMarkdownDocumentRepository
         var doc = await _db.MarkdownDocuments.FindAsync(documentId)
             ?? throw new KeyNotFoundException($"Document {documentId} not found.");
         _db.MarkdownDocuments.Remove(doc);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task SaveChangesAsync()
+    {
         await _db.SaveChangesAsync();
     }
 }

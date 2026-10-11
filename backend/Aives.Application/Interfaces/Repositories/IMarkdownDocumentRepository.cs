@@ -17,4 +17,5 @@ public interface IMarkdownDocumentRepository
     Task<MarkdownDocument> CreateAsync(MarkdownDocument document);
     Task<MarkdownDocument> UpdateAsync(MarkdownDocument document);
     Task DeleteAsync(int documentId);
+    Task SaveChangesAsync();
 }

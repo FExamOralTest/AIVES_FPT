@@ -17,6 +17,11 @@ public partial class SessionEnrollment
 
     public DateTime? EnrolledAt { get; set; }
 
+    // === Monitoring fields ===
+    public DateTime? StartedAt { get; set; }
+    public DateTime? LastActivityAt { get; set; }
+    public int? CurrentQuestionIndex { get; set; }
+
     public virtual ExamSession Session { get; set; } = null!;
 
     public virtual User Student { get; set; } = null!;

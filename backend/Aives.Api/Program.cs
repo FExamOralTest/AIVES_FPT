@@ -16,6 +16,9 @@ using Aives.Application.Services;
 using Aives.Application.Auth.Interfaces;
 using Aives.Application.Auth.Services;
 using Aives.Infrastructure.Auth;
+using Aives.Application.Exams.Interfaces;
+using Aives.Application.Exams.Services;
+using Aives.Infrastructure.AI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -99,18 +102,33 @@ builder.Services.AddScoped<Aives.Application.Auth.Interfaces.IUserRepository,
                             Aives.Infrastructure.Auth.UserRepository>();
 
 // ──────────────────────────────────────────────
-// 4. Dependency Injection — Admin / Teacher features
+// 3b. Dependency Injection – Exam & ExamSession
 // ──────────────────────────────────────────────
-builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository,
-                            Aives.Infrastructure.Repositories.UserRepository>();
-builder.Services.AddScoped<ICourseRepository,           CourseRepository>();
-builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
-builder.Services.AddScoped<IUserService,             UserService>();
-builder.Services.AddScoped<ICourseService,           CourseService>();
-builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
+builder.Services.AddScoped<IExamRepository, ExamRepository>();
+builder.Services.AddScoped<IExamSessionRepository, ExamSessionRepository>();
+builder.Services.AddScoped<IQuestionBankRepository, QuestionBankRepository>();
+builder.Services.AddScoped<IExamService, ExamService>();
+builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
 
 // ──────────────────────────────────────────────
-// 5. Controllers + Swagger with JWT button
+// 3c. Dependency Injection – Documents, Results, AI
+// ──────────────────────────────────────────────
+builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
+builder.Services.AddScoped<ICourseRepository, CourseRepository>();
+builder.Services.AddScoped<IResultRepository, ResultRepository>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IResultService, ResultService>();
+builder.Services.AddScoped<IAIQuestionService, AIQuestionService>();
+
+// HttpClient cho AI Service (FastAPI)
+builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
+
+// ──────────────────────────────────────────────
+// 4. Controllers + Swagger with JWT
 // ──────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

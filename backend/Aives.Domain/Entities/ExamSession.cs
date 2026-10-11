@@ -25,6 +25,11 @@ public partial class ExamSession
 
     public DateTime? CreatedAt { get; set; }
 
+    // === P0: SessionCode (Enroll Code), Capacity ===
+    public string SessionCode { get; set; } = null!;
+    public int MaxCapacity { get; set; } = 50;
+    public int CurrentEnrollment { get; set; } = 0;
+
     public virtual Exam Exam { get; set; } = null!;
 
     public virtual ICollection<Result> Results { get; set; } = new List<Result>();

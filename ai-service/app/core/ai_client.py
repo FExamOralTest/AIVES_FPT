@@ -55,6 +55,34 @@ class MockAIClient(BaseAIClient):
     async def complete(self, system_prompt: str, user_message: str) -> str:
         logger.debug("[MockAIClient] Returning mock response.")
 
+        # Structured task routing keeps generated metadata tied to the documents.
+        try:
+            payload = json.loads(user_message)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict) and payload.get("task") == "generate_viva_question":
+            context = payload["context"]
+            topic = context["available_topics"][0]
+            question_type = context["question_type"]
+            templates = {
+                "conceptual": "Bạn hãy giải thích nội dung cốt lõi của chủ đề {topic} trong môn {course}.",
+                "application": "Bạn sẽ vận dụng kiến thức về {topic} vào một tình huống thực tế như thế nào?",
+                "analysis": "Bạn hãy phân tích các yếu tố quan trọng của {topic} và giải thích mối liên hệ giữa chúng.",
+            }
+            return json.dumps(
+                {
+                    "question": templates[question_type].format(
+                        topic=topic, course=context["course_name"]
+                    ),
+                    "question_type": question_type,
+                    "difficulty": context["difficulty"],
+                    "expected_keywords": [topic],
+                    "topic": topic,
+                    "learning_outcome": context["learning_outcomes"][0],
+                },
+                ensure_ascii=False,
+            )
+
         # Detect intent from system_prompt keywords to return relevant mocks
         sp_lower = system_prompt.lower()
 

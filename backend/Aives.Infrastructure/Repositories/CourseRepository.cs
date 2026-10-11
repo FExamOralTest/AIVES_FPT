@@ -1,3 +1,4 @@
+using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
 using Aives.Infrastructure.Persistence;
@@ -25,6 +26,7 @@ public class CourseRepository : ICourseRepository
     public async Task<Course?> GetByIdAsync(int courseId)
         => await _db.Courses.AsNoTracking()
                             .Include(c => c.Teacher)
+                            .Include(c => c.CreatedByNavigation)
                             .FirstOrDefaultAsync(c => c.CourseId == courseId);
 
     public async Task<Course?> GetByCodeAsync(string courseCode)

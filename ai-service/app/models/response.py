@@ -3,8 +3,11 @@ AIVES AI Service - Response Models
 Pydantic schemas for all outgoing API responses to the Backend.
 """
 
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import Annotated, List, Literal, Optional
+from pydantic import BaseModel, Field, StringConstraints
+
+
+NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 # ─────────────────────────────────────────────
@@ -35,20 +38,24 @@ class ErrorResponse(BaseModel):
 class GenerateQuestionResponse(BaseResponse):
     """Response from AI question generation."""
 
-    question: str = Field(..., description="The AI-generated interview question")
-    question_type: str = Field(
-        default="conceptual",
+    question: NonEmptyText = Field(..., description="The AI-generated interview question")
+    question_type: Literal["conceptual", "application", "analysis"] = Field(
+        ...,
         description="Type: 'conceptual' | 'application' | 'analysis'",
     )
-    difficulty: str = Field(
-        default="medium", description="Difficulty: 'easy' | 'medium' | 'hard'"
+    difficulty: Literal["easy", "medium", "hard"] = Field(
+        ..., description="Difficulty: 'easy' | 'medium' | 'hard'"
     )
-    expected_keywords: List[str] = Field(
-        default_factory=list,
+    expected_keywords: List[NonEmptyText] = Field(
+        ...,
+        min_length=1,
         description="Key concepts expected in a good answer",
     )
-    topic: Optional[str] = Field(
-        default=None, description="Topic/chapter this question covers"
+    topic: NonEmptyText = Field(
+        ..., description="Topic/chapter this question covers"
+    )
+    learning_outcome: NonEmptyText = Field(
+        ..., description="Learning outcome assessed, copied from the supplied document"
     )
 
 

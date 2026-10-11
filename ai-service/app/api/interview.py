@@ -4,12 +4,14 @@ Endpoints for AI question generation and follow-up questions.
 Called by ASP.NET Core Backend (not directly by Frontend - see BR-14).
 """
 
+import httpx
 from fastapi import APIRouter, HTTPException, status
 from loguru import logger
 
 from app.models.request import GenerateQuestionRequest, GenerateFollowUpRequest
 from app.models.response import GenerateQuestionResponse, GenerateFollowUpResponse, ErrorResponse
 from app.services.interview_service import InterviewService
+from app.services.question_service import InvalidQuestionContext, QuestionGenerationError
 
 router = APIRouter(prefix="/interview", tags=["Interview"])
 _service = InterviewService()
@@ -26,7 +28,8 @@ _service = InterviewService()
     ),
     responses={
         200: {"description": "Question generated successfully"},
-        422: {"description": "Validation error in request body"},
+        422: {"description": "Invalid request, course documents or exhausted topics"},
+        502: {"description": "AI provider failed or returned invalid questions"},
         500: {"model": ErrorResponse, "description": "AI generation failed"},
     },
 )
@@ -42,11 +45,27 @@ async def generate_question(request: GenerateQuestionRequest) -> GenerateQuestio
             f"q={request.question_index}/{request.total_questions}"
         )
         return await _service.get_next_question(request)
+    except InvalidQuestionContext as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except QuestionGenerationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.warning("[InterviewAPI] Question generation provider request failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI provider is unavailable. Please retry later.",
+        ) from exc
     except ValueError as exc:
         logger.error(f"[InterviewAPI] Question generation error: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="Question generation failed due to a service configuration error.",
         )
     except Exception as exc:
         logger.exception(f"[InterviewAPI] Unexpected error: {exc}")

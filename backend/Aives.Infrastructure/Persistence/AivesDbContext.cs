@@ -208,6 +208,8 @@ public partial class AivesDbContext : DbContext
 
             entity.ToTable("exam_sessions");
 
+            entity.HasIndex(e => e.SessionCode, "exam_sessions_session_code_key").IsUnique();
+
             entity.Property(e => e.SessionId)
                 .UseIdentityAlwaysColumn()
                 .HasColumnName("session_id");
@@ -216,10 +218,19 @@ public partial class AivesDbContext : DbContext
                 .HasColumnName("created_at");
             entity.Property(e => e.EndTime).HasColumnName("end_time");
             entity.Property(e => e.ExamId).HasColumnName("exam_id");
+            entity.Property(e => e.MaxCapacity)
+                .HasDefaultValue(50)
+                .HasColumnName("max_capacity");
+            entity.Property(e => e.CurrentEnrollment)
+                .HasDefaultValue(0)
+                .HasColumnName("current_enrollment");
             entity.Property(e => e.Room)
                 .HasMaxLength(150)
                 .HasColumnName("room");
             entity.Property(e => e.ScheduledBy).HasColumnName("scheduled_by");
+            entity.Property(e => e.SessionCode)
+                .HasMaxLength(50)
+                .HasColumnName("session_code");
             entity.Property(e => e.SessionName)
                 .HasMaxLength(150)
                 .HasColumnName("session_name");
@@ -359,10 +370,13 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.SessionEnrollmentId)
                 .UseIdentityAlwaysColumn()
                 .HasColumnName("session_enrollment_id");
+            entity.Property(e => e.CurrentQuestionIndex).HasColumnName("current_question_index");
             entity.Property(e => e.EnrolledAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("enrolled_at");
+            entity.Property(e => e.LastActivityAt).HasColumnName("last_activity_at");
             entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.StartedAt).HasColumnName("started_at");
             entity.Property(e => e.Status).HasColumnName("status");
             entity.Property(e => e.StudentId).HasColumnName("student_id");
 
