@@ -11,25 +11,17 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly ITokenGenerator _tokenGenerator;
     private readonly ILogger<AuthService> _logger;
-
-    private const int RefreshTokenExpirationDays = 7;
 
     public AuthService(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IJwtService jwtService,
-        IRefreshTokenRepository refreshTokenRepository,
-        ITokenGenerator tokenGenerator,
         ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
-        _refreshTokenRepository = refreshTokenRepository;
-        _tokenGenerator = tokenGenerator;
         _logger = logger;
     }
 
@@ -76,65 +68,22 @@ public class AuthService : IAuthService
 
         var token = _jwtService.GenerateToken(user);
         var expiresIn = _jwtService.GetExpirationSeconds();
-        var refreshToken = await GenerateAndSaveRefreshTokenAsync(user.UserId);
 
         _logger.LogInformation("User logged in successfully: {Username} with role {Role}", user.Username, user.Role);
 
         return new AuthResponse
         {
             AccessToken = token,
-            RefreshToken = refreshToken,
             TokenType = "Bearer",
             ExpiresIn = expiresIn,
             User = MapToUserDto(user)
         };
     }
 
-    public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request)
+    public Task LogoutAsync(int userId)
     {
-        var refreshToken = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
-
-        if (refreshToken is null || !refreshToken.IsActive)
-        {
-            _logger.LogWarning("Refresh token failed: Invalid or expired token");
-            throw new UnauthorizedAccessException("Invalid or expired refresh token.");
-        }
-
-        var user = await _userRepository.GetByIdAsync(refreshToken.UserId);
-        if (user is null)
-        {
-            _logger.LogWarning("Refresh token failed: User not found for token");
-            throw new UnauthorizedAccessException("User not found.");
-        }
-
-        // Revoke old refresh token
-        refreshToken.RevokedAt = DateTime.UtcNow;
-        refreshToken.RevokedByIp = "refresh";
-        await _refreshTokenRepository.UpdateAsync(refreshToken);
-
-        // Generate new tokens
-        var accessToken = _jwtService.GenerateToken(user);
-        var expiresIn = _jwtService.GetExpirationSeconds();
-        var newRefreshToken = await GenerateAndSaveRefreshTokenAsync(user.UserId);
-
-        _logger.LogInformation("Token refreshed successfully for user: {Username}", user.Username);
-
-        return new AuthResponse
-        {
-            AccessToken = accessToken,
-            RefreshToken = newRefreshToken,
-            TokenType = "Bearer",
-            ExpiresIn = expiresIn,
-            User = MapToUserDto(user)
-        };
-    }
-
-    public async Task LogoutAsync(int userId, string? accessToken = null)
-    {
-        // Revoke all refresh tokens for the user
-        await _refreshTokenRepository.RevokeAllUserTokensAsync(userId);
-
-        _logger.LogInformation("User {UserId} logged out successfully", userId);
+        _logger.LogInformation("User {UserId} logged out", userId);
+        return Task.CompletedTask;
     }
 
     public async Task<UserDto> GetCurrentUserAsync(int userId)
@@ -230,21 +179,6 @@ public class AuthService : IAuthService
         _logger.LogInformation("User {UserId} updated successfully", userId);
 
         return MapToUserDto(user);
-    }
-
-    private async Task<string> GenerateAndSaveRefreshTokenAsync(int userId)
-    {
-        var token = _tokenGenerator.GenerateRefreshToken();
-        var refreshToken = new RefreshToken
-        {
-            UserId = userId,
-            Token = token,
-            ExpiresAt = DateTime.UtcNow.AddDays(RefreshTokenExpirationDays),
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _refreshTokenRepository.AddAsync(refreshToken);
-        return token;
     }
 
     private static UserDto MapToUserDto(User user) => new()

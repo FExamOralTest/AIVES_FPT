@@ -38,6 +38,4 @@ public partial class User
     public virtual ICollection<Result> ResultStudents { get; set; } = new List<Result>();
 
     public virtual ICollection<SessionEnrollment> SessionEnrollments { get; set; } = new List<SessionEnrollment>();
-
-    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }

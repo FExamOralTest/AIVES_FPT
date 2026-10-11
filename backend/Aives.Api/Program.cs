@@ -96,8 +96,6 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddScoped<IAuthService,    AuthService>();
 builder.Services.AddScoped<IJwtService,     JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
-builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-builder.Services.AddScoped<ITokenGenerator, TokenGenerator>();
 builder.Services.AddScoped<Aives.Application.Auth.Interfaces.IUserRepository,
                             Aives.Infrastructure.Auth.UserRepository>();
 

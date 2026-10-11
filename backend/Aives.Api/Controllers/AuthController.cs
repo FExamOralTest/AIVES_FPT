@@ -83,7 +83,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>Logout (revokes refresh tokens).</summary>
+    /// <summary>Logout (client discards token).</summary>
     [HttpPost("logout")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -98,26 +98,6 @@ public class AuthController : ControllerBase
         }
 
         return Ok(new { message = "Logged out successfully." });
-    }
-
-    /// <summary>Refresh access token using refresh token.</summary>
-    [HttpPost("refresh")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        try
-        {
-            var response = await _authService.RefreshTokenAsync(request);
-            return Ok(response);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Unauthorized(new { message = "Invalid or expired refresh token." });
-        }
     }
 
     /// <summary>
