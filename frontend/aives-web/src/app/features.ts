@@ -14,11 +14,12 @@ import {
 import type { UserRole } from '@/features/auth'
 
 /**
+ * - done:    the page is built and calls the real API (register it in PAGES in router.tsx).
  * - ready:   every endpoint the page needs works today.
  * - partial: the page can be built, but some endpoints are broken or missing.
  * - pending: the core endpoint is missing or broken, so the page waits for the backend.
  */
-export type FeatureStatus = 'ready' | 'partial' | 'pending'
+export type FeatureStatus = 'done' | 'ready' | 'partial' | 'pending'
 
 /** ok = callable now · issue = exists but broken/limited · missing = not implemented yet. */
 export type EndpointState = 'ok' | 'issue' | 'missing'
@@ -177,7 +178,7 @@ export const FEATURES: FeatureDef[] = [
     title: 'Tham gia ca thi',
     icon: KeyRound,
     summary: 'Nhập mã tham gia do giảng viên cung cấp để đăng ký vào ca thi.',
-    status: 'ready',
+    status: 'done',
     endpoints: [
       { method: 'POST', path: '/api/enroll/session', state: 'ok', note: 'Đăng ký bằng mã ESS-XXXXXXXX.' },
     ],
@@ -229,6 +230,7 @@ export function featuresFor(role: UserRole) {
 }
 
 export const STATUS_LABEL: Record<FeatureStatus, string> = {
+  done: 'Đã hoạt động',
   ready: 'Sẵn sàng gọi API',
   partial: 'Gọi được một phần',
   pending: 'Đang hoàn thiện',

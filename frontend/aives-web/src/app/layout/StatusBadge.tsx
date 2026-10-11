@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { ENDPOINT_STATE_LABEL, STATUS_LABEL, type EndpointState, type FeatureStatus } from '../features'
 
 const TONE = {
+  done: 'bg-success text-white',
   ready: 'bg-success-soft text-success',
   ok: 'bg-success-soft text-success',
   partial: 'bg-warning-soft text-warning',
@@ -11,6 +12,7 @@ const TONE = {
 } as const
 
 const DOT = {
+  done: 'bg-white',
   ready: 'bg-success',
   ok: 'bg-success',
   partial: 'bg-warning',
