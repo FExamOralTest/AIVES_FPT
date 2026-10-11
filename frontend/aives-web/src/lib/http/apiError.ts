@@ -26,6 +26,9 @@ const KNOWN_MESSAGES: Record<string, string> = {
   'This session is not open for enrollment.': 'Ca thi này đã kết thúc hoặc đã bị huỷ, không thể tham gia.',
   'Session has reached maximum capacity.': 'Ca thi đã đủ số lượng sinh viên. Liên hệ giảng viên để được hỗ trợ.',
   'You are already enrolled in this session.': 'Bạn đã tham gia ca thi này rồi.',
+  'StartTime must be earlier than EndTime.': 'Giờ bắt đầu phải trước giờ kết thúc.',
+  'StartTime cannot be in the past.': 'Giờ bắt đầu không được ở quá khứ.',
+  'You do not have permission to create a session for this exam.': 'Bạn không phải người tạo đề thi này.',
 }
 
 // Statuses whose meaning doesn't depend on the endpoint, so the UI message is fixed.

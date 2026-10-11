@@ -129,7 +129,7 @@ export const FEATURES: FeatureDef[] = [
     title: 'Đề thi',
     icon: FileText,
     summary: 'Tạo đề thi từ ngân hàng câu hỏi, đặt thời lượng và số câu.',
-    status: 'partial',
+    status: 'done',
     endpoints: [
       { method: 'GET', path: '/api/exams/my', state: 'ok', note: 'Đề thi do giảng viên đang đăng nhập tạo.' },
       { method: 'GET', path: '/api/exams/{examId}', state: 'ok', note: 'Chi tiết đề kèm câu hỏi.' },
@@ -145,12 +145,12 @@ export const FEATURES: FeatureDef[] = [
     title: 'Ca thi',
     icon: CalendarClock,
     summary: 'Lên lịch ca thi, chia sẻ mã tham gia, mở hoặc đóng ca và theo dõi trực tiếp.',
-    status: 'partial',
+    status: 'done',
     endpoints: [
       { method: 'POST', path: '/api/exam-sessions', state: 'ok', note: 'Tạo ca thi, trả về mã tham gia ESS-XXXXXXXX.' },
       { method: 'GET', path: '/api/exam-sessions/teacher/{teacherId}', state: 'ok', note: 'Danh sách ca thi của giảng viên.' },
       { method: 'GET', path: '/api/exam-sessions/{sessionId}', state: 'ok', note: 'Chi tiết ca thi.' },
-      { method: 'PUT', path: '/api/exam-sessions/{sessionId}/status', state: 'issue', note: 'Chỉ nhận số 0–3, không nhận chuỗi "IN_PROGRESS".' },
+      { method: 'PUT', path: '/api/exam-sessions/{sessionId}/status', state: 'issue', note: 'Chỉ nhận số 0–3, không nhận chuỗi "IN_PROGRESS". FE đã gửi dạng số.' },
       { method: 'GET', path: '/api/exam-sessions/{sessionId}/monitor', state: 'issue', note: 'Gọi được, nhưng tiến độ làm bài luôn bằng 0%.' },
     ],
   },

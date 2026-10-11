@@ -3,6 +3,8 @@ import { Route, Routes } from 'react-router-dom'
 import { UsersPage } from '@/features/admin-users'
 import { GuestRoute, LoginPage, ProtectedRoute, RegisterPage, ROLE_HOME, type UserRole } from '@/features/auth'
 import { EnrollPage } from '@/features/enroll'
+import { SessionsPage } from '@/features/exam-sessions'
+import { ExamsPage } from '@/features/exams'
 import { LandingPage } from '@/features/landing'
 import { featuresFor } from './features'
 import { AppShell } from './layout/AppShell'
@@ -15,6 +17,8 @@ const ROLES: UserRole[] = ['ADMIN', 'TEACHER', 'STUDENT']
 // Features whose real page is built, keyed "ROLE/path"; every other feature renders its placeholder.
 const PAGES: Record<string, ComponentType> = {
   'ADMIN/users': UsersPage,
+  'TEACHER/exams': ExamsPage,
+  'TEACHER/sessions': SessionsPage,
   'STUDENT/enroll': EnrollPage,
 }
 

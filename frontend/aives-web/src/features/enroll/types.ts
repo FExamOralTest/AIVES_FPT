@@ -1,4 +1,6 @@
-export type SessionStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+import type { SessionStatus } from '@/lib/domain/sessionStatus'
+
+export type { SessionStatus }
 
 export interface EnrollSessionRequest {
   sessionCode: string
