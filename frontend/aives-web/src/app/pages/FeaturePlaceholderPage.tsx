@@ -3,6 +3,11 @@ import type { FeatureDef } from '../features'
 import { EndpointStateBadge, StatusBadge } from '../layout/StatusBadge'
 
 const EMPTY_STATE: Record<FeatureDef['status'], { title: string; body: string }> = {
+  // Only reached if a feature is marked done but not registered in PAGES.
+  done: {
+    title: 'Trang chưa được gắn',
+    body: 'Chức năng đã hoàn thiện nhưng trang chưa được khai báo trong router.',
+  },
   ready: {
     title: 'Giao diện đang được xây dựng',
     body: 'API cho trang này đã gọi được. Giao diện sẽ được hoàn thiện trong bước tiếp theo.',
