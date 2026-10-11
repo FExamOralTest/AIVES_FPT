@@ -6,7 +6,7 @@ import { toApiError } from '@/lib/http/apiError'
 import { authApi } from '../api/authApi'
 import { AuthLayout } from '../components/AuthLayout'
 import { RegisterPanel } from '../components/AuthPanels'
-import { FormField } from '../components/FormField'
+import { FormField } from '@/components/common/FormField'
 import { SubmitButton } from '../components/SubmitButton'
 import { PASSWORD_HINT, validateEmail, validatePassword } from '../lib/validation'
 
