@@ -46,6 +46,11 @@ public class CourseRepository : ICourseRepository
 
     public async Task<Course> UpdateAsync(Course course)
     {
+        // Detach tất cả navigation properties trước khi Update
+        // để tránh tracker conflict khi cùng DbContext đã load User từ nơi khác
+        course.Teacher             = null!;
+        course.CreatedByNavigation = null!;
+
         _db.Courses.Update(course);
         await _db.SaveChangesAsync();
         return course;

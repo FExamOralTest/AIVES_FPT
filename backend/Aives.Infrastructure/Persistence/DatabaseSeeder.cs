@@ -220,9 +220,22 @@ public static class DatabaseSeeder
         // Assign teacher vào course CS101
         if (course.TeacherId is null)
         {
-            course.TeacherId = teacher.UserId;
-            db.Courses.Update(course);
-            await db.SaveChangesAsync();
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE courses SET teacher_id = {0} WHERE course_id = {1}",
+                teacher.UserId, course.CourseId);
+        }
+
+        // Assign teacher vào SE201 và AI301 để test GetMyCourses
+        foreach (var code in new[] { "SE201", "AI301" })
+        {
+            var other = await db.Courses.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.CourseCode == code);
+            if (other is not null && other.TeacherId is null)
+            {
+                await db.Database.ExecuteSqlRawAsync(
+                    "UPDATE courses SET teacher_id = {0} WHERE course_id = {1}",
+                    teacher.UserId, other.CourseId);
+            }
         }
 
         // ── 2. Students ───────────────────────────────────────────────────
