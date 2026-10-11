@@ -48,5 +48,7 @@ public class JwtService : IJwtService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    public DateTime GetTokenExpiration() => DateTime.UtcNow.AddMinutes(_expirationMinutes);
+
     public int GetExpirationSeconds() => _expirationMinutes * 60;
 }

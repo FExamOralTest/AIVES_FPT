@@ -1,8 +1,11 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
@@ -18,6 +21,11 @@ using Aives.Application.Exams.Services;
 using Aives.Infrastructure.AI;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
 
 // ──────────────────────────────────────────────
 // 1. PostgreSQL / EF Core
@@ -43,6 +51,9 @@ var jwtKey      = builder.Configuration["Jwt:Key"]
 var jwtIssuer   = builder.Configuration["Jwt:Issuer"]   ?? "AIVES";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "AIVES.Client";
 
+// Register JWT blacklist as singleton for sharing across requests
+builder.Services.AddSingleton<IJwtBlacklistService, JwtBlacklistService>();
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -60,6 +71,24 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+
+// ──────────────────────────────────────────────
+// 2.1. Rate Limiting for Login
+// ──────────────────────────────────────────────
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("LoginPolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(15),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+});
 
 // ──────────────────────────────────────────────
 // 3. Dependency Injection — Auth
@@ -134,7 +163,9 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
-    await DatabaseSeeder.SeedAdminAsync(db);
+    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await DatabaseSeeder.SeedAdminAsync(db, configuration, logger);
 }
 
 // ──────────────────────────────────────────────
@@ -147,6 +178,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

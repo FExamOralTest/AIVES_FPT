@@ -2,6 +2,7 @@ using Aives.Application.Auth.DTOs;
 using Aives.Application.Auth.Interfaces;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace Aives.Application.Auth.Services;
 
@@ -10,36 +11,47 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
+    private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        IJwtService jwtService)
+        IJwtService jwtService,
+        ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
+        _logger = logger;
     }
 
     public async Task<UserDto> RegisterAsync(RegisterRequest request)
     {
         if (await _userRepository.ExistsByUsernameAsync(request.Username))
+        {
+            _logger.LogWarning("Registration failed: Username {Username} already exists", request.Username);
             throw new InvalidOperationException("Username already exists.");
+        }
 
-        if (request.Email is not null && await _userRepository.ExistsByEmailAsync(request.Email))
+        if (!string.IsNullOrEmpty(request.Email) && await _userRepository.ExistsByEmailAsync(request.Email))
+        {
+            _logger.LogWarning("Registration failed: Email {Email} already exists", request.Email);
             throw new InvalidOperationException("Email already exists.");
+        }
 
         var user = new User
         {
-            Username = request.Username,
-            FullName = request.FullName,
-            Email = request.Email,
+            Username = request.Username.Trim(),
+            FullName = request.FullName.Trim(),
+            Email = request.Email.Trim().ToLowerInvariant(),
             PasswordHash = _passwordHasher.Hash(request.Password),
-            Role = UserRole.STUDENT,  // public register always creates STUDENT
+            Role = UserRole.STUDENT,
             CreatedAt = DateTime.UtcNow
         };
 
         await _userRepository.AddAsync(user);
+
+        _logger.LogInformation("User registered successfully: {Username} with role {Role}", user.Username, user.Role);
 
         return MapToUserDto(user);
     }
@@ -48,12 +60,16 @@ public class AuthService : IAuthService
     {
         var user = await _userRepository.GetByEmailAsync(request.Email);
 
-        // Use constant-time-safe message – do not reveal which field was wrong
         if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
+        {
+            _logger.LogWarning("Login failed: Invalid credentials for email {Email}", request.Email);
             throw new UnauthorizedAccessException("Invalid username or password.");
+        }
 
         var token = _jwtService.GenerateToken(user);
         var expiresIn = _jwtService.GetExpirationSeconds();
+
+        _logger.LogInformation("User logged in successfully: {Username} with role {Role}", user.Username, user.Role);
 
         return new AuthResponse
         {
@@ -62,6 +78,12 @@ public class AuthService : IAuthService
             ExpiresIn = expiresIn,
             User = MapToUserDto(user)
         };
+    }
+
+    public Task LogoutAsync(int userId)
+    {
+        _logger.LogInformation("User {UserId} logged out", userId);
+        return Task.CompletedTask;
     }
 
     public async Task<UserDto> GetCurrentUserAsync(int userId)
@@ -76,22 +98,31 @@ public class AuthService : IAuthService
     public async Task<UserDto> CreateUserWithRoleAsync(CreateUserWithRoleRequest request)
     {
         if (await _userRepository.ExistsByUsernameAsync(request.Username))
+        {
+            _logger.LogWarning("Create user failed: Username {Username} already exists", request.Username);
             throw new InvalidOperationException("Username already exists.");
+        }
 
-        if (request.Email is not null && await _userRepository.ExistsByEmailAsync(request.Email))
+        if (!string.IsNullOrEmpty(request.Email) && await _userRepository.ExistsByEmailAsync(request.Email))
+        {
+            _logger.LogWarning("Create user failed: Email {Email} already exists", request.Email);
             throw new InvalidOperationException("Email already exists.");
+        }
 
         var user = new User
         {
-            Username     = request.Username.Trim(),
-            FullName     = request.FullName.Trim(),
-            Email        = request.Email?.Trim().ToLowerInvariant(),
+            Username = request.Username.Trim(),
+            FullName = request.FullName.Trim(),
+            Email = request.Email.Trim().ToLowerInvariant(),
             PasswordHash = _passwordHasher.Hash(request.Password),
-            Role         = request.Role,
-            CreatedAt    = DateTime.UtcNow
+            Role = request.Role,
+            CreatedAt = DateTime.UtcNow
         };
 
         await _userRepository.AddAsync(user);
+
+        _logger.LogInformation("User created by admin: {Username} with role {Role}", user.Username, user.Role);
+
         return MapToUserDto(user);
     }
 
@@ -101,10 +132,12 @@ public class AuthService : IAuthService
         return users.Select(MapToUserDto);
     }
 
-    public async Task<UserDto> UpdateUserAsync(int userId, UpdateUserWithRoleRequest request)
+    public async Task<UserDto> UpdateUserAsync(int userId, UpdateUserWithRoleRequest request, int? currentUserId = null)
     {
         var user = await _userRepository.GetByIdAsync(userId)
             ?? throw new KeyNotFoundException($"User {userId} not found.");
+
+        var oldRole = user.Role;
 
         if (!string.IsNullOrWhiteSpace(request.FullName))
             user.FullName = request.FullName.Trim();
@@ -112,7 +145,6 @@ public class AuthService : IAuthService
         if (request.Email is not null)
         {
             var normalised = request.Email.Trim().ToLowerInvariant();
-            // Đảm bảo email mới không trùng với user khác
             if (await _userRepository.ExistsByEmailAsync(normalised) &&
                 user.Email != normalised)
                 throw new InvalidOperationException("Email already in use.");
@@ -123,9 +155,29 @@ public class AuthService : IAuthService
             user.PasswordHash = _passwordHasher.Hash(request.Password);
 
         if (request.Role is not null)
-            user.Role = request.Role.Value;
+        {
+            var newRole = request.Role.Value;
+
+            if (user.Role == UserRole.ADMIN && newRole != UserRole.ADMIN)
+            {
+                var adminCount = await _userRepository.GetAdminCountAsync();
+                if (adminCount <= 1)
+                {
+                    _logger.LogWarning("Failed to demote last admin: User {UserId}", userId);
+                    throw new InvalidOperationException("Cannot demote the last admin user.");
+                }
+            }
+
+            user.Role = newRole;
+
+            _logger.LogInformation("User {UserId} role changed from {OldRole} to {NewRole}",
+                userId, oldRole, newRole);
+        }
 
         await _userRepository.UpdateAsync(user);
+
+        _logger.LogInformation("User {UserId} updated successfully", userId);
+
         return MapToUserDto(user);
     }
 

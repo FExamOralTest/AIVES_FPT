@@ -1,5 +1,6 @@
 using Aives.Application.Auth.Interfaces;
 using Aives.Domain.Entities;
+using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +31,9 @@ public class UserRepository : IUserRepository
 
     public async Task<bool> ExistsByEmailAsync(string email)
         => await _context.Users.AnyAsync(u => u.Email == email);
+
+    public async Task<int> GetAdminCountAsync()
+        => await _context.Users.CountAsync(u => u.Role == UserRole.ADMIN);
 
     public async Task AddAsync(User user)
     {
