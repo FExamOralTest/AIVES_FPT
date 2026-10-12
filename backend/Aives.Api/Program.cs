@@ -119,6 +119,7 @@ builder.Services.AddScoped<IResultRepository, ResultRepository>();
 builder.Services.AddScoped<IUserService,             UserService>();
 builder.Services.AddScoped<ICourseService,           CourseService>();
 builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
+builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
 builder.Services.AddScoped<IAIQuestionService, AIQuestionService>();
