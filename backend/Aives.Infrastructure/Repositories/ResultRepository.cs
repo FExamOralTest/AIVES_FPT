@@ -1,4 +1,4 @@
-using Aives.Application.Exams.Interfaces;
+﻿using Aives.Application.Exams.Interfaces;
 using Aives.Domain.Entities;
 using Aives.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;

@@ -1,4 +1,4 @@
-using Aives.Application.Exams.DTOs;
+﻿using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
@@ -104,7 +104,7 @@ public class DocumentService : IDocumentService
             CourseId = request.CourseId,
             QuestionText = q.QuestionText,
             MaxScore = q.MaxScore,
-            SampleAnswer = q.SampleAnswer,
+            Level = q.Level,
             IsFollowUpAllowed = q.IsFollowUpAllowed,
             CreatedAt = DateTime.UtcNow
         }).ToList();
@@ -120,7 +120,7 @@ public class DocumentService : IDocumentService
                 QuestionId = q.QuestionId,
                 QuestionText = q.QuestionText,
                 MaxScore = q.MaxScore ?? 1.0f,
-                SampleAnswer = q.SampleAnswer,
+                Level = q.Level,
                 IsFollowUpAllowed = q.IsFollowUpAllowed ?? true
             }).ToList()
         };

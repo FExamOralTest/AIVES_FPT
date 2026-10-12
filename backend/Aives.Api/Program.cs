@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -27,9 +27,9 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// ──────────────────────────────────────────────
+
 // 1. PostgreSQL / EF Core
-// ──────────────────────────────────────────────
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
@@ -43,9 +43,9 @@ var dataSource = dataSourceBuilder.Build();
 builder.Services.AddDbContext<AivesDbContext>(options =>
     options.UseNpgsql(dataSource));
 
-// ──────────────────────────────────────────────
+
 // 2. JWT Authentication
-// ──────────────────────────────────────────────
+
 var jwtKey      = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key configuration is required.");
 var jwtIssuer   = builder.Configuration["Jwt:Issuer"]   ?? "AIVES";
@@ -72,9 +72,9 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-// ──────────────────────────────────────────────
+
 // 2.1. Rate Limiting for Login
-// ──────────────────────────────────────────────
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -90,30 +90,35 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// ──────────────────────────────────────────────
-// 3. Dependency Injection — Auth
-// ──────────────────────────────────────────────
+
+// 3. Dependency Injection â€ Auth
+
 builder.Services.AddScoped<IAuthService,    AuthService>();
 builder.Services.AddScoped<IJwtService,     JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<Aives.Application.Auth.Interfaces.IUserRepository,
                             Aives.Infrastructure.Auth.UserRepository>();
 
-// ──────────────────────────────────────────────
-// 3b. Dependency Injection – Exam & ExamSession
-// ──────────────────────────────────────────────
+
+// 3b. Dependency Injection â€“ Exam & ExamSession
+
 builder.Services.AddScoped<IExamRepository, ExamRepository>();
 builder.Services.AddScoped<IExamSessionRepository, ExamSessionRepository>();
 builder.Services.AddScoped<IQuestionBankRepository, QuestionBankRepository>();
 builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
 
-// ──────────────────────────────────────────────
-// 3c. Dependency Injection – Documents, Results, AI
-// ──────────────────────────────────────────────
+
+// 3c. Dependency Injection â€“ Documents, Results, AI
+
 builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
+builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository, Aives.Infrastructure.Repositories.UserRepository>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IResultRepository, ResultRepository>();
+// Services for 5 modules: AdminCourse, AdminUser, TeacherCourse, Documents (CRUD), Results
+builder.Services.AddScoped<IUserService,             UserService>();
+builder.Services.AddScoped<ICourseService,           CourseService>();
+builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
 builder.Services.AddScoped<IAIQuestionService, AIQuestionService>();
@@ -125,9 +130,9 @@ builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
     client.Timeout = TimeSpan.FromMinutes(5);
 });
 
-// ──────────────────────────────────────────────
+
 // 4. Controllers + Swagger with JWT
-// ──────────────────────────────────────────────
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -157,9 +162,9 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// ──────────────────────────────────────────────
+
 // 6. Auto-seed default admin on startup
-// ──────────────────────────────────────────────
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
@@ -168,9 +173,9 @@ using (var scope = app.Services.CreateScope())
     await DatabaseSeeder.SeedAdminAsync(db, configuration, logger);
 }
 
-// ──────────────────────────────────────────────
+
 // 7. Middleware pipeline
-// ──────────────────────────────────────────────
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -199,3 +204,4 @@ app.MapGet("/api/health/db", async (AivesDbContext db) =>
 });
 
 app.Run();
+

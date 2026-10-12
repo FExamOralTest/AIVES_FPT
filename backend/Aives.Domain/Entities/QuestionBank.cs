@@ -13,10 +13,11 @@ public partial class QuestionBank
 
     public string QuestionText { get; set; } = null!;
 
+    
     public float? MaxScore { get; set; }
+    public int Level { get; set; }
 
-    public string? SampleAnswer { get; set; }
-
+    
     public bool? IsFollowUpAllowed { get; set; }
 
     public DateTime? CreatedAt { get; set; }
@@ -29,3 +30,5 @@ public partial class QuestionBank
 
     public virtual ICollection<ExamQuestion> ExamQuestions { get; set; } = new List<ExamQuestion>();
 }
+
+

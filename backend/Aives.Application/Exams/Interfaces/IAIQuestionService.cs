@@ -1,4 +1,4 @@
-using Aives.Application.Exams.DTOs;
+﻿using Aives.Application.Exams.DTOs;
 
 namespace Aives.Application.Exams.Interfaces;
 
@@ -11,6 +11,6 @@ public class AIQuestionDto
 {
     public string QuestionText { get; set; } = null!;
     public float MaxScore { get; set; } = 1.0f;
-    public string? SampleAnswer { get; set; }
+    public int Level { get; set; } = 1;
     public bool IsFollowUpAllowed { get; set; } = true;
 }

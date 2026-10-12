@@ -1,4 +1,4 @@
-using Aives.Application.DTOs;
+﻿using Aives.Application.DTOs;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Application.Interfaces.Services;
 using Aives.Domain.Entities;
@@ -42,34 +42,34 @@ public class MarkdownDocumentService : IMarkdownDocumentService
     }
 
     // ------------------------------------------------------------------ //
-    //  Upload — validate đầy đủ trước khi lưu                             //
+    //  Upload â€” validate Ä‘áº§y Ä‘á»§ trÆ°á»›c khi lÆ°u                             //
     // ------------------------------------------------------------------ //
 
     public async Task<DocumentDto> UploadAsync(UploadDocumentRequest req)
     {
-        // 1. Validate extension — bắt buộc phải là .md
+        // 1. Validate extension â€” báº¯t buá»™c pháº£i lÃ  .md
         var ext = Path.GetExtension(req.FileName);
         if (!ext.Equals(".md", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Only .md files are allowed.");
 
-        // 2. Validate tên file không chứa ký tự nguy hiểm (path traversal)
+        // 2. Validate tÃªn file khÃ´ng chá»©a kÃ½ tá»± nguy hiá»ƒm (path traversal)
         var safeFileName = Path.GetFileName(req.FileName);
         if (string.IsNullOrWhiteSpace(safeFileName) || safeFileName != req.FileName)
             throw new ArgumentException("Invalid file name.");
 
-        // 3. Validate nội dung không rỗng
+        // 3. Validate ná»™i dung khÃ´ng rá»—ng
         if (string.IsNullOrWhiteSpace(req.Content))
             throw new ArgumentException("File content cannot be empty.");
 
-        // 4. Validate kích thước nội dung (giới hạn 5 MB)
+        // 4. Validate kÃ­ch thÆ°á»›c ná»™i dung (giá»›i háº¡n 5 MB)
         if (System.Text.Encoding.UTF8.GetByteCount(req.Content) > MaxContentLengthBytes)
             throw new ArgumentException("File content exceeds the 5 MB limit.");
 
-        // 5. Kiểm tra Course tồn tại
+        // 5. Kiá»ƒm tra Course tá»“n táº¡i
         var course = await _courseRepo.GetByIdAsync(req.CourseId)
             ?? throw new KeyNotFoundException($"Course {req.CourseId} not found.");
 
-        // 6. Kiểm tra Teacher tồn tại và được phân công phụ trách Course này
+        // 6. Kiá»ƒm tra Teacher tá»“n táº¡i vÃ  Ä‘Æ°á»£c phÃ¢n cÃ´ng phá»¥ trÃ¡ch Course nÃ y
         var uploader = await _userRepo.GetByIdAsync(req.UploadedBy)
             ?? throw new KeyNotFoundException($"User {req.UploadedBy} not found.");
 
@@ -80,7 +80,7 @@ public class MarkdownDocumentService : IMarkdownDocumentService
             throw new UnauthorizedAccessException(
                 "Teacher is not assigned to this course.");
 
-        // 7. Mỗi Course chỉ được có 1 file mỗi DocType
+        // 7. Má»—i Course chá»‰ Ä‘Æ°á»£c cÃ³ 1 file má»—i DocType
         if (await _docRepo.ExistsByTypeAsync(req.CourseId, req.DocType))
             throw new InvalidOperationException(
                 $"Course already has a '{req.DocType}' document. Delete the existing one first.");
@@ -96,12 +96,12 @@ public class MarkdownDocumentService : IMarkdownDocumentService
         };
 
         var created = await _docRepo.CreateAsync(doc);
-        // Reload để lấy navigation Course
+        // Reload Ä‘á»ƒ láº¥y navigation Course
         return ToDto(await _docRepo.GetByIdAsync(created.DocumentId) ?? created);
     }
 
     // ------------------------------------------------------------------ //
-    //  Delete — chỉ Teacher sở hữu hoặc Admin mới được xóa               //
+    //  Delete â€” chá»‰ Teacher sá»Ÿ há»¯u hoáº·c Admin má»›i Ä‘Æ°á»£c xÃ³a               //
     // ------------------------------------------------------------------ //
 
     public async Task DeleteAsync(int documentId, int requestedByUserId)
@@ -136,3 +136,4 @@ public class MarkdownDocumentService : IMarkdownDocumentService
         d.UploadedAt
     );
 }
+

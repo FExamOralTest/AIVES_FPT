@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
 using Aives.Domain.Enums;
 
@@ -45,6 +45,6 @@ public class QuestionBankDto
     public int QuestionId { get; set; }
     public string QuestionText { get; set; } = null!;
     public float MaxScore { get; set; }
-    public string? SampleAnswer { get; set; }
+    public int Level { get; set; }
     public bool IsFollowUpAllowed { get; set; }
 }

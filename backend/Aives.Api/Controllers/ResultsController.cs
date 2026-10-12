@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +11,7 @@ namespace Aives.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/results")]
-[Authorize(Roles = "TEACHER")]
+[Authorize(Roles = "TEACHER,ADMIN")]
 public class ResultsController : ControllerBase
 {
     private readonly IResultService _resultService;
@@ -22,7 +22,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Lấy danh sách kết quả chờ review của một Exam Session.
+    /// [TEACHER] Láº¥y danh sÃ¡ch káº¿t quáº£ chá» review cá»§a má»™t Exam Session.
     /// </summary>
     [HttpGet("session/{sessionId:int}")]
     [ProducesResponseType(typeof(IEnumerable<ResultForReviewDto>), StatusCodes.Status200OK)]
@@ -42,7 +42,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Lấy chi tiết kết quả để review.
+    /// [TEACHER] Láº¥y chi tiáº¿t káº¿t quáº£ Ä‘á»ƒ review.
     /// </summary>
     [HttpGet("{resultId:int}")]
     [ProducesResponseType(typeof(ResultForReviewDto), StatusCodes.Status200OK)]
@@ -62,7 +62,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Review và chỉnh sửa điểm/feedback từng câu.
+    /// [TEACHER] Review vÃ  chá»‰nh sá»­a Ä‘iá»ƒm/feedback tá»«ng cÃ¢u.
     /// </summary>
     [HttpPut("{resultId:int}/review")]
     [ProducesResponseType(typeof(ResultForReviewDto), StatusCodes.Status200OK)]
@@ -84,7 +84,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Approve & Publish Final Result (công bố kết quả chính thức).
+    /// [TEACHER] Approve & Publish Final Result (cÃ´ng bá»‘ káº¿t quáº£ chÃ­nh thá»©c).
     /// </summary>
     [HttpPost("{resultId:int}/publish")]
     [ProducesResponseType(typeof(ResultForReviewDto), StatusCodes.Status200OK)]
