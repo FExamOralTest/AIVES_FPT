@@ -106,8 +106,6 @@ public class AnswerForReviewDto
 
 public class ReviewResultRequest
 {
-    [Range(0, 100)]
-    public float? FinalScore   { get; set; }
     public string? FinalFeedback { get; set; }
     public List<AnswerReviewItem> AnswerReviews { get; set; } = new();
 }

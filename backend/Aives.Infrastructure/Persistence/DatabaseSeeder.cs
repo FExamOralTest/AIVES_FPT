@@ -343,6 +343,7 @@ public static class DatabaseSeeder
             var student  = students[i];
             var scenario = studentScenarios[i];
 
+            // Tạo Result trước (FinalScore sẽ được cập nhật sau khi tính tổng từ answers)
             var result = new Result
             {
                 SessionId     = session.SessionId,
@@ -350,7 +351,7 @@ public static class DatabaseSeeder
                 ReviewedBy    = teacher.UserId,
                 AiScore       = scenario.AiScore,
                 AiFeedback    = "AI đánh giá tự động: " + scenario.Feedback,
-                FinalScore    = scenario.FinalScore,
+                FinalScore    = null, // sẽ được gán bằng tổng Answer.FinalScore bên dưới
                 FinalFeedback = "Giáo viên nhận xét: " + scenario.Feedback,
                 Status        = SubmissionStatus.PUBLISHED,
                 SubmittedAt   = session.StartTime.AddMinutes(40),
@@ -371,10 +372,12 @@ public static class DatabaseSeeder
                 "Đệ quy là hàm tự gọi lại chính nó. Ví dụ factorial(n) = n * factorial(n-1)."
             };
 
+            var totalAnswerFinalScore = 0f;
             for (var j = 0; j < questions.Count; j++)
             {
-                var aiScore    = (float)Math.Round(scenario.AiScore / questions.Count, 1);
+                var aiScore    = (float)Math.Round(scenario.AiScore    / questions.Count, 1);
                 var finalScore = (float)Math.Round(scenario.FinalScore / questions.Count, 1);
+                totalAnswerFinalScore += finalScore;
 
                 db.Answers.Add(new Answer
                 {
@@ -391,6 +394,8 @@ public static class DatabaseSeeder
                 });
             }
 
+            // FinalScore tổng = tổng FinalScore của từng câu (nhất quán với logic service)
+            result.FinalScore = (float)Math.Round(totalAnswerFinalScore, 2);
             await db.SaveChangesAsync();
         }
     }

@@ -53,7 +53,6 @@ public class ResultService : IResultService
 
         await EnsureAccessAsync(callerId, session?.ScheduledBy ?? -1);
 
-        if (request.FinalScore.HasValue) result.FinalScore = request.FinalScore.Value;
         if (!string.IsNullOrWhiteSpace(request.FinalFeedback)) result.FinalFeedback = request.FinalFeedback;
         result.Status     = SubmissionStatus.REVIEWED;
         result.ReviewedBy = callerId;
@@ -66,6 +65,10 @@ public class ResultService : IResultService
             if (ansReq.FinalScore.HasValue) answer.FinalScore = ansReq.FinalScore.Value;
             if (!string.IsNullOrWhiteSpace(ansReq.TeacherComment)) answer.TeacherComment = ansReq.TeacherComment;
         }
+
+        // FinalScore tổng luôn = tổng Answer.FinalScore (chỉ những câu đã có điểm).
+        result.FinalScore = (float)Math.Round(
+            result.Answers.Where(a => a.FinalScore.HasValue).Sum(a => a.FinalScore!.Value), 2);
 
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
@@ -87,7 +90,16 @@ public class ResultService : IResultService
         result.PublishedAt = DateTime.UtcNow;
         result.ReviewedBy  = result.ReviewedBy ?? callerId;
         result.ReviewedAt  = result.ReviewedAt ?? DateTime.UtcNow;
-        if (!result.FinalScore.HasValue) result.FinalScore = result.AiScore;
+
+        // Tính FinalScore tổng = tổng FinalScore từng câu nếu chưa được set.
+        // Fallback cuối cùng mới lấy AiScore tổng.
+        if (!result.FinalScore.HasValue)
+        {
+            var answersWithScore = result.Answers.Where(a => a.FinalScore.HasValue).ToList();
+            result.FinalScore = answersWithScore.Count > 0
+                ? (float)Math.Round(answersWithScore.Sum(a => a.FinalScore!.Value), 2)
+                : result.AiScore;
+        }
 
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
