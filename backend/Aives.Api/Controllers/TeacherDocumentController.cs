@@ -11,7 +11,7 @@ namespace Aives.Api.Controllers;
 /// <summary>
 /// Teacher/Admin quan ly file .md lien ket voi Course.
 /// Route: /api/documents
-/// uploadedBy lay tu JWT token, khong can truyen thu cong.
+/// DocType: 0 = CONTENT, 1 = LEARNING_OUTCOMES
 /// </summary>
 [ApiController]
 [Route("api/documents")]
@@ -25,8 +25,8 @@ public class TeacherDocumentController : ControllerBase
         IMarkdownDocumentService docService,
         IExamGeneratorService    generatorService)
     {
-        _docService        = docService;
-        _generatorService  = generatorService;
+        _docService       = docService;
+        _generatorService = generatorService;
     }
 
     // GET /api/documents/course/{courseId}
@@ -43,14 +43,14 @@ public class TeacherDocumentController : ControllerBase
     }
 
     /// <summary>
-    /// Upload file .md — Admin va Teacher deu dung duoc.
-    /// uploadedBy lay tu JWT token, khong can truyen tay.
-    /// Form fields: courseId, docType (CONTENT | LEARNING_OUTCOMES), file (.md, toi da 5MB).
+    /// Upload file .md moi.
+    /// Form fields: courseId, docType (0=CONTENT, 1=LEARNING_OUTCOMES), file (.md toi da 5MB).
+    /// uploadedBy lay tu JWT token.
     /// </summary>
     [HttpPost("upload")]
     public async Task<IActionResult> Upload(
         [FromForm] int    courseId,
-        [FromForm] string docType,
+        [FromForm] int    docType,
         IFormFile         file)
     {
         var uploadedBy = GetCurrentUserId();
@@ -59,8 +59,10 @@ public class TeacherDocumentController : ControllerBase
         if (file is null || file.Length == 0)
             return BadRequest(new { message = "No file was uploaded." });
 
-        if (!Enum.TryParse<DocType>(docType.ToUpper(), out var parsedDocType))
-            return BadRequest(new { message = $"Invalid docType '{docType}'. Valid: CONTENT, LEARNING_OUTCOMES." });
+        if (!Enum.IsDefined(typeof(DocType), docType))
+            return BadRequest(new { message = $"Invalid docType '{docType}'. Valid: 0 (CONTENT), 1 (LEARNING_OUTCOMES)." });
+
+        var parsedDocType = (DocType)docType;
 
         string content;
         using (var reader = new StreamReader(file.OpenReadStream()))
@@ -84,6 +86,47 @@ public class TeacherDocumentController : ControllerBase
         catch (UnauthorizedAccessException)  { return Forbid(); }
     }
 
+    /// <summary>
+    /// De file .md moi len file cu (replace).
+    /// Form fields: docType (0=CONTENT, 1=LEARNING_OUTCOMES), file (.md toi da 5MB).
+    /// Teacher chi duoc sua document thuoc course cua minh; Admin bypass.
+    /// PUT /api/documents/{id}
+    /// </summary>
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Replace(
+        int       id,
+        [FromForm] int docType,
+        IFormFile      file)
+    {
+        var requestedBy = GetCurrentUserId();
+        if (requestedBy is null) return Unauthorized(new { message = "Invalid token." });
+
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "No file was uploaded." });
+
+        if (!Enum.IsDefined(typeof(DocType), docType))
+            return BadRequest(new { message = $"Invalid docType '{docType}'. Valid: 0 (CONTENT), 1 (LEARNING_OUTCOMES)." });
+
+        var parsedDocType = (DocType)docType;
+
+        string content;
+        using (var reader = new StreamReader(file.OpenReadStream()))
+            content = await reader.ReadToEndAsync();
+
+        var request = new ReplaceDocumentRequest(
+            DocumentId:        id,
+            RequestedByUserId: requestedBy.Value,
+            FileName:          file.FileName,
+            DocType:           parsedDocType,
+            Content:           content);
+
+        try { return Ok(await _docService.ReplaceAsync(request)); }
+        catch (ArgumentException ex)         { return BadRequest(new { message = ex.Message }); }
+        catch (KeyNotFoundException ex)      { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException)  { return Forbid(); }
+    }
+
     // DELETE /api/documents/{id}
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
@@ -98,8 +141,7 @@ public class TeacherDocumentController : ControllerBase
 
     /// <summary>
     /// Sinh de thi ngau nhien tu QuestionBank theo level.
-    /// Teacher chi duoc generate cho course cua minh.
-    /// Admin co the generate cho bat ky course nao.
+    /// Teacher chi duoc generate cho course cua minh; Admin bypass.
     /// POST /api/documents/generate-exam
     /// </summary>
     [HttpPost("generate-exam")]
@@ -120,6 +162,3 @@ public class TeacherDocumentController : ControllerBase
     private int? GetCurrentUserId()
         => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 }
-
-
-

@@ -1,26 +1,35 @@
-using Aives.Domain.Enums;
+﻿using Aives.Domain.Enums;
 
 namespace Aives.Application.DTOs;
 
-/// <summary>Dữ liệu trả về cho MarkdownDocument.</summary>
 public record DocumentDto(
-    int      DocumentId,
-    int      CourseId,
-    string   CourseName,
-    int      UploadedBy,
-    string   FileName,
-    string   DocType,
+    int       DocumentId,
+    int       CourseId,
+    string    CourseName,
+    int       UploadedBy,
+    string    FileName,
+    string    DocType,
     DateTime? UploadedAt
 );
 
 /// <summary>
-/// Teacher upload 1 file .md.
-/// Validation thực hiện ở service layer (extension, size, nội dung không rỗng).
+/// Upload file .md moi. DocType: 0 = CONTENT, 1 = LEARNING_OUTCOMES.
 /// </summary>
 public record UploadDocumentRequest(
-    int      CourseId,
-    int      UploadedBy,
-    string   FileName,
-    DocType  DocType,
-    string   Content       // nội dung text của file .md
+    int     CourseId,
+    int     UploadedBy,
+    string  FileName,
+    DocType DocType,
+    string  Content
+);
+
+/// <summary>
+/// De file .md cu bang file moi. DocType: 0 = CONTENT, 1 = LEARNING_OUTCOMES.
+/// </summary>
+public record ReplaceDocumentRequest(
+    int     DocumentId,
+    int     RequestedByUserId,
+    string  FileName,
+    DocType DocType,
+    string  Content
 );
