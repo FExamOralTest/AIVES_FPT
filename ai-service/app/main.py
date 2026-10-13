@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.api import interview, speech, evaluation, markdown
+from app.api import interview, speech, evaluation, markdown, questions
 from app.models.response import HealthResponse
 
 settings = get_settings()
@@ -87,8 +87,9 @@ def create_app() -> FastAPI:
     app.include_router(speech.router, prefix=api_prefix)
     app.include_router(evaluation.router, prefix=api_prefix)
     app.include_router(markdown.router, prefix=api_prefix)
+    app.include_router(questions.router, prefix=api_prefix)
     
-    # Aliases for backend backwards compatibility
+    # Aliases for backwards compatibility
     app.post("/ai/generate-questions", tags=["Interview"], include_in_schema=False)(interview.batch_generate_questions)
     app.post("/api/ai/generate-questions", tags=["Interview"], include_in_schema=False)(interview.batch_generate_questions)
 

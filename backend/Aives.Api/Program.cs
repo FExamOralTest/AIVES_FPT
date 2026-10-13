@@ -152,13 +152,15 @@ builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
 builder.Services.AddScoped<IVivaSessionService, VivaSessionService>();
-builder.Services.AddScoped<IAIQuestionService, AIQuestionService>();
 
 // HttpClient cho AI Service (FastAPI)
 builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
-    client.Timeout = TimeSpan.FromMinutes(5);
+    var timeoutSeconds = builder.Configuration.GetValue<double>("AI:QuestionGenerationTimeoutSeconds", 300);
+    if (!double.IsFinite(timeoutSeconds) || timeoutSeconds <= 0 || timeoutSeconds > 3600)
+        throw new InvalidOperationException("AI:QuestionGenerationTimeoutSeconds must be between 0 and 3600.");
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
 builder.Services.AddHttpClient<Aives.Application.AI.Interfaces.IAiServiceClient, AiServiceClient>(client =>
 {

@@ -298,6 +298,8 @@ public partial class AivesDbContext : DbContext
                 .HasDefaultValueSql("1.0")
                 .HasColumnName("max_score");
             entity.Property(e => e.QuestionText).HasColumnName("question_text");
+            entity.Property(e => e.Topic).HasColumnName("topic");
+            entity.Property(e => e.SampleAnswer).HasColumnName("sample_answer");
             entity.Property(e => e.Level).HasColumnName("level");
 
             entity.HasOne(d => d.Course).WithMany(p => p.QuestionBanks)

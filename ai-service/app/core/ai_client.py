@@ -60,6 +60,21 @@ class MockAIClient(BaseAIClient):
             payload = json.loads(user_message)
         except json.JSONDecodeError:
             payload = None
+        if isinstance(payload, dict) and payload.get("task") == "generate_question_bank":
+            content = next(d["content"] for d in payload["documents"] if d["document_type"] == "CONTENT")
+            topics = payload["focus_topics"] or ["Course content"]
+            offset = len(payload["already_generated_questions"])
+            return json.dumps({"questions": [
+                {
+                    "question_text": f"Question {offset + i + 1}: Explain {topics[i % len(topics)]} using the course material.",
+                    "topic": topics[i % len(topics)],
+                    "sample_answer": content.strip(),
+                    "max_score": payload["max_score"],
+                    "level": (offset + i) % 3 + 1,
+                    "is_follow_up_allowed": True,
+                }
+                for i in range(payload["question_count"])
+            ]}, ensure_ascii=False)
         if isinstance(payload, dict) and payload.get("task") == "generate_viva_question":
             context = payload["context"]
             topic = context["available_topics"][0]
