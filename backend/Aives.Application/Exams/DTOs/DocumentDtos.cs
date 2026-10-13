@@ -32,6 +32,9 @@ public class GenerateQuestionsRequest
     public int QuestionCount { get; set; } = 20;
 
     public string? FocusTopics { get; set; }
+
+    [Range(typeof(float), "0.01", "100")]
+    public float MaxScore { get; set; } = 1.0f;
 }
 
 public class GenerateQuestionsResponse
@@ -44,6 +47,8 @@ public class QuestionBankDto
 {
     public int QuestionId { get; set; }
     public string QuestionText { get; set; } = null!;
+    public string? Topic { get; set; }
+    public string? SampleAnswer { get; set; }
     public float MaxScore { get; set; }
     public int Level { get; set; }
     public bool IsFollowUpAllowed { get; set; }

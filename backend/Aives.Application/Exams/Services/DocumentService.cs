@@ -83,34 +83,58 @@ public class DocumentService : IDocumentService
         });
     }
 
-    public async Task<GenerateQuestionsResponse> GenerateQuestionsAsync(GenerateQuestionsRequest request, int teacherId)
+    public async Task<GenerateQuestionsResponse> GenerateQuestionsAsync(
+        GenerateQuestionsRequest request, int teacherId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (request.QuestionCount is < 5 or > 200 || !float.IsFinite(request.MaxScore)
+            || request.MaxScore < 0.01f || request.MaxScore > 100)
+            throw new InvalidOperationException("Question count must be 5-200 and maximum score must be 0.01-100.");
+
         var course = await _courseRepository.GetByIdAsync(request.CourseId)
             ?? throw new KeyNotFoundException("Course not found.");
         if (course.TeacherId != teacherId)
             throw new UnauthorizedAccessException("Not your course.");
 
-        var docs = await _docRepository.GetByCourseIdAsync(request.CourseId);
-        if (!docs.Any())
-            throw new InvalidOperationException("No markdown documents uploaded for this course.");
+        var docs = (await _docRepository.GetByCourseIdAsync(request.CourseId)).ToList();
+        if (docs.Count != 2 || docs.Count(d => d.DocType == DocType.CONTENT) != 1
+            || docs.Count(d => d.DocType == DocType.LEARNING_OUTCOMES) != 1)
+            throw new InvalidOperationException("Exactly one CONTENT and one LEARNING_OUTCOMES document are required.");
+        if (docs.Any(d => string.IsNullOrWhiteSpace(d.Content)))
+            throw new InvalidOperationException("CONTENT and LEARNING_OUTCOMES document contents must not be empty.");
 
-        var aiQuestions = await _aiQuestionService.GenerateQuestionsAsync(
-            docs.Select(d => d.Content).ToList(),
-            request.QuestionCount,
-            request.FocusTopics);
+        cancellationToken.ThrowIfCancellationRequested();
+        var aiRequest = new AIQuestionRequest
+        {
+            Documents = docs.Select(d => new AIQuestionDocumentDto
+            {
+                DocumentId = d.DocumentId,
+                DocumentType = d.DocType.ToString(),
+                Content = d.Content
+            }).ToList(),
+            QuestionCount = request.QuestionCount,
+            FocusTopics = request.FocusTopics?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? Array.Empty<string>(),
+            MaxScore = request.MaxScore
+        };
+        var aiQuestions = await _aiQuestionService.GenerateQuestionsAsync(aiRequest, cancellationToken);
+        AIQuestionValidator.Validate(aiQuestions, request.QuestionCount, request.MaxScore);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var questions = aiQuestions.Select(q => new QuestionBank
         {
             CourseId = request.CourseId,
-            QuestionText = q.QuestionText,
+            DocumentId = docs.Single(d => d.DocType == DocType.CONTENT).DocumentId,
+            QuestionText = q.QuestionText.Trim(),
+            Topic = q.Topic.Trim(),
+            SampleAnswer = q.SampleAnswer.Trim(),
             MaxScore = q.MaxScore,
             Level = q.Level,
             IsFollowUpAllowed = q.IsFollowUpAllowed,
             CreatedAt = DateTime.UtcNow
         }).ToList();
 
-        await _questionRepository.AddRangeAsync(questions);
-        await _questionRepository.SaveChangesAsync();
+        await _questionRepository.SaveGeneratedAsync(questions, cancellationToken);
 
         return new GenerateQuestionsResponse
         {
@@ -119,6 +143,8 @@ public class DocumentService : IDocumentService
             {
                 QuestionId = q.QuestionId,
                 QuestionText = q.QuestionText,
+                Topic = q.Topic,
+                SampleAnswer = q.SampleAnswer,
                 MaxScore = q.MaxScore ?? 1.0f,
                 Level = q.Level,
                 IsFollowUpAllowed = q.IsFollowUpAllowed ?? true
