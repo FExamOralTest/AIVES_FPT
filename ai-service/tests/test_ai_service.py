@@ -30,7 +30,13 @@ DOCS = [
         "title": "Chapter 1",
         "content": "Microservices architecture divides a system into small services that communicate via APIs.",
         "document_type": "course_content",
-    }
+    },
+    {
+        "document_id": "d2",
+        "title": "Learning Outcomes",
+        "content": "LO1: Explain microservices architecture and how independent services communicate through APIs.",
+        "document_type": "learning_outcomes",
+    },
 ]
 
 
