@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Aives.Api/Aives.Api.csproj" />
+  <Project Path="Aives.Application/Aives.Application.csproj" />
+  <Project Path="Aives.Domain/Aives.Domain.csproj" />
+  <Project Path="Aives.Infrastructure/Aives.Infrastructure.csproj" />
+</Solution>

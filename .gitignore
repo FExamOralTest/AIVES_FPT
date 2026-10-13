@@ -1,0 +1,65 @@
+# ===== .NET / C# (Backend) =====
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+*.db
+*.sqlite
+
+# ===== Node.js / React / Frontend =====
+node_modules/
+dist/
+build/
+.npm
+.eslintcache
+.vite/
+
+# ===== Python / AI Service =====
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+# Python's lib/ rule must not hide the frontend's source folders (src/lib, src/features/*/lib, ...)
+!frontend/aives-web/src/**/lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== Environment & Secrets (Bảo mật thông tin cấu hình) =====
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+*.pem
+.neon
+
+# ===== OS Generated Files =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

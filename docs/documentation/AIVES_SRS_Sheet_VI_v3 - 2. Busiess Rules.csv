@@ -1,0 +1,17 @@
+No.,Rule ID,Mô tả Business Rule,Nhóm,Lý do / Mục đích,Nguồn,Ảnh hưởng,Trạng thái,Req liên quan,Ghi chú
+1,BR-01,"Hệ thống có 3 actor: Admin, Teacher (giảng viên), Student (sinh viên).",Phân quyền,Khớp Conceptual Diagram.,Conceptual Diagram,Xác định quyền từng vai,Đã duyệt,FR-01,
+2,BR-02,Admin là người tạo và quản lý Course (môn học) trong hệ thống.,Quản lý môn học,Khớp sơ đồ: Admin --Create--> Course.,Conceptual Diagram,Cấu trúc dữ liệu môn học,Đã duyệt,FR-02,
+3,BR-03,Teacher là người upload file .md (nội dung môn học & learning outcomes) cho Course.,Quản lý tài liệu,Khớp sơ đồ: Teacher --Upload--> .md Document.,Conceptual Diagram,Chất lượng đầu vào AI,Đã duyệt,FR-03,Đúng 2 file .md mỗi Course
+4,BR-04,.md Document phải thuộc (belong to) đúng một Course.,Quản lý tài liệu,Khớp sơ đồ: .md Document --belong to--> Course.,Conceptual Diagram,Toàn vẹn dữ liệu,Đã duyệt,FR-03,
+5,BR-05,Mỗi Course chứa (Contains) nhiều Exam; Exam tổng hợp bộ câu hỏi từ nội dung Course.,Quản lý kỳ thi,Khớp sơ đồ: Course --Contains--> Exam.,Conceptual Diagram,Bộ câu hỏi tập trung ở Exam,Đã duyệt,FR-04,
+6,BR-06,"Teacher tạo Exam (tên, môn học, mã, thời gian, số câu, trạng thái) và tạo/lên lịch Exam Session (phòng thi, lịch thi).",Quản lý kỳ thi,"Khớp Doc 2.2 & 3: Teacher quản lý bài thi, Exam Code, lịch.",Doc đề tài,Tổ chức buổi thi,Đã duyệt,FR-05,
+7,BR-07,Student nhập Exam Code; mã hợp lệ → Enroll vào Exam Session tương ứng.,Quản lý kỳ thi,Khớp Doc nhóm 3: Enter → Validate → Enroll → Start AI Viva.,Doc đề tài,Kiểm soát tham gia,Đã duyệt,FR-06,
+8,BR-08,Exam Session bóc/chọn câu hỏi từ Exam để hỏi Student; AI Review Exam Session và sinh ra Result (PendingReview).,Luồng AI Viva,Khớp logic: Exam Session → AI Review → Result.,Conceptual Diagram,Chuẩn hoá chấm điểm,Đã duyệt,FR-07,
+9,BR-09,Result do AI sinh ra phải được gửi cho Teacher để xem lại (Sends for review).,Chấm điểm,Khớp sơ đồ: Result --> Teacher (Sends for review).,Conceptual Diagram,Giám sát con người,Đã duyệt,FR-08,
+10,BR-10,Teacher là người approve & publish Final Result.,Chấm điểm,Khớp sơ đồ: Teacher --Approves & Publishes--> Final Result.,Conceptual Diagram,Chính thức hoá kết quả,Đã duyệt,FR-09,
+11,BR-11,Final Result được giao (Delivers to) về cho Student.,Kết quả,Khớp sơ đồ: Final Result --> Student.,Conceptual Diagram,Minh bạch & thông báo,Đã duyệt,FR-10,
+12,BR-12,"Luồng vấn đáp bằng giọng nói: AI hỏi (TTS) → SV trả lời (voice) → STT → câu hỏi phụ, có giới hạn thời gian & số câu.",Luồng AI Viva,Khớp Doc đề tài nhóm chức năng 3.,Doc đề tài,Nhất quán trải nghiệm,Đã duyệt,FR-07,
+13,BR-13,Mật khẩu được hash; xác thực JWT; ủy quyền theo vai trò Admin/Teacher/Student.,Bảo mật,NFR bảo mật & Nghị định 13/2023.,C-07,Bảo mật,Đã duyệt,"FR-01, NFR-01",
+14,BR-14,Frontend không gọi trực tiếp AI Service; mọi luồng AI đi qua Backend.,Kiến trúc,C-06.,C-06,Bảo mật & bảo trì,Đã duyệt,NFR-02,
+15,BR-15,"Mỗi phiên thi lưu lại câu hỏi, câu trả lời, transcript, điểm và nhận xét để đối soát.",Lưu trữ,Doc đề tài nhóm chức năng 5.,Doc đề tài,Khả năng kiểm toán,Đã duyệt,FR-11,
+16,BR-16,Exam Session chỉ có các trạng thái: Not Started → In Progress → Completed / Cancelled.,Quản lý kỳ thi,Tránh chuyển trạng thái sai.,Thiết kế,Tính nhất quán,Đã duyệt,FR-05,

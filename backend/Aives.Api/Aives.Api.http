@@ -1,0 +1,297 @@
+### Base URL — đổi port nếu khác
+@baseUrl = http://localhost:5116
+
+### ================================================================
+###  SEED (chỉ chạy 1 lần đầu để có data)
+### ================================================================
+
+### [SEED-01] Seed teacher_test + 2 courses
+POST {{baseUrl}}/api/seed
+Content-Type: application/json
+
+{}
+
+### ================================================================
+###  HEALTH CHECK
+### ================================================================
+
+### [HEALTH-01] Kiểm tra kết nối database
+GET {{baseUrl}}/api/health/db
+
+
+### ================================================================
+###  ADMIN — QUẢN LÝ USER
+###  Lưu ý: thay @adminId / @teacherId / @studentId sau khi tạo
+### ================================================================
+
+### [USER-01] Lấy toàn bộ danh sách User
+GET {{baseUrl}}/api/admin/users
+
+###
+
+### [USER-02] Lấy danh sách Teacher
+GET {{baseUrl}}/api/admin/users/role/TEACHER
+
+###
+
+### [USER-03] Lấy danh sách Student
+GET {{baseUrl}}/api/admin/users/role/STUDENT
+
+###
+
+### [USER-04] Lấy User theo ID
+GET {{baseUrl}}/api/admin/users/1
+
+###
+
+### [USER-05] ✅ Happy path — Admin tạo Teacher mới
+POST {{baseUrl}}/api/admin/users
+Content-Type: application/json
+
+{
+  "username": "teacher_nguyen",
+  "fullName": "Nguyễn Văn A",
+  "email": "teacher_nguyen@aives.edu.vn",
+  "password": "SecurePass@123",
+  "role": "TEACHER"
+}
+
+###
+
+### [USER-06] ✅ Happy path — Admin tạo Student
+POST {{baseUrl}}/api/admin/users
+Content-Type: application/json
+
+{
+  "username": "student_tran",
+  "fullName": "Trần Thị B",
+  "email": "student_tran@aives.edu.vn",
+  "password": "SecurePass@123",
+  "role": "STUDENT"
+}
+
+###
+
+### [USER-07] ❌ Fail — Username đã tồn tại (expect 409 Conflict)
+POST {{baseUrl}}/api/admin/users
+Content-Type: application/json
+
+{
+  "username": "teacher_test",
+  "fullName": "Duplicate User",
+  "email": "another@aives.edu.vn",
+  "password": "SecurePass@123",
+  "role": "TEACHER"
+}
+
+###
+
+### [USER-08] ❌ Fail — Email đã tồn tại (expect 409 Conflict)
+POST {{baseUrl}}/api/admin/users
+Content-Type: application/json
+
+{
+  "username": "teacher_new2",
+  "fullName": "Another Teacher",
+  "email": "teacher_test@aives.edu.vn",
+  "password": "SecurePass@123",
+  "role": "TEACHER"
+}
+
+###
+
+### [USER-09] ✅ Admin cập nhật fullName + email của User ID=1
+PUT {{baseUrl}}/api/admin/users/1
+Content-Type: application/json
+
+{
+  "fullName": "Nguyễn Văn Giảng (Updated)",
+  "email": "teacher_test_updated@aives.edu.vn",
+  "password": null
+}
+
+###
+
+### [USER-10] ✅ Admin đổi password User ID=1
+PUT {{baseUrl}}/api/admin/users/1
+Content-Type: application/json
+
+{
+  "fullName": null,
+  "email": null,
+  "password": "NewPass@2025"
+}
+
+###
+
+### [USER-11] ❌ Fail — User không tồn tại (expect 404)
+GET {{baseUrl}}/api/admin/users/99999
+
+###
+
+### [USER-12] ✅ Xóa User (thay ID phù hợp, không xóa teacher đang dùng)
+DELETE {{baseUrl}}/api/admin/users/999
+
+
+### ================================================================
+###  ADMIN — QUẢN LÝ COURSE
+### ================================================================
+
+### [COURSE-01] Lấy tất cả Course
+GET {{baseUrl}}/api/admin/courses
+
+###
+
+### [COURSE-02] Lấy Course theo ID
+GET {{baseUrl}}/api/admin/courses/1
+
+###
+
+### [COURSE-03] Lấy Course của Teacher ID=1
+GET {{baseUrl}}/api/admin/courses/teacher/1
+
+###
+
+### [COURSE-04] ✅ Admin tạo Course mới (createdBy phải là Admin/userId hợp lệ)
+### Trước tiên xem userId của teacher_test qua [USER-01], thay vào createdBy
+POST {{baseUrl}}/api/admin/courses
+Content-Type: application/json
+
+{
+  "courseCode": "AI301",
+  "courseName": "Trí tuệ Nhân tạo",
+  "createdBy": 1
+}
+
+###
+
+### [COURSE-05] ❌ Fail — Course code đã tồn tại (expect 409)
+POST {{baseUrl}}/api/admin/courses
+Content-Type: application/json
+
+{
+  "courseCode": "CS101",
+  "courseName": "Trùng mã môn học",
+  "createdBy": 1
+}
+
+###
+
+### [COURSE-06] ❌ Fail — createdBy không phải Admin (expect 403)
+POST {{baseUrl}}/api/admin/courses
+Content-Type: application/json
+
+{
+  "courseCode": "DB401",
+  "courseName": "Cơ sở dữ liệu",
+  "createdBy": 1
+}
+
+###
+
+### [COURSE-07] ✅ Admin cập nhật tên Course
+PUT {{baseUrl}}/api/admin/courses/1
+Content-Type: application/json
+
+{
+  "courseName": "Nhập môn Lập trình (Cập nhật)"
+}
+
+###
+
+### [COURSE-08] ✅ Admin phân công Teacher cho Course
+### Thay teacherId = userId thực của teacher từ [USER-01]
+PUT {{baseUrl}}/api/admin/courses/1/assign-teacher
+Content-Type: application/json
+
+{
+  "teacherId": 1
+}
+
+###
+
+### [COURSE-09] ❌ Fail — Assign user không phải Teacher (expect 400)
+PUT {{baseUrl}}/api/admin/courses/1/assign-teacher
+Content-Type: application/json
+
+{
+  "teacherId": 99999
+}
+
+###
+
+### [COURSE-10] ✅ Xóa Course (thay ID phù hợp)
+DELETE {{baseUrl}}/api/admin/courses/999
+
+
+### ================================================================
+###  TEACHER — UPLOAD FILE .md
+###  Dùng Swagger UI hoặc curl cho multipart/form-data
+###  Các test dưới đây dùng curl — chạy trong terminal
+### ================================================================
+
+### [DOC-01] Lấy tất cả document của Course ID=1
+GET {{baseUrl}}/api/documents/course/1
+
+###
+
+### [DOC-02] Lấy Document theo ID
+GET {{baseUrl}}/api/documents/1
+
+###
+
+### ----------------------------------------------------
+### Upload dùng curl (chạy trong terminal PowerShell):
+### ----------------------------------------------------
+###
+### [DOC-03] ✅ Upload file CONTENT — teacher_test (userId=1) vào course 1
+###   Tạo file test.md trước:
+###     echo "# Nội dung môn học`n`nĐây là nội dung bài giảng CS101." > test_content.md
+###   Sau đó chạy:
+###   curl -X POST http://localhost:5116/api/documents/upload `
+###     -F "courseId=1" `
+###     -F "uploadedBy=1" `
+###     -F "docType=CONTENT" `
+###     -F "file=@test_content.md"
+###
+### [DOC-04] ✅ Upload file LEARNING_OUTCOMES
+###   curl -X POST http://localhost:5116/api/documents/upload `
+###     -F "courseId=1" `
+###     -F "uploadedBy=1" `
+###     -F "docType=LEARNING_OUTCOMES" `
+###     -F "file=@test_outcomes.md"
+###
+### [DOC-05] ❌ Fail — Upload file .txt (expect 400 Only .md allowed)
+###   curl -X POST http://localhost:5116/api/documents/upload `
+###     -F "courseId=1" `
+###     -F "uploadedBy=1" `
+###     -F "docType=CONTENT" `
+###     -F "file=@test.txt"
+###
+### [DOC-06] ❌ Fail — Upload trùng DocType (expect 409 already has CONTENT)
+###   Chạy lại [DOC-03] lần 2
+###
+### [DOC-07] ❌ Fail — Teacher không được assign vào Course (expect 403)
+###   curl -X POST http://localhost:5116/api/documents/upload `
+###     -F "courseId=1" `
+###     -F "uploadedBy=999" `
+###     -F "docType=CONTENT" `
+###     -F "file=@test_content.md"
+###
+### [DOC-08] ❌ Fail — File rỗng (expect 400 content cannot be empty)
+###   echo "" > empty.md
+###   curl -X POST http://localhost:5116/api/documents/upload `
+###     -F "courseId=1" `
+###     -F "uploadedBy=1" `
+###     -F "docType=CONTENT" `
+###     -F "file=@empty.md"
+
+###
+
+### [DOC-09] ✅ Xóa Document (Teacher sở hữu)
+DELETE {{baseUrl}}/api/documents/1?requestedBy=1
+
+###
+
+### [DOC-10] ❌ Fail — Xóa document của người khác (expect 403)
+DELETE {{baseUrl}}/api/documents/1?requestedBy=99999
