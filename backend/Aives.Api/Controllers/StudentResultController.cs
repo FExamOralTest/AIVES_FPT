@@ -22,6 +22,23 @@ public class StudentResultController : ControllerBase
     }
 
     /// <summary>
+    /// [STUDENT] Lấy danh sách kết quả đã publish của chính mình.
+    /// BR-11: Chỉ xem kết quả thuộc về mình và có status = PUBLISHED.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<ResultForReviewDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyPublishedResults()
+    {
+        var studentId = GetCurrentUserId();
+        if (studentId is null)
+            return Unauthorized(new { message = "Invalid token." });
+
+        var results = await _resultService.GetStudentPublishedResultsAsync(studentId.Value);
+        return Ok(results);
+    }
+
+    /// <summary>
     /// [STUDENT] Xem kết quả thi của sinh viên cho một Exam Session.
     /// BR-10, BR-11: Chỉ hiển thị chi tiết khi trạng thái là PUBLISHED.
     /// </summary>
