@@ -6,7 +6,7 @@ public interface IAuthService
 {
     Task<UserDto> RegisterAsync(RegisterRequest request);
     Task<AuthResponse> LoginAsync(LoginRequest request);
-    Task LogoutAsync(int userId);
+    Task LogoutAsync(int userId, string? token = null);
     Task<UserDto> GetCurrentUserAsync(int userId);
 
     /// <summary>Chỉ ADMIN — lấy toàn bộ danh sách user.</summary>

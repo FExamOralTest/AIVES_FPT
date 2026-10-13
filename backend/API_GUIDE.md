@@ -514,4 +514,146 @@ Thứ tự thực hiện để test đầy đủ toàn bộ tính năng:
 
 ---
 
+## Student — Thi vấn đáp Viva AI & Xem kết quả
+
+### 1. `POST /api/student/viva-sessions/{sessionId}/start`
+> [STUDENT] Bắt đầu làm bài thi viva, nhận câu hỏi đầu tiên.
+
+**Response `200 OK`**
+```json
+{
+  "sessionId": 1,
+  "sessionName": "Ca thi Vấn đáp SE201 - Ca 1",
+  "examTitle": "Thi kết thúc học phần SE201",
+  "durationMinutes": 45,
+  "totalQuestions": 5,
+  "currentQuestionIndex": 0,
+  "currentQuestion": {
+    "questionId": 12,
+    "questionIndex": 0,
+    "totalQuestions": 5,
+    "questionText": "Trình bày các nguyên lý trong thiết kế hướng đối tượng SOLID.",
+    "level": 2,
+    "maxScore": 2.0,
+    "isFollowUpAllowed": true,
+    "isFollowUp": false
+  },
+  "startedAt": "2026-10-13T08:00:00Z"
+}
+```
+
+### 2. `GET /api/student/viva-sessions/{sessionId}/current-question`
+> [STUDENT] Lấy câu hỏi hiện tại đang cần trả lời.
+
+**Response `200 OK`**
+```json
+{
+  "questionId": 12,
+  "questionIndex": 0,
+  "totalQuestions": 5,
+  "questionText": "Trình bày các nguyên lý trong thiết kế hướng đối tượng SOLID.",
+  "level": 2,
+  "maxScore": 2.0,
+  "isFollowUpAllowed": true,
+  "isFollowUp": false
+}
+```
+
+### 3. `POST /api/student/viva-sessions/{sessionId}/submit-answer` (`multipart/form-data`)
+> [STUDENT] Nộp file âm thanh câu trả lời (hoặc text). Backend tự động gửi sang AI Service để Speech-to-Text và kiểm tra câu hỏi phụ (follow-up).
+
+**Form data:**
+- `questionId`: `12`
+- `audioFile`: `(file .wav / .webm / .mp3)`
+- `textAnswer`: *(tùy chọn)*
+- `isFollowUp`: `false`
+
+**Response `200 OK` (Khi có câu hỏi phụ)**
+```json
+{
+  "success": true,
+  "message": "Cần trả lời thêm câu hỏi phụ từ AI.",
+  "transcript": "SOLID là viết tắt của 5 nguyên lý: Single Responsibility, Open-Closed, Liskov Substitution, Interface Segregation và Dependency Inversion.",
+  "shouldFollowUp": true,
+  "followUpQuestion": "Bạn có thể cho một ví dụ thực tế về việc vi phạm nguyên lý Liskov Substitution (LSP) và cách khắc phục không?",
+  "currentQuestionIndex": 0,
+  "totalQuestions": 5,
+  "isCompleted": false,
+  "nextQuestion": {
+    "questionId": 12,
+    "questionIndex": 0,
+    "totalQuestions": 5,
+    "questionText": "Bạn có thể cho một ví dụ thực tế về việc vi phạm nguyên lý Liskov Substitution (LSP) và cách khắc phục không?",
+    "level": 2,
+    "maxScore": 2.0,
+    "isFollowUpAllowed": false,
+    "isFollowUp": true
+  }
+}
+```
+
+### 4. `POST /api/student/viva-sessions/{sessionId}/finish`
+> [STUDENT] Kết thúc ca thi. AI Service đánh giá toàn diện session và tạo Result ở trạng thái `PENDING_REVIEW`.
+
+**Response `200 OK`**
+```json
+{
+  "sessionId": 1,
+  "studentId": 5,
+  "status": "PENDING_REVIEW",
+  "message": "Bài thi đã được nộp thành công và AI đã hoàn thành chấm sơ bộ. Vui lòng đợi giảng viên duyệt và công bố kết quả.",
+  "submittedAt": "2026-10-13T08:35:00Z",
+  "aiScore": 8.5
+}
+```
+
+### 5. `GET /api/student/results/{sessionId}`
+> [STUDENT] Xem kết quả thi của sinh viên cho ca thi đã hoàn thành.  
+> **Lưu ý:** Chỉ trả về điểm số và nhận xét chi tiết sau khi Giảng viên đã duyệt và công bố (`PUBLISHED`).
+
+**Response `200 OK` (Khi chưa công bố)**
+```json
+{
+  "resultId": 10,
+  "sessionId": 1,
+  "sessionName": "Ca thi Vấn đáp SE201 - Ca 1",
+  "examTitle": "Thi kết thúc học phần SE201",
+  "status": "PENDING_REVIEW",
+  "isPublished": false,
+  "message": "Kết quả bài thi đang được giảng viên chấm và duyệt. Vui lòng quay lại sau.",
+  "submittedAt": "2026-10-13T08:35:00Z"
+}
+```
+
+**Response `200 OK` (Khi đã công bố - PUBLISHED)**
+```json
+{
+  "resultId": 10,
+  "sessionId": 1,
+  "sessionName": "Ca thi Vấn đáp SE201 - Ca 1",
+  "examTitle": "Thi kết thúc học phần SE201",
+  "status": "PUBLISHED",
+  "isPublished": true,
+  "finalScore": 9.0,
+  "finalFeedback": "Sinh viên nắm rất vững kiến thức và trả lời lưu loát.",
+  "submittedAt": "2026-10-13T08:35:00Z",
+  "publishedAt": "2026-10-13T09:00:00Z",
+  "answers": [
+    {
+      "answerId": 1,
+      "questionId": 12,
+      "questionText": "Trình bày các nguyên lý trong thiết kế hướng đối tượng SOLID.",
+      "transcript": "SOLID là viết tắt của 5 nguyên lý...",
+      "audioUrl": "/uploads/audio/1_5_12_638000000.wav",
+      "finalScore": 2.0,
+      "teacherComment": "Trả lời đầy đủ và chính xác.",
+      "isFollowUp": false
+    }
+  ]
+}
+```
+
+---
+
 *Tài liệu này được generate từ source code thực tế — cập nhật khi có thay đổi API.*
+

@@ -1,10 +1,5 @@
 namespace Aives.Infrastructure.AI;
 
-public interface IAiServiceClient
+public interface IAiServiceClient : Aives.Application.AI.Interfaces.IAiServiceClient
 {
-    void GenerateQuestion();
-    void GenerateFollowUp();
-    void SpeechToText();
-    void TextToSpeech();
-    void EvaluateAnswer();
 }

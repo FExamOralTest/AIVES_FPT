@@ -11,17 +11,20 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
+    private readonly IJwtBlacklistService _blacklistService;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IJwtService jwtService,
+        IJwtBlacklistService blacklistService,
         ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
+        _blacklistService = blacklistService;
         _logger = logger;
     }
 
@@ -58,11 +61,28 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
-        var user = await _userRepository.GetByEmailAsync(request.Email);
+        var identifier = request.Identifier?.Trim() ?? string.Empty;
+        User? user = null;
+
+        if (identifier.Contains('@'))
+        {
+            user = await _userRepository.GetByEmailAsync(identifier);
+        }
+        else
+        {
+            user = await _userRepository.GetByUsernameAsync(identifier);
+        }
+
+        if (user is null)
+        {
+            user = identifier.Contains('@')
+                ? await _userRepository.GetByUsernameAsync(identifier)
+                : await _userRepository.GetByEmailAsync(identifier);
+        }
 
         if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
-            _logger.LogWarning("Login failed: Invalid credentials for email {Email}", request.Email);
+            _logger.LogWarning("Login failed: Invalid credentials for identifier {Identifier}", identifier);
             throw new UnauthorizedAccessException("Invalid username or password.");
         }
 
@@ -80,10 +100,13 @@ public class AuthService : IAuthService
         };
     }
 
-    public Task LogoutAsync(int userId)
+    public async Task LogoutAsync(int userId, string? token = null)
     {
+        if (!string.IsNullOrEmpty(token))
+        {
+            await _blacklistService.AddToBlacklistAsync(token, DateTime.UtcNow.AddDays(1));
+        }
         _logger.LogInformation("User {UserId} logged out", userId);
-        return Task.CompletedTask;
     }
 
     public async Task<UserDto> GetCurrentUserAsync(int userId)
