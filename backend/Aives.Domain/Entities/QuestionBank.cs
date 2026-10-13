@@ -12,6 +12,8 @@ public partial class QuestionBank
     public int? DocumentId { get; set; }
 
     public string QuestionText { get; set; } = null!;
+    public string? Topic { get; set; }
+    public string? SampleAnswer { get; set; }
 
     
     public float? MaxScore { get; set; }

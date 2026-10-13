@@ -433,6 +433,10 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("sample_answer");
 
+                    b.Property<string>("Topic")
+                        .HasColumnType("text")
+                        .HasColumnName("topic");
+
                     b.HasKey("QuestionId")
                         .HasName("question_bank_pkey");
 
