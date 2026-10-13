@@ -41,6 +41,12 @@ public class AIQuestionDto
     [JsonRequired, JsonPropertyName("sample_answer")]
     public string SampleAnswer { get; set; } = null!;
 
+    [JsonRequired, JsonPropertyName("learning_outcome")]
+    public string LearningOutcome { get; set; } = null!;
+
+    [JsonRequired, JsonPropertyName("rubric")]
+    public List<AIRubricCriterionDto>? Rubric { get; set; }
+
     [JsonRequired, JsonPropertyName("max_score")]
     [JsonNumberHandling(JsonNumberHandling.Strict)]
     public float MaxScore { get; set; }
@@ -51,6 +57,17 @@ public class AIQuestionDto
 
     [JsonRequired, JsonPropertyName("is_follow_up_allowed")]
     public bool IsFollowUpAllowed { get; set; }
+}
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public class AIRubricCriterionDto
+{
+    [JsonRequired, JsonPropertyName("description")]
+    public string Description { get; set; } = null!;
+
+    [JsonRequired, JsonPropertyName("max_score")]
+    [JsonNumberHandling(JsonNumberHandling.Strict)]
+    public decimal MaxScore { get; set; }
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

@@ -65,6 +65,10 @@ class MockAIClient(BaseAIClient):
         task = payload.get("task")
         if task == "generate_question_bank":
             content = next(d["content"] for d in payload["documents"] if d["document_type"] == "CONTENT")
+            outcome_content = next(d["content"] for d in payload["documents"] if d["document_type"] == "LEARNING_OUTCOMES")
+            outcomes = [line.strip().lstrip("-*+ ") for line in outcome_content.splitlines()
+                        if line.strip() and not line.strip().startswith("#")]
+            outcomes = outcomes or [outcome_content.strip()]
             topics = payload["focus_topics"] or ["Course content"]
             offset = len(payload["already_generated_questions"])
             return json.dumps({"questions": [
@@ -72,6 +76,11 @@ class MockAIClient(BaseAIClient):
                     "question_text": f"Question {offset + i + 1}: Explain {topics[i % len(topics)]} using the course material.",
                     "topic": topics[i % len(topics)],
                     "sample_answer": content.strip(),
+                    "learning_outcome": outcomes[(offset + i) % len(outcomes)],
+                    "rubric": [{
+                        "description": f"Explain {topics[i % len(topics)]} accurately using this course evidence: {content.strip()[:1500]}",
+                        "max_score": payload["max_score"],
+                    }],
                     "max_score": payload["max_score"],
                     "level": (offset + i) % 3 + 1,
                     "is_follow_up_allowed": True,
@@ -110,6 +119,11 @@ class MockAIClient(BaseAIClient):
                 },
                 ensure_ascii=False,
             )
+
+        if task == "analyze_answer":
+            from app.services.answer_evidence import build_mock_analysis
+
+            return json.dumps(build_mock_analysis(payload), ensure_ascii=False)
 
         if task == "evaluate_answer":
             max_score = payload["max_score"]

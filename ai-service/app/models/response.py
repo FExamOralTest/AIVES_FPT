@@ -6,6 +6,8 @@ Pydantic schemas for all outgoing API responses to the Backend.
 from typing import Annotated, List, Literal, Optional
 from pydantic import BaseModel, Field, StringConstraints
 
+from app.models.feedback import CriterionAnalysis, SentenceFeedback
+
 
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -139,6 +141,18 @@ class EvaluateAnswerResponse(BaseResponse):
         default_factory=list,
         description="Key content missing from the student's answer",
     )
+    sentence_feedback: List[SentenceFeedback] = Field(
+        default_factory=list,
+        description="Judgment of each transcript sentence",
+    )
+    criterion_analyses: List[CriterionAnalysis] = Field(
+        default_factory=list,
+        description="Correctness, errors, and omissions for each rubric criterion",
+    )
+    improvements: List[str] = Field(
+        default_factory=list,
+        description="What the student should add for unmet criteria",
+    )
 
 
 # ─────────────────────────────────────────────
@@ -158,6 +172,9 @@ class QuestionScoreDetail(BaseModel):
     strengths: List[str] = Field(default_factory=list)
     weaknesses: List[str] = Field(default_factory=list)
     missing_content: List[str] = Field(default_factory=list)
+    sentence_feedback: List[SentenceFeedback] = Field(default_factory=list)
+    criterion_analyses: List[CriterionAnalysis] = Field(default_factory=list)
+    improvements: List[str] = Field(default_factory=list)
 
 
 class EvaluateSessionResponse(BaseResponse):
@@ -176,6 +193,10 @@ class EvaluateSessionResponse(BaseResponse):
     )
     question_scores: List[QuestionScoreDetail] = Field(
         ..., description="Per-question breakdown"
+    )
+    study_suggestions: List[str] = Field(
+        default_factory=list,
+        description="Review targets taken from unmet rubric criteria",
     )
     status: str = Field(
         default="PendingReview",

@@ -87,7 +87,9 @@ public class QuestionBankService(
         var errors = new List<ValidationResult>();
         if (!Validator.TryValidateObject(request, new ValidationContext(request), errors, true)
             || request is WriteQuestionRequest write && !float.IsFinite(write.MaxScore))
-            throw new ArgumentException("Invalid question fields or pagination parameters.");
+            throw new ArgumentException(errors.Count > 0
+                ? string.Join(" ", errors.Select(e => e.ErrorMessage))
+                : "Invalid question fields or pagination parameters.");
     }
 
     private static void Apply(QuestionBank question, WriteQuestionRequest request)
@@ -95,6 +97,15 @@ public class QuestionBankService(
         question.QuestionText = request.QuestionText.Trim();
         question.Topic = string.IsNullOrWhiteSpace(request.Topic) ? null : request.Topic.Trim();
         question.SampleAnswer = string.IsNullOrWhiteSpace(request.SampleAnswer) ? null : request.SampleAnswer.Trim();
+        question.LearningOutcome = request.LearningOutcome!.Trim();
+        question.Rubric.Clear();
+        foreach (var (criterion, position) in request.Rubric!.Select((c, i) => (c, i)))
+            question.Rubric.Add(new QuestionRubricCriterion
+            {
+                Description = criterion.Description.Trim(),
+                MaxScore = criterion.MaxScore,
+                Position = position
+            });
         question.Level = request.Level;
         question.MaxScore = request.MaxScore;
         question.IsFollowUpAllowed = request.IsFollowUpAllowed;
@@ -108,6 +119,12 @@ public class QuestionBankService(
         QuestionText = question.QuestionText,
         Topic = question.Topic,
         SampleAnswer = question.SampleAnswer,
+        LearningOutcome = question.LearningOutcome,
+        Rubric = question.Rubric.OrderBy(c => c.Position).Select(c => new RubricCriterionDto
+        {
+            Description = c.Description,
+            MaxScore = c.MaxScore
+        }).ToList(),
         Level = question.Level,
         MaxScore = question.MaxScore ?? 1,
         IsFollowUpAllowed = question.IsFollowUpAllowed ?? true,

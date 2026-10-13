@@ -1,6 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
 using Aives.Domain.Enums;
+using Aives.Application.Exams.Services;
 
 namespace Aives.Application.Exams.DTOs;
 
@@ -13,6 +14,14 @@ public class UploadMarkdownRequest
     public DocType DocType { get; set; }
 }
 
+public class UpdateMarkdownRequest
+{
+    public IFormFile? File { get; set; }
+    public DocType DocType { get; set; }
+    public string? FileName { get; set; }
+    public string? Content { get; set; }
+}
+
 public class MarkdownDocumentDto
 {
     public int DocumentId { get; set; }
@@ -23,7 +32,7 @@ public class MarkdownDocumentDto
     public DateTime? UploadedAt { get; set; }
 }
 
-public class GenerateQuestionsRequest
+public class GenerateQuestionsRequest : IValidatableObject
 {
     [Required]
     public int CourseId { get; set; }
@@ -35,6 +44,12 @@ public class GenerateQuestionsRequest
 
     [Range(typeof(float), "0.01", "100")]
     public float MaxScore { get; set; } = 1.0f;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!QuestionRubricValidator.IsValidMaxScore(MaxScore))
+            yield return new ValidationResult("Maximum score must be 0.01-100 with at most four decimal places.", [nameof(MaxScore)]);
+    }
 }
 
 public class GenerateQuestionsResponse
@@ -53,6 +68,8 @@ public class QuestionBankDto
     public string QuestionText { get; set; } = null!;
     public string? Topic { get; set; }
     public string? SampleAnswer { get; set; }
+    public string? LearningOutcome { get; set; }
+    public List<RubricCriterionDto> Rubric { get; set; } = new();
     public float MaxScore { get; set; }
     public int Level { get; set; }
     public bool IsFollowUpAllowed { get; set; }

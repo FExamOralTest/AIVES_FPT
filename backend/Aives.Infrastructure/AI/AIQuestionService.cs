@@ -37,7 +37,8 @@ public class AIQuestionService : IAIQuestionService
             }
 
             var result = await response.Content.ReadFromJsonAsync<AIQuestionResponse>(cancellationToken);
-            AIQuestionValidator.Validate(result?.Questions, request.QuestionCount, request.MaxScore);
+            AIQuestionValidator.Validate(result?.Questions, request.QuestionCount, request.MaxScore,
+                request.Documents.Single(d => d.DocumentType == "LEARNING_OUTCOMES").Content);
             _logger.LogInformation("AI generated {QuestionCount} questions in {ElapsedMs} ms", request.QuestionCount, elapsed.ElapsedMilliseconds);
             return result!.Questions!;
         }
