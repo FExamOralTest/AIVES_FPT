@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams.Exceptions;
 using Aives.Application.Exams.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -70,13 +71,21 @@ public class DocumentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GenerateQuestions(int courseId, [FromBody] GenerateQuestionsRequest request)
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
+    public async Task<IActionResult> GenerateQuestions(int courseId, [FromBody] GenerateQuestionsRequest request, CancellationToken cancellationToken)
     {
         var teacherId = GetCurrentUserId();
         if (teacherId is null) return Unauthorized();
 
-        request.CourseId = courseId; // Ensure consistency
-        try { return Ok(await _docService.GenerateQuestionsAsync(request, teacherId.Value)); }
+        request.CourseId = courseId;
+        try { return Ok(await _docService.GenerateQuestionsAsync(request, teacherId.Value, cancellationToken)); }
+        catch (AIQuestionException ex)
+        {
+            var status = ex.Failure == AIQuestionFailure.Timeout
+                ? StatusCodes.Status504GatewayTimeout : StatusCodes.Status502BadGateway;
+            return StatusCode(status, new { message = ex.Message, code = ex.Failure.ToString() });
+        }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (UnauthorizedAccessException) { return Forbid(); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }

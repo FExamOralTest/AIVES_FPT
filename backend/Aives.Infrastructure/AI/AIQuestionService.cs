@@ -1,7 +1,11 @@
+using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams.Exceptions;
 using Aives.Application.Exams.Interfaces;
+using Aives.Application.Exams.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Aives.Infrastructure.AI;
@@ -17,48 +21,50 @@ public class AIQuestionService : IAIQuestionService
         _logger = logger;
     }
 
-    public async Task<List<AIQuestionDto>> GenerateQuestionsAsync(List<string> markdownContents, int count, string? focusTopics)
+    public async Task<List<AIQuestionDto>> GenerateQuestionsAsync(
+        AIQuestionRequest request, CancellationToken cancellationToken = default)
     {
+        var elapsed = Stopwatch.StartNew();
         try
         {
-            var request = new
-            {
-                markdown_contents = markdownContents,
-                question_count = count,
-                focus_topics = focusTopics?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? Array.Empty<string>()
-            };
-
-            var response = await _httpClient.PostAsJsonAsync("/api/ai/generate-questions", request);
-            
+            using var response = await _httpClient.PostAsJsonAsync("/ai/questions/generate", request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("AI service returned {StatusCode}: {Error}", response.StatusCode, errorContent);
-                return new List<AIQuestionDto>();
+                _logger.LogWarning("AI question service returned HTTP {StatusCode}", (int)response.StatusCode);
+                if (response.StatusCode == HttpStatusCode.GatewayTimeout)
+                    throw new AIQuestionException(AIQuestionFailure.Timeout, "AI question generation timed out. Please retry later.");
+                throw new AIQuestionException(AIQuestionFailure.Unavailable, "AI question generation failed. Please retry later.");
             }
 
-            var result = await response.Content.ReadFromJsonAsync<AIQuestionResponse>();
-            return result?.Questions ?? new List<AIQuestionDto>();
+            var result = await response.Content.ReadFromJsonAsync<AIQuestionResponse>(cancellationToken);
+            AIQuestionValidator.Validate(result?.Questions, request.QuestionCount, request.MaxScore);
+            _logger.LogInformation("AI generated {QuestionCount} questions in {ElapsedMs} ms", request.QuestionCount, elapsed.ElapsedMilliseconds);
+            return result!.Questions!;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("AI question generation cancelled after {ElapsedMs} ms", elapsed.ElapsedMilliseconds);
+            throw;
+        }
+        catch (OperationCanceledException ex)
+        {
+            _logger.LogWarning("AI question generation timed out after {ElapsedMs} ms", elapsed.ElapsedMilliseconds);
+            throw new AIQuestionException(AIQuestionFailure.Timeout, "AI question generation timed out. Please retry later.", ex);
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Failed to connect to AI service at {BaseAddress}", _httpClient.BaseAddress);
-            return new List<AIQuestionDto>();
+            _logger.LogWarning("AI question service connection failed after {ElapsedMs} ms", elapsed.ElapsedMilliseconds);
+            throw new AIQuestionException(AIQuestionFailure.Unavailable, "AI question service is unavailable. Please retry later.", ex);
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
-            _logger.LogError(ex, "Failed to parse AI service response");
-            return new List<AIQuestionDto>();
+            _logger.LogWarning("AI question service returned an unreadable response");
+            throw new AIQuestionException(AIQuestionFailure.InvalidResponse, "AI returned an invalid question generation response.", ex);
         }
-        catch (Exception ex)
+        catch (AIQuestionException ex) when (ex.Failure == AIQuestionFailure.InvalidResponse)
         {
-            _logger.LogError(ex, "Unexpected error calling AI question service");
-            return new List<AIQuestionDto>();
+            _logger.LogWarning("AI question service response failed validation");
+            throw;
         }
-    }
-
-    private class AIQuestionResponse
-    {
-        public List<AIQuestionDto> Questions { get; set; } = new();
     }
 }

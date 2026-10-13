@@ -42,8 +42,22 @@ public class QuestionBankRepository : IQuestionBankRepository
             .ToListAsync();
     }
 
-    public async Task AddRangeAsync(IEnumerable<QuestionBank> questions)
-        => await _db.QuestionBanks.AddRangeAsync(questions);
+    public async Task SaveGeneratedAsync(IEnumerable<QuestionBank> questions, CancellationToken cancellationToken = default)
+    {
+        var batch = questions.ToList();
+        try
+        {
+            await _db.QuestionBanks.AddRangeAsync(batch, cancellationToken);
+            // A single SaveChanges commits the entire batch in EF Core's transaction.
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            foreach (var question in batch)
+                _db.Entry(question).State = EntityState.Detached;
+            throw;
+        }
+    }
 
     public async Task SaveChangesAsync() => await _db.SaveChangesAsync();
 }

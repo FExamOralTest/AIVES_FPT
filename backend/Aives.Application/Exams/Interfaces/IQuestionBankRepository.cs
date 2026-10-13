@@ -8,6 +8,6 @@ public interface IQuestionBankRepository
     Task<List<int>> GetValidQuestionIdsForCourseAsync(int courseId, IEnumerable<int> questionIds);
     Task<QuestionBank?> GetByIdAsync(int questionId);
     Task<IEnumerable<QuestionBank>> GetRandomByLevelAsync(int courseId, int level, int count);
-    Task AddRangeAsync(IEnumerable<QuestionBank> questions);
+    Task SaveGeneratedAsync(IEnumerable<QuestionBank> questions, CancellationToken cancellationToken = default);
     Task SaveChangesAsync();
 }
