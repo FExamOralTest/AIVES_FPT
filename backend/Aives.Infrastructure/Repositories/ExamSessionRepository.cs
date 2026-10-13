@@ -42,6 +42,8 @@ public class ExamSessionRepository : IExamSessionRepository
             .Include(s => s.Exam)
             .Include(s => s.SessionEnrollments)
                 .ThenInclude(se => se.Student)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Answers)
             .FirstOrDefaultAsync(s => s.SessionId == sessionId);
     }
 

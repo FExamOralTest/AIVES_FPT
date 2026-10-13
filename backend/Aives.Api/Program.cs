@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -18,6 +18,8 @@ using Aives.Application.Auth.Services;
 using Aives.Infrastructure.Auth;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Exams.Services;
+using Aives.Application.Viva.Interfaces;
+using Aives.Application.Viva.Services;
 using Aives.Infrastructure.AI;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +56,17 @@ var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "AIVES.Client";
 // Register JWT blacklist as singleton for sharing across requests
 builder.Services.AddSingleton<IJwtBlacklistService, JwtBlacklistService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -67,6 +80,22 @@ builder.Services
             ValidIssuer              = jwtIssuer,
             ValidAudience            = jwtAudience,
             IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var blacklistService = context.HttpContext.RequestServices.GetRequiredService<IJwtBlacklistService>();
+                var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+                var rawToken = authHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
+                    ? authHeader["Bearer ".Length..].Trim()
+                    : null;
+
+                if (!string.IsNullOrEmpty(rawToken) && await blacklistService.IsTokenBlacklistedAsync(rawToken))
+                {
+                    context.Fail("Token has been revoked.");
+                }
+            }
         };
     });
 
@@ -122,6 +151,7 @@ builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
 builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
+builder.Services.AddScoped<IVivaSessionService, VivaSessionService>();
 builder.Services.AddScoped<IAIQuestionService, AIQuestionService>();
 
 // HttpClient cho AI Service (FastAPI)
@@ -130,6 +160,13 @@ builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
     client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
     client.Timeout = TimeSpan.FromMinutes(5);
 });
+builder.Services.AddHttpClient<Aives.Application.AI.Interfaces.IAiServiceClient, AiServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
+builder.Services.AddScoped<Aives.Infrastructure.AI.IAiServiceClient>(sp =>
+    (AiServiceClient)sp.GetRequiredService<Aives.Application.AI.Interfaces.IAiServiceClient>());
 
 
 // 4. Controllers + Swagger with JWT
@@ -184,6 +221,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseCors("CorsPolicy");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

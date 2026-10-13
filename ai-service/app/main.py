@@ -87,6 +87,10 @@ def create_app() -> FastAPI:
     app.include_router(speech.router, prefix=api_prefix)
     app.include_router(evaluation.router, prefix=api_prefix)
     app.include_router(markdown.router, prefix=api_prefix)
+    
+    # Aliases for backend backwards compatibility
+    app.post("/ai/generate-questions", tags=["Interview"], include_in_schema=False)(interview.batch_generate_questions)
+    app.post("/api/ai/generate-questions", tags=["Interview"], include_in_schema=False)(interview.batch_generate_questions)
 
     # ── Health & Root ──────────────────────────────────────
     @app.get(

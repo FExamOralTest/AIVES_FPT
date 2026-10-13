@@ -1,4 +1,4 @@
-﻿using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
@@ -95,6 +95,53 @@ public class ResultService : IResultService
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
         return MapToReviewDto(result);
+    }
+
+    public async Task<StudentResultDto> GetStudentResultAsync(int sessionId, int studentId)
+    {
+        var result = await _resultRepository.GetBySessionAndStudentAsync(sessionId, studentId)
+            ?? throw new KeyNotFoundException("Không tìm thấy kết quả thi của sinh viên cho ca thi này.");
+
+        if (result.Status != SubmissionStatus.PUBLISHED)
+        {
+            return new StudentResultDto
+            {
+                ResultId = result.ResultId,
+                SessionId = result.SessionId,
+                SessionName = result.Session?.SessionName ?? "",
+                ExamTitle = result.Session?.Exam?.Title ?? "",
+                Status = result.Status?.ToString() ?? "",
+                IsPublished = false,
+                Message = "Kết quả bài thi đang được giảng viên chấm và duyệt. Vui lòng quay lại sau.",
+                SubmittedAt = result.SubmittedAt
+            };
+        }
+
+        return new StudentResultDto
+        {
+            ResultId = result.ResultId,
+            SessionId = result.SessionId,
+            SessionName = result.Session?.SessionName ?? "",
+            ExamTitle = result.Session?.Exam?.Title ?? "",
+            Status = result.Status?.ToString() ?? "",
+            IsPublished = true,
+            FinalScore = result.FinalScore ?? result.AiScore,
+            FinalFeedback = result.FinalFeedback ?? result.AiFeedback,
+            SubmittedAt = result.SubmittedAt,
+            PublishedAt = result.PublishedAt,
+            Answers = result.Answers.Select(a => new StudentAnswerItemDto
+            {
+                AnswerId = a.AnswerId,
+                QuestionId = a.QuestionId,
+                QuestionText = a.Question?.QuestionText ?? "",
+                StudentAnswer = a.StudentAnswer,
+                Transcript = a.Transcript,
+                AudioUrl = a.AudioUrl,
+                FinalScore = a.FinalScore ?? a.AiScore,
+                TeacherComment = a.TeacherComment ?? a.AiFeedback,
+                IsFollowUp = a.IsFollowUp ?? false
+            }).ToList()
+        };
     }
 
     // ── Admin bypass: neu callerId == scheduledBy (Teacher) hoac ADMIN -> OK ──

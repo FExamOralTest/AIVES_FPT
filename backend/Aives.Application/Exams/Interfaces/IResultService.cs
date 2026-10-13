@@ -8,4 +8,5 @@ public interface IResultService
     Task<ResultForReviewDto> GetResultForReviewAsync(int resultId, int teacherId);
     Task<ResultForReviewDto> ReviewResultAsync(int resultId, ReviewResultRequest request, int teacherId);
     Task<ResultForReviewDto> PublishResultAsync(int resultId, int teacherId);
+    Task<StudentResultDto> GetStudentResultAsync(int sessionId, int studentId);
 }

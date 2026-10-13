@@ -83,7 +83,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>Logout (client discards token).</summary>
+    /// <summary>Logout (revokes token via blacklist).</summary>
     [HttpPost("logout")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -91,10 +91,14 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Logout()
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        var rawToken = authHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
+            ? authHeader["Bearer ".Length..].Trim()
+            : null;
 
         if (int.TryParse(userIdClaim, out var userId))
         {
-            await _authService.LogoutAsync(userId);
+            await _authService.LogoutAsync(userId, rawToken);
         }
 
         return Ok(new { message = "Logged out successfully." });

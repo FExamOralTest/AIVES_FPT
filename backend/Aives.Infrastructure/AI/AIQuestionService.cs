@@ -28,7 +28,7 @@ public class AIQuestionService : IAIQuestionService
                 focus_topics = focusTopics?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? Array.Empty<string>()
             };
 
-            var response = await _httpClient.PostAsJsonAsync("/api/ai/generate-questions", request);
+            var response = await _httpClient.PostAsJsonAsync("/ai/generate-questions", request);
             
             if (!response.IsSuccessStatusCode)
             {
