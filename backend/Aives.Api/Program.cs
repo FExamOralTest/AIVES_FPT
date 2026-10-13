@@ -105,6 +105,8 @@ builder.Services.AddScoped<Aives.Application.Auth.Interfaces.IUserRepository,
 builder.Services.AddScoped<IExamRepository, ExamRepository>();
 builder.Services.AddScoped<IExamSessionRepository, ExamSessionRepository>();
 builder.Services.AddScoped<IQuestionBankRepository, QuestionBankRepository>();
+builder.Services.AddScoped<IQuestionBankService, QuestionBankService>();
+builder.Services.AddScoped<IExamUnitOfWork, ExamUnitOfWork>();
 builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
 
