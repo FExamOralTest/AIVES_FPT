@@ -423,6 +423,10 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("learning_outcome");
 
+                    b.Property<int>("Level")
+                        .HasColumnType("integer")
+                        .HasColumnName("level");
+
                     b.Property<float?>("MaxScore")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("real")

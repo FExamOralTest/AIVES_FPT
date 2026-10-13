@@ -25,11 +25,17 @@ export interface Exam {
   questions: ExamQuestion[]
 }
 
+export interface CreateExamQuestionItem {
+  questionId: number
+  questionScore: number
+}
+
 export interface CreateExamInput {
   title: string
   courseId: number
   durationMinutes: number
   maxQuestions: number
+  questions?: CreateExamQuestionItem[]
 }
 
 export type DocType = 'CONTENT' | 'LEARNING_OUTCOMES'

@@ -94,6 +94,45 @@ public class ExamService(
         };
     }
 
+    public async Task<ExamDto> UpdateExamQuestionsAsync(int examId, List<ExamQuestionItem> newQuestions, int teacherId)
+    {
+        var exam = await exams.GetByIdWithQuestionsAsync(examId)
+            ?? throw new KeyNotFoundException($"Exam with ID {examId} not found.");
+        if (exam.CreatedBy != teacherId)
+            throw new UnauthorizedAccessException("You do not have permission to edit this exam.");
+        await EnsureAssignedAsync(exam.CourseId, teacherId);
+
+        if (exam.ExamStatus != ExamStatus.DRAFT)
+            throw new ArgumentException("Only draft exams can have their questions modified.");
+
+        var items = newQuestions ?? [];
+        if (items.Count > exam.MaxQuestions)
+            throw new ArgumentException($"Number of questions ({items.Count}) exceeds maximum allowed ({exam.MaxQuestions}).");
+
+        var ids = items.Select(q => q.QuestionId).ToList();
+        if (ids.Distinct().Count() != ids.Count)
+            throw new ArgumentException("Duplicate question IDs are not allowed.");
+
+        if (ids.Count > 0)
+        {
+            var selected = await questions.GetByIdsForCourseAsync(exam.CourseId, ids);
+            if (selected.Count != ids.Count)
+                throw new ArgumentException("Every question must exist and belong to the exam course.");
+        }
+
+        var examQuestions = items.Select(q => new ExamQuestion
+        {
+            ExamId = examId,
+            QuestionId = q.QuestionId,
+            QuestionScore = q.QuestionScore > 0 ? q.QuestionScore : 1.0f
+        }).ToList();
+
+        await exams.ReplaceQuestionsAsync(examId, examQuestions);
+        var updated = await exams.GetByIdWithQuestionsAsync(examId)
+            ?? throw new InvalidOperationException("Exam could not be retrieved after update.");
+        return MapToExamDto(updated);
+    }
+
     private async Task EnsureAssignedAsync(int courseId, int teacherId)
     {
         var course = await courses.GetByIdAsync(courseId)

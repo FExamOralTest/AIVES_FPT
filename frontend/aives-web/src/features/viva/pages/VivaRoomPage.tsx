@@ -3,14 +3,16 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  Loader2,
   Mic,
-  MicOff,
   RotateCcw,
   Send,
   Sparkles,
+  Square,
   Volume2,
+  X,
 } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -40,12 +42,40 @@ export default function VivaRoomPage() {
 
   const recorder = useAudioRecorder()
   const textInputId = useId()
+  const prevIsRecordingRef = useRef(recorder.isRecording)
 
   // Format recording seconds MM:SS
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60)
     const rem = secs % 60
     return `${mins.toString().padStart(2, '0')}:${rem.toString().padStart(2, '0')}`
+  }
+
+  // Auto-fill textAnswer in real time as speech recognition transcribes words
+  useEffect(() => {
+    if (recorder.transcript && recorder.transcript.trim()) {
+      setTextAnswer(recorder.transcript.trim())
+    }
+  }, [recorder.transcript])
+
+  // When recording transitions from active to stopped, guarantee textAnswer is filled
+  useEffect(() => {
+    if (prevIsRecordingRef.current && !recorder.isRecording) {
+      const text = recorder.transcript || recorder.interimTranscript
+      if (text && text.trim()) {
+        setTextAnswer(text.trim())
+      }
+    }
+    prevIsRecordingRef.current = recorder.isRecording
+  }, [recorder.isRecording, recorder.transcript, recorder.interimTranscript])
+
+  // Stop recording and immediately populate textAnswer
+  const handleStopRecording = () => {
+    const textSnapshot = recorder.stopRecording()
+    const textToFill = textSnapshot || recorder.transcript || recorder.interimTranscript
+    if (textToFill && textToFill.trim()) {
+      setTextAnswer(textToFill.trim())
+    }
   }
 
   // Auto-start if sessionId provided in URL query
@@ -107,7 +137,7 @@ export default function VivaRoomPage() {
         setTranscript(res.transcript)
       }
 
-      // Reset input state for next interaction
+      // Reset input state for next question
       recorder.resetRecording()
       setTextAnswer('')
 
@@ -237,6 +267,8 @@ export default function VivaRoomPage() {
     ? Math.round((((currentQuestion?.questionIndex ?? 0) + 1) / session.totalQuestions) * 100)
     : 0
 
+  const hasRecordedAudio = Boolean(recorder.audioBlob && recorder.audioUrl)
+
   return (
     <div className="mx-auto max-w-3xl py-4 sm:py-6">
       {/* Header bar: Info & Timer */}
@@ -261,7 +293,7 @@ export default function VivaRoomPage() {
             size="sm"
             onClick={handleFinishExam}
             disabled={isFinishing}
-            className="rounded-xl font-semibold"
+            className="rounded-xl px-4"
           >
             {isFinishing ? 'Đang nộp…' : 'Nộp bài sớm'}
           </Button>
@@ -269,14 +301,14 @@ export default function VivaRoomPage() {
       </header>
 
       {/* Progress Bar */}
-      <div className="mt-4 flex items-center gap-3 px-1">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+      <div className="mt-4 flex items-center gap-3">
+        <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-brand to-logo transition-all duration-300"
+            className="h-full bg-brand transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <span className="text-xs font-semibold text-muted-foreground">
+        <span className="text-xs font-semibold text-muted-foreground tabular-nums">
           {progressPercent}%
         </span>
       </div>
@@ -314,13 +346,43 @@ export default function VivaRoomPage() {
           <h2 id="answer-heading" className="font-heading text-lg font-medium">
             Trả lời câu hỏi
           </h2>
+
+          {/* Active status indicator */}
           {recorder.isRecording && (
-            <span className="flex items-center gap-2 text-sm font-semibold text-destructive animate-pulse">
-              <span className="size-2 rounded-full bg-destructive" />
+            <span className="flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-3.5 py-1 text-xs font-semibold text-destructive animate-pulse">
+              <span className="size-2 rounded-full bg-destructive animate-ping" />
               Đang ghi âm ({formatTime(recorder.recordingTime)})
             </span>
           )}
+
+          {!recorder.isRecording && hasRecordedAudio && (
+            <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="size-3.5" />
+              Đã ghi âm xong ({formatTime(recorder.recordingTime)})
+            </span>
+          )}
         </div>
+
+        {/* Microphone Error Alert */}
+        {recorder.error && (
+          <Alert variant="destructive" className="mt-4 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              <AlertDescription className="text-xs font-medium">
+                {recorder.error}
+              </AlertDescription>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={recorder.clearError}
+              className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10"
+            >
+              Đóng
+            </Button>
+          </Alert>
+        )}
 
         {/* Audio Visualizer Waveform */}
         <div className="mt-5">
@@ -330,69 +392,143 @@ export default function VivaRoomPage() {
           />
         </div>
 
+        {/* Real-time Live Speech-to-Text Preview while recording */}
+        {recorder.isRecording && (
+          <div className="mt-4 rounded-2xl border border-brand/20 bg-brand/5 p-4 text-sm animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 font-medium text-brand text-xs uppercase tracking-wider mb-1.5">
+              <Sparkles className="size-3.5 animate-spin text-brand" />
+              Đang nhận diện giọng nói (Speech-to-Text):
+            </div>
+            <p className="text-foreground text-sm font-normal min-h-[1.5rem]">
+              {recorder.transcript || recorder.interimTranscript ? (
+                <>
+                  <span>{recorder.transcript}</span>{' '}
+                  <span className="text-brand font-medium italic animate-pulse">
+                    {recorder.interimTranscript}
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted-foreground italic">
+                  Đang lắng nghe... Bạn hãy nói to, rõ ràng vào micro.
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* Recording Controls */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-          {!recorder.isRecording ? (
+          {!recorder.isRecording && !hasRecordedAudio && (
             <Button
               type="button"
               size="lg"
+              disabled={recorder.isStarting}
               onClick={recorder.startRecording}
-              className="gap-2.5 rounded-full px-6 bg-brand hover:bg-brand-hover shadow-md hover:shadow-lg transition-all"
+              className="gap-2.5 rounded-full px-7 py-6 text-base bg-brand hover:bg-brand-hover shadow-md hover:shadow-lg transition-all font-medium"
             >
-              <Mic className="size-5" />
-              Bắt đầu ghi âm câu trả lời
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="destructive"
-              size="lg"
-              onClick={recorder.stopRecording}
-              className="gap-2.5 rounded-full px-6 shadow-md transition-all"
-            >
-              <MicOff className="size-5" />
-              Dừng ghi âm ({formatTime(recorder.recordingTime)})
+              {recorder.isStarting ? (
+                <>
+                  <Loader2 className="size-5 animate-spin" />
+                  Đang bật Micro...
+                </>
+              ) : (
+                <>
+                  <Mic className="size-5" />
+                  Bắt đầu ghi âm câu trả lời
+                </>
+              )}
             </Button>
           )}
 
-          {recorder.audioUrl && !recorder.isRecording && (
+          {recorder.isRecording && (
             <div className="flex items-center gap-3">
-              <audio controls src={recorder.audioUrl} className="h-10 max-w-xs" />
+              <Button
+                type="button"
+                variant="destructive"
+                size="lg"
+                onClick={handleStopRecording}
+                className="gap-2.5 rounded-full px-7 py-6 text-base shadow-lg shadow-destructive/25 transition-all font-medium animate-pulse"
+              >
+                <Square className="size-5 fill-current" />
+                Dừng ghi âm ({formatTime(recorder.recordingTime)})
+              </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="icon"
+                size="lg"
+                onClick={recorder.resetRecording}
+                className="gap-1.5 rounded-full px-5 py-6 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+                Hủy bỏ
+              </Button>
+            </div>
+          )}
+
+          {hasRecordedAudio && !recorder.isRecording && (
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <audio controls src={recorder.audioUrl!} className="h-10 max-w-xs" />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={recorder.resetRecording}
                 title="Ghi âm lại"
-                className="rounded-full"
+                className="gap-2 rounded-full px-4"
               >
                 <RotateCcw className="size-4" />
+                Ghi âm lại
               </Button>
             </div>
           )}
         </div>
 
-        {/* Fallback Text Input */}
+        {/* Text Answer Input (Auto-filled from voice or manual typing) */}
         <div className="mt-6 border-t pt-5">
-          <label htmlFor={textInputId} className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Hoặc nhập câu trả lời bằng văn bản (dự phòng)
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor={textInputId} className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {hasRecordedAudio || textAnswer
+                ? 'Nội dung câu trả lời (nhận diện từ giọng nói - bạn có thể chỉnh sửa):'
+                : 'Hoặc nhập câu trả lời bằng văn bản (dự phòng):'}
+            </label>
+            {textAnswer && (
+              <button
+                type="button"
+                onClick={() => setTextAnswer('')}
+                className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+              >
+                Xóa văn bản
+              </button>
+            )}
+          </div>
+
+          {hasRecordedAudio && textAnswer && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <CheckCircle2 className="size-3.5" />
+              <span>Đã chuyển giọng nói thành văn bản bên dưới. Bạn có thể bấm vào khung để chỉnh sửa hoặc bổ sung ý trước khi gửi.</span>
+            </div>
+          )}
+
           <textarea
             id={textInputId}
-            rows={3}
+            rows={4}
             value={textAnswer}
             onChange={(e) => setTextAnswer(e.target.value)}
-            placeholder="Nếu gặp sự cố về micro, bạn có thể gõ nội dung câu trả lời tại đây..."
-            className="mt-2 w-full rounded-2xl border border-input bg-background p-4 text-sm outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 resize-none"
+            placeholder={
+              recorder.isRecording
+                ? 'Lời nói của bạn đang được chuyển thành chữ tại đây theo thời gian thực...'
+                : 'Văn bản câu trả lời sẽ xuất hiện tại đây sau khi bạn nói, hoặc bạn có thể gõ trực tiếp...'
+            }
+            className="mt-2 w-full rounded-2xl border border-input bg-background p-4 text-sm outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 resize-none leading-relaxed"
           />
         </div>
 
-        {/* Last Transcript Preview if available */}
+        {/* Last Transcript Preview if returned from AI service after submit */}
         {transcript && (
           <div className="mt-4 rounded-2xl bg-muted/70 p-4 text-xs">
             <span className="font-semibold text-muted-foreground flex items-center gap-1.5 mb-1">
               <Volume2 className="size-3.5 text-brand" />
-              Văn bản nhận diện gần nhất từ giọng nói:
+              Văn bản AI ghi nhận câu trước đó:
             </span>
             <p className="text-foreground italic">"{transcript}"</p>
           </div>
@@ -407,7 +543,10 @@ export default function VivaRoomPage() {
             className="gap-2 rounded-xl px-7"
           >
             {isSubmitting ? (
-              'Đang xử lý câu trả lời…'
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Đang xử lý câu trả lời…
+              </>
             ) : (
               <>
                 <Send className="size-4" />

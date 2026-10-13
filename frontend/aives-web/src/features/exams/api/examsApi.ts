@@ -18,6 +18,11 @@ export const examsApi = {
     return data
   },
 
+  async updateQuestions(examId: number, questions: { questionId: number; questionScore: number }[]): Promise<Exam> {
+    const { data } = await http.put<Exam>(`/api/exams/${examId}/questions`, { questions })
+    return data
+  },
+
   /**
    * Stand-in for the missing GET /api/teacher/courses: the documents endpoint answers 404 for an
    * unknown course and 403 when the teacher isn't assigned to it, and lists the uploaded .md files.

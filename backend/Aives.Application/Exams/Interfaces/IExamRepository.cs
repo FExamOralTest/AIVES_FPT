@@ -27,6 +27,9 @@ public interface IExamRepository
     /// <summary>Thêm câu hỏi vào đề thi (bulk insert).</summary>
     Task AddQuestionsAsync(IEnumerable<Domain.Entities.ExamQuestion> questions);
 
+    /// <summary>Thay thế toàn bộ câu hỏi trong đề thi.</summary>
+    Task ReplaceQuestionsAsync(int examId, IEnumerable<Domain.Entities.ExamQuestion> questions);
+
     /// <summary>Kiểm tra Teacher có quyền chỉnh sửa Exam này không (chính là người tạo).</summary>
     Task<bool> IsOwnerAsync(int examId, int teacherId);
 

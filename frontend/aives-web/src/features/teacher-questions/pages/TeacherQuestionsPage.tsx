@@ -71,8 +71,8 @@ export default function TeacherQuestionsPage() {
     setIsLoadingQuestions(true)
     setErrorMessage(null)
     try {
-      const data = await teacherQuestionsApi.suggestQuestions(courseId, 50)
-      setQuestions(data.suggestedQuestions)
+      const data = await teacherQuestionsApi.getQuestions(courseId)
+      setQuestions(data.items)
     } catch {
       // If none yet or error, keep empty
       setQuestions([])
@@ -95,17 +95,8 @@ export default function TeacherQuestionsPage() {
         focusTopics: focusTopics.trim(),
       })
 
-      const generated = res.questions.map((q) => ({
-        questionId: q.questionId,
-        questionText: q.questionText,
-        level: q.level ?? 2,
-        maxScore: q.maxScore ?? 1.0,
-        isFollowUpAllowed: q.isFollowUpAllowed ?? true,
-        courseId: selectedCourseId,
-      }))
-
-      setQuestions((prev) => [...generated, ...prev])
-      setSuccessMessage(`Đã sinh thành công ${generated.length} câu hỏi mới từ tài liệu Markdown!`)
+      await loadQuestions(selectedCourseId)
+      setSuccessMessage(`Đã sinh thành công ${res.generatedCount ?? res.questions.length} câu hỏi mới từ tài liệu Markdown!`)
     } catch (err) {
       const apiErr = toApiError(err)
       setErrorMessage(apiErr.message)
