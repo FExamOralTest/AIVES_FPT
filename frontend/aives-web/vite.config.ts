@@ -18,12 +18,12 @@ export default defineConfig(({ mode }) => {
       // Forward API calls and uploaded media to the .NET backend in dev so browser sees same-origin requests
       proxy: {
         '/api': {
-          target: env.VITE_API_PROXY_TARGET || 'http://localhost:5116',
+          target: env.VITE_API_PROXY_TARGET || 'https://localhost:7223',
           changeOrigin: true,
           secure: false,
         },
         '/uploads': {
-          target: env.VITE_API_PROXY_TARGET || 'http://localhost:5116',
+          target: env.VITE_API_PROXY_TARGET || 'https://localhost:7223',
           changeOrigin: true,
           secure: false,
         },

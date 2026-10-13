@@ -47,9 +47,15 @@ public class CourseRepository : ICourseRepository
 
     public async Task<Course> UpdateAsync(Course course)
     {
-        _db.Courses.Update(course);
+        var existing = await _db.Courses.FindAsync(course.CourseId)
+            ?? throw new KeyNotFoundException($"Course {course.CourseId} not found.");
+
+        existing.CourseCode = course.CourseCode;
+        existing.CourseName = course.CourseName;
+        existing.TeacherId  = course.TeacherId;
+
         await _db.SaveChangesAsync();
-        return course;
+        return existing;
     }
 
     public async Task DeleteAsync(int courseId)

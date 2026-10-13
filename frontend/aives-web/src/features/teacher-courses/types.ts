@@ -14,4 +14,5 @@ export interface TeacherCourse {
   courseName: string
   teacherId?: number | null
   teacherName?: string | null
+  teacherFullName?: string | null
 }

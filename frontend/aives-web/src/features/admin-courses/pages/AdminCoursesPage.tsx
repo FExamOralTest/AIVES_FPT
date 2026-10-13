@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/features/auth'
 import { usersApi } from '@/features/admin-users/api/usersApi'
 import type { User } from '@/features/admin-users/types'
 import { toApiError } from '@/lib/http/apiError'
@@ -18,6 +19,7 @@ import { adminCoursesApi } from '../api/adminCoursesApi'
 import type { AdminCourse } from '../types'
 
 export default function AdminCoursesPage() {
+  const { user: me } = useAuth()
   const [courses, setCourses] = useState<AdminCourse[]>([])
   const [teachers, setTeachers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -68,7 +70,8 @@ export default function AdminCoursesPage() {
       const newCourse = await adminCoursesApi.create({
         courseCode: courseCode.trim().toUpperCase(),
         courseName: courseName.trim(),
-        teacherId: selectedTeacherId ? parseInt(selectedTeacherId) : null,
+        teacherId: selectedTeacherId ? parseInt(selectedTeacherId, 10) : null,
+        createdBy: me?.userId,
       })
       setCourses((prev) => [newCourse, ...prev])
       setIsCreateOpen(false)
@@ -92,12 +95,19 @@ export default function AdminCoursesPage() {
     setErrorMessage(null)
 
     try {
+      const teacherIdNum = parseInt(assignTeacherId, 10)
       const updated = await adminCoursesApi.assignTeacher(
         assigningCourse.courseId,
-        parseInt(assignTeacherId),
+        teacherIdNum,
       )
+      const chosenTeacher = teachers.find((t) => t.userId === teacherIdNum)
+      const mergedUpdated: AdminCourse = {
+        ...updated,
+        teacherId: teacherIdNum,
+        teacherFullName: chosenTeacher?.fullName || updated.teacherFullName,
+      }
       setCourses((prev) =>
-        prev.map((c) => (c.courseId === updated.courseId ? updated : c)),
+        prev.map((c) => (c.courseId === assigningCourse.courseId ? mergedUpdated : c)),
       )
       setAssigningCourse(null)
       setAssignTeacherId('')
@@ -178,18 +188,28 @@ export default function AdminCoursesPage() {
                   <h3 className="font-heading text-base font-semibold text-foreground">
                     {course.courseName}
                   </h3>
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="text-xs text-muted-foreground">Giảng viên phụ trách:</span>
-                    {course.teacherName ? (
-                      <Badge variant="secondary" className="text-xs font-medium">
-                        {course.teacherName}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs italic text-amber-600 dark:text-amber-400">
-                        Chưa phân công
-                      </span>
-                    )}
-                  </div>
+                  {(() => {
+                    const teacherDisplayName =
+                      course.teacherFullName ||
+                      course.teacherName ||
+                      teachers.find((t) => t.userId === course.teacherId)?.fullName ||
+                      teachers.find((t) => t.userId === course.teacherId)?.username
+
+                    return (
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-xs text-muted-foreground">Giảng viên phụ trách:</span>
+                        {teacherDisplayName ? (
+                          <Badge variant="secondary" className="text-xs font-medium">
+                            {teacherDisplayName}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs italic text-amber-600 dark:text-amber-400">
+                            Chưa phân công
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 <div className="flex items-center gap-2 sm:justify-end">
@@ -272,7 +292,7 @@ export default function AdminCoursesPage() {
                 >
                   <option value="">-- Chưa phân công --</option>
                   {teachers.map((t) => (
-                    <option key={t.userId} value={t.userId}>
+                    <option key={t.userId} value={t.userId.toString()}>
                       {t.fullName} ({t.username})
                     </option>
                   ))}
@@ -320,7 +340,7 @@ export default function AdminCoursesPage() {
                 >
                   <option value="">-- Chọn một giảng viên --</option>
                   {teachers.map((t) => (
-                    <option key={t.userId} value={t.userId}>
+                    <option key={t.userId} value={t.userId.toString()}>
                       {t.fullName} ({t.username})
                     </option>
                   ))}
