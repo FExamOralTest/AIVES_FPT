@@ -28,6 +28,7 @@ public partial class AivesDbContext : DbContext
     public virtual DbSet<MarkdownDocument> MarkdownDocuments { get; set; }
 
     public virtual DbSet<QuestionBank> QuestionBanks { get; set; }
+    public virtual DbSet<QuestionRubricCriterion> QuestionRubricCriteria { get; set; }
 
     public virtual DbSet<Result> Results { get; set; }
 
@@ -300,6 +301,7 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.QuestionText).HasColumnName("question_text");
             entity.Property(e => e.Topic).HasColumnName("topic");
             entity.Property(e => e.SampleAnswer).HasColumnName("sample_answer");
+            entity.Property(e => e.LearningOutcome).HasMaxLength(2000).HasColumnName("learning_outcome");
             entity.Property(e => e.Level).HasColumnName("level");
 
             entity.HasOne(d => d.Course).WithMany(p => p.QuestionBanks)
@@ -310,6 +312,25 @@ public partial class AivesDbContext : DbContext
                 .HasForeignKey(d => d.DocumentId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("question_bank_document_id_fkey");
+        });
+
+        modelBuilder.Entity<QuestionRubricCriterion>(entity =>
+        {
+            entity.HasKey(e => e.CriterionId).HasName("question_rubric_criteria_pkey");
+            entity.ToTable("question_rubric_criteria", table =>
+            {
+                table.HasCheckConstraint("ck_question_rubric_score", "max_score > 0 AND max_score <= 100");
+                table.HasCheckConstraint("ck_question_rubric_position", "position >= 0 AND position < 20");
+            });
+            entity.HasIndex(e => e.QuestionId, "idx_question_rubric_question");
+            entity.Property(e => e.CriterionId).UseIdentityAlwaysColumn().HasColumnName("criterion_id");
+            entity.Property(e => e.QuestionId).HasColumnName("question_id");
+            entity.Property(e => e.Position).HasColumnName("position");
+            entity.Property(e => e.Description).HasMaxLength(2000).HasColumnName("description");
+            entity.Property(e => e.MaxScore).HasPrecision(8, 4).HasColumnName("max_score");
+            entity.HasOne(e => e.Question).WithMany(e => e.Rubric)
+                .HasForeignKey(e => e.QuestionId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("question_rubric_question_id_fkey");
         });
 
         modelBuilder.Entity<Result>(entity =>

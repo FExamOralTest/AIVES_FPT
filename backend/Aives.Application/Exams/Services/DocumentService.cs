@@ -87,9 +87,8 @@ public class DocumentService : IDocumentService
         GenerateQuestionsRequest request, int teacherId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (request.QuestionCount is < 5 or > 200 || !float.IsFinite(request.MaxScore)
-            || request.MaxScore < 0.01f || request.MaxScore > 100)
-            throw new InvalidOperationException("Question count must be 5-200 and maximum score must be 0.01-100.");
+        if (request.QuestionCount is < 5 or > 200 || !QuestionRubricValidator.IsValidMaxScore(request.MaxScore))
+            throw new InvalidOperationException("Question count must be 5-200 and maximum score must be 0.01-100 with at most four decimal places.");
 
         var course = await _courseRepository.GetByIdAsync(request.CourseId)
             ?? throw new KeyNotFoundException("Course not found.");
@@ -118,7 +117,8 @@ public class DocumentService : IDocumentService
             MaxScore = request.MaxScore
         };
         var aiQuestions = await _aiQuestionService.GenerateQuestionsAsync(aiRequest, cancellationToken);
-        AIQuestionValidator.Validate(aiQuestions, request.QuestionCount, request.MaxScore);
+        AIQuestionValidator.Validate(aiQuestions, request.QuestionCount, request.MaxScore,
+            docs.Single(d => d.DocType == DocType.LEARNING_OUTCOMES).Content);
         cancellationToken.ThrowIfCancellationRequested();
 
         var questions = aiQuestions.Select(q => new QuestionBank
@@ -128,6 +128,13 @@ public class DocumentService : IDocumentService
             QuestionText = q.QuestionText.Trim(),
             Topic = q.Topic.Trim(),
             SampleAnswer = q.SampleAnswer.Trim(),
+            LearningOutcome = q.LearningOutcome.Trim(),
+            Rubric = q.Rubric!.Select((c, i) => new QuestionRubricCriterion
+            {
+                Description = c.Description.Trim(),
+                MaxScore = c.MaxScore,
+                Position = i
+            }).ToList(),
             MaxScore = q.MaxScore,
             Level = q.Level,
             IsFollowUpAllowed = q.IsFollowUpAllowed,
