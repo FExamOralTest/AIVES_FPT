@@ -35,6 +35,12 @@ public class QuestionBankRepository : IQuestionBankRepository
                 QuestionText = q.QuestionText,
                 Topic = q.Topic,
                 SampleAnswer = q.SampleAnswer,
+                LearningOutcome = q.LearningOutcome,
+                Rubric = q.Rubric.OrderBy(c => c.Position).Select(c => new RubricCriterionDto
+                {
+                    Description = c.Description,
+                    MaxScore = c.MaxScore
+                }).ToList(),
                 Level = q.Level,
                 MaxScore = q.MaxScore ?? 1,
                 IsFollowUpAllowed = q.IsFollowUpAllowed ?? true,
@@ -98,6 +104,7 @@ public class QuestionBankRepository : IQuestionBankRepository
 
     public async Task<QuestionBank?> GetByIdAsync(int questionId)
         => await _db.QuestionBanks
+            .Include(q => q.Rubric)
             .Include(q => q.Course)
             .FirstOrDefaultAsync(q => q.QuestionId == questionId);
 
@@ -123,7 +130,11 @@ public class QuestionBankRepository : IQuestionBankRepository
         catch
         {
             foreach (var question in batch)
+            {
+                foreach (var criterion in question.Rubric.ToList())
+                    _db.Entry(criterion).State = EntityState.Detached;
                 _db.Entry(question).State = EntityState.Detached;
+            }
             throw;
         }
     }

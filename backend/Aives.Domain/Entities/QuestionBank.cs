@@ -14,6 +14,8 @@ public partial class QuestionBank
     public string QuestionText { get; set; } = null!;
     public string? Topic { get; set; }
     public string? SampleAnswer { get; set; }
+    public string? LearningOutcome { get; set; }
+    public virtual ICollection<QuestionRubricCriterion> Rubric { get; set; } = new List<QuestionRubricCriterion>();
 
     
     public float? MaxScore { get; set; }
