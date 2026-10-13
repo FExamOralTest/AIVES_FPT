@@ -120,6 +120,11 @@ class MockAIClient(BaseAIClient):
                 ensure_ascii=False,
             )
 
+        if task == "analyze_answer":
+            from app.services.answer_evidence import build_mock_analysis
+
+            return json.dumps(build_mock_analysis(payload), ensure_ascii=False)
+
         if task == "evaluate_answer":
             max_score = payload["max_score"]
             return json.dumps(

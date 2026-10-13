@@ -144,13 +144,40 @@ class TextToSpeechRequest(BaseModel):
 # ─────────────────────────────────────────────
 
 
+class AnswerRubricCriterion(BaseModel):
+    """One approved criterion used to analyze a transcript."""
+
+    criterion_id: NonEmptyText = Field(..., description="Stable id from the approved rubric")
+    description: NonEmptyText = Field(..., max_length=2000)
+    max_score: float = Field(..., gt=0, le=100, allow_inf_nan=False)
+
+
 class QuestionAnswerPair(BaseModel):
     """A single Q&A pair from the interview session."""
 
     question_id: str = Field(..., description="UUID of the Question")
     question_text: str = Field(..., description="The question that was asked")
-    student_answer: str = Field(..., description="Student's transcribed answer")
+    student_answer: str = Field(..., description="Transcript of the student's answer")
     is_follow_up: bool = Field(default=False, description="Whether this was a follow-up")
+    sample_answer: Optional[str] = Field(default=None, description="Approved sample answer")
+    learning_outcome: Optional[str] = Field(default=None, description="Learning outcome for this question")
+    topic: Optional[str] = Field(default=None, description="Topic assessed by this question")
+    rubric: List[AnswerRubricCriterion] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Approved rubric. Required for content analysis.",
+    )
+
+    @model_validator(mode="after")
+    def validate_analysis_context(self) -> "QuestionAnswerPair":
+        ids = [criterion.criterion_id for criterion in self.rubric]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Rubric criterion IDs must be unique.")
+        if self.rubric and not (self.sample_answer or "").strip():
+            raise ValueError("A sample answer is required when a rubric is provided.")
+        if self.rubric and not (self.learning_outcome or "").strip():
+            raise ValueError("A learning outcome is required when a rubric is provided.")
+        return self
 
 
 class EvaluateAnswerRequest(BaseModel):
