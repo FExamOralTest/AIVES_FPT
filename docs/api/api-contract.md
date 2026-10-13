@@ -131,11 +131,19 @@ Score a single Q&A pair.
     "question_id": "uuid",
     "question_text": "...",
     "student_answer": "...",
-    "is_follow_up": false
+    "is_follow_up": false,
+    "sample_answer": "Independent services communicate through APIs.",
+    "learning_outcome": "LO1: Explain service communication.",
+    "topic": "Microservices",
+    "rubric": [
+      {"criterion_id": "c1", "description": "Explain independent services", "max_score": 4}
+    ]
   },
   "max_score": 10.0
 }
 ```
+
+`student_answer` is the transcript. `sample_answer`, `learning_outcome`, and `rubric` are optional. When `rubric` is present, the sample answer and learning outcome are required, criterion ids must be unique, and the response adds sentence and criterion analysis. The numeric `score` is unchanged by that analysis.
 
 **Response 200:**
 ```json
@@ -148,9 +156,25 @@ Score a single Q&A pair.
   "feedback": "...",
   "strengths": ["..."],
   "weaknesses": ["..."],
-  "missing_content": ["..."]
+  "missing_content": ["..."],
+  "sentence_feedback": [
+    {"sentence": "exact transcript sentence", "judgment": "correct", "comment": "..."}
+  ],
+  "criterion_analyses": [
+    {
+      "criterion_id": "c1",
+      "judgment": "partial",
+      "explanation": "...",
+      "errors": [],
+      "omissions": ["..."],
+      "evidence_quotes": ["exact transcript excerpt"]
+    }
+  ],
+  "improvements": ["..."]
 }
 ```
+
+`sentence_feedback.judgment` is `correct`, `error`, `omission`, or `irrelevant`. `criterion_analyses.judgment` is `met`, `partial`, or `not_met`. Every `evidence_quotes` value is copied from the transcript.
 
 ---
 
@@ -169,12 +193,20 @@ Evaluate a full exam session.
       "question_id": "uuid",
       "question_text": "...",
       "student_answer": "...",
-      "is_follow_up": false
+      "is_follow_up": false,
+      "sample_answer": "...",
+      "learning_outcome": "...",
+      "topic": "...",
+      "rubric": [
+        {"criterion_id": "c1", "description": "...", "max_score": 4}
+      ]
     }
   ],
   "max_score_per_question": 10.0
 }
 ```
+
+When any answer includes a rubric, `overall_feedback` summarizes those analyses and cites transcript excerpts. `study_suggestions` lists the learning outcome or topic for criteria that are partial or not met. Requests without a rubric keep the previous score-band summary.
 
 **Response 200:**
 ```json
@@ -191,9 +223,13 @@ Evaluate a full exam session.
       "question_id": "uuid",
       "question_text": "...",
       "score": 7.5,
-      "feedback": "..."
+      "feedback": "...",
+      "sentence_feedback": [],
+      "criterion_analyses": [],
+      "improvements": []
     }
-  ]
+  ],
+  "study_suggestions": ["LO1: Explain service communication. — Criterion c1 is not covered by the transcript."]
 }
 ```
 
