@@ -46,6 +46,10 @@ public class GenerateQuestionsResponse
 public class QuestionBankDto
 {
     public int QuestionId { get; set; }
+    public int CourseId { get; set; }
+    public int? DocumentId { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public bool IsInUse { get; set; }
     public string QuestionText { get; set; } = null!;
     public string? Topic { get; set; }
     public string? SampleAnswer { get; set; }

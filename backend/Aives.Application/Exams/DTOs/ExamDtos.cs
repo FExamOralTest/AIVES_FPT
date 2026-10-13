@@ -11,7 +11,7 @@ public class CreateExamRequest
     [MaxLength(255)]
     public string Title { get; set; } = null!;
 
-    [Required]
+    [Range(1, int.MaxValue)]
     public int CourseId { get; set; }
 
     [Range(1, 480)]
@@ -30,17 +30,16 @@ public class CreateExamRequest
 /// <summary>Một câu hỏi được gán vào đề thi kèm điểm số.</summary>
 public class ExamQuestionItem
 {
-    [Required]
+    [Range(1, int.MaxValue)]
     public int QuestionId { get; set; }
 
-    [Range(0.0, 100.0)]
+    [Range(typeof(float), "0.01", "100")]
     public float QuestionScore { get; set; } = 1.0f;
 }
 
-/// <summary>Request gợi ý câu hỏi từ AI cho đề thi.</summary>
-public class AiSuggestQuestionsRequest
+public class SuggestQuestionsRequest
 {
-    [Required]
+    [Range(1, int.MaxValue)]
     public int CourseId { get; set; }
 
     [MaxLength(1000)]
@@ -79,11 +78,11 @@ public class ExamQuestionDto
     public bool? IsFollowUpAllowed { get; set; }
 }
 
-/// <summary>Kết quả gợi ý câu hỏi từ AI.</summary>
-public class AiSuggestedQuestionsDto
+public class SuggestedQuestionsDto
 {
     public List<ExamQuestionDto> SuggestedQuestions { get; set; } = new();
-    public string? AiRationale { get; set; }
+    public string SelectionMethod { get; set; } = "keyword";
+    public string? Rationale { get; set; }
 }
 
 // ── Generate Exam from QuestionBank ──────────────────────────────────────────

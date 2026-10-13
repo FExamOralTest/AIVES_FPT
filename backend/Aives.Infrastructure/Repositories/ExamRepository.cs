@@ -58,7 +58,8 @@ public class ExamRepository : IExamRepository
         return await _db.Exams
             .Include(e => e.Course)
             .Include(e => e.ExamQuestions)
-            .Where(e => e.CreatedBy == teacherId)
+                .ThenInclude(eq => eq.Question)
+            .Where(e => e.CreatedBy == teacherId && e.Course.TeacherId == teacherId)
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync();
     }
