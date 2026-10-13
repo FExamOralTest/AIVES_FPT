@@ -29,6 +29,12 @@ public class ResultService : IResultService
         return results.Select(MapToReviewDto);
     }
 
+    public async Task<IEnumerable<ResultForReviewDto>> GetAllPendingReviewResultsAsync(int teacherId)
+    {
+        var results = await _resultRepository.GetPendingReviewResultsForTeacherAsync(teacherId);
+        return results.Select(MapToReviewDto);
+    }
+
     public async Task<ResultForReviewDto> GetResultForReviewAsync(int resultId, int teacherId)
     {
         var result = await _resultRepository.GetByIdWithDetailsAsync(resultId)
@@ -50,21 +56,34 @@ public class ResultService : IResultService
         if (session?.ScheduledBy != teacherId)
             throw new UnauthorizedAccessException("Not your session.");
 
-        // Update result level
-        if (request.FinalScore.HasValue) result.FinalScore = request.FinalScore.Value;
-        if (!string.IsNullOrWhiteSpace(request.FinalFeedback)) result.FinalFeedback = request.FinalFeedback;
+        // Chỉ review được kết quả đang ở trạng thái PENDING_REVIEW
+        if (result.Status != SubmissionStatus.PENDING_REVIEW)
+            throw new InvalidOperationException(
+                $"Cannot review result with status '{result.Status}'. Only PENDING_REVIEW results can be reviewed.");
+
+        // BR-15: Không ghi đè ai_score/ai_feedback
+        // Chỉ cập nhật final_score và final_feedback
+        if (request.FinalScore.HasValue)
+            result.FinalScore = request.FinalScore.Value;
+        if (!string.IsNullOrWhiteSpace(request.FinalFeedback))
+            result.FinalFeedback = request.FinalFeedback;
+
+        // Cập nhật reviewed_by và reviewed_at
         result.Status = SubmissionStatus.REVIEWED;
         result.ReviewedBy = teacherId;
         result.ReviewedAt = DateTime.UtcNow;
 
-        // Update answers
+        // BR-15: Cập nhật điểm từng câu - sử dụng answers.final_score và answers.teacher_comment
         foreach (var ansReq in request.AnswerReviews)
         {
             var answer = result.Answers.FirstOrDefault(a => a.AnswerId == ansReq.AnswerId);
             if (answer != null)
             {
-                if (ansReq.FinalScore.HasValue) answer.FinalScore = ansReq.FinalScore.Value;
-                if (!string.IsNullOrWhiteSpace(ansReq.TeacherComment)) answer.TeacherComment = ansReq.TeacherComment;
+                if (ansReq.FinalScore.HasValue)
+                    answer.FinalScore = ansReq.FinalScore.Value;
+                if (!string.IsNullOrWhiteSpace(ansReq.TeacherComment))
+                    answer.TeacherComment = ansReq.TeacherComment;
+                // BR-15: Không ghi đè ai_score/ai_feedback của answer
             }
         }
 
@@ -83,21 +102,39 @@ public class ResultService : IResultService
         if (session?.ScheduledBy != teacherId)
             throw new UnauthorizedAccessException("Not your session.");
 
-        if (result.Status != SubmissionStatus.REVIEWED && result.Status != SubmissionStatus.PENDING_REVIEW)
-            throw new InvalidOperationException("Result must be reviewed before publishing.");
+        // BR-10: Không publish kết quả chưa được approve/review
+        if (result.Status == SubmissionStatus.PUBLISHED)
+            throw new InvalidOperationException("Result is already published.");
 
+        if (result.Status != SubmissionStatus.REVIEWED)
+            throw new InvalidOperationException(
+                $"Cannot publish result with status '{result.Status}'. Result must be REVIEWED before publishing.");
+
+        // BR-10: Teacher approve và publish Final Result
+        // BR-11: Final Result được giao cho Student
         result.Status = SubmissionStatus.PUBLISHED;
         result.PublishedAt = DateTime.UtcNow;
-        result.ReviewedBy = teacherId;
-        result.ReviewedAt = result.ReviewedAt ?? DateTime.UtcNow;
+        // Nếu chưa được review trước đó (trường hợp approve + publish cùng lúc)
+        if (!result.ReviewedAt.HasValue)
+        {
+            result.ReviewedBy = teacherId;
+            result.ReviewedAt = DateTime.UtcNow;
+        }
 
-        // If no final score set, use AI score
-        if (!result.FinalScore.HasValue) result.FinalScore = result.AiScore;
+        // Nếu không có final score, sử dụng AI score
+        if (!result.FinalScore.HasValue)
+            result.FinalScore = result.AiScore;
 
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
 
         return MapToReviewDto(result);
+    }
+
+    public async Task<IEnumerable<ResultForReviewDto>> GetStudentPublishedResultsAsync(int studentId)
+    {
+        var results = await _resultRepository.GetStudentPublishedResultsAsync(studentId);
+        return results.Select(MapToReviewDto);
     }
 
     private static ResultForReviewDto MapToReviewDto(Result result) => new()

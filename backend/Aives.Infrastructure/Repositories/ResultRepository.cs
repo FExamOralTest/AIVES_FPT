@@ -1,5 +1,6 @@
 using Aives.Application.Exams.Interfaces;
 using Aives.Domain.Entities;
+using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -45,6 +46,36 @@ public class ResultRepository : IResultRepository
                 .ThenInclude(a => a.Question)
             .Where(r => r.SessionId == sessionId)
             .OrderByDescending(r => r.SubmittedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Result>> GetPendingReviewResultsForTeacherAsync(int teacherId)
+    {
+        return await _db.Results
+            .Include(r => r.Session)
+                .ThenInclude(s => s.Exam)
+            .Include(r => r.Student)
+            .Include(r => r.ReviewedByNavigation)
+            .Include(r => r.Answers)
+                .ThenInclude(a => a.Question)
+            .Where(r => r.Session.ScheduledBy == teacherId)
+            .Where(r => r.Status == SubmissionStatus.PENDING_REVIEW)
+            .OrderByDescending(r => r.SubmittedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Result>> GetStudentPublishedResultsAsync(int studentId)
+    {
+        return await _db.Results
+            .Include(r => r.Session)
+                .ThenInclude(s => s.Exam)
+            .Include(r => r.Student)
+            .Include(r => r.ReviewedByNavigation)
+            .Include(r => r.Answers)
+                .ThenInclude(a => a.Question)
+            .Where(r => r.StudentId == studentId)
+            .Where(r => r.Status == SubmissionStatus.PUBLISHED)
+            .OrderByDescending(r => r.PublishedAt)
             .ToListAsync();
     }
 
