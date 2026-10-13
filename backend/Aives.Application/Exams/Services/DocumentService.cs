@@ -139,16 +139,7 @@ public class DocumentService : IDocumentService
         return new GenerateQuestionsResponse
         {
             GeneratedCount = questions.Count,
-            Questions = questions.Select(q => new QuestionBankDto
-            {
-                QuestionId = q.QuestionId,
-                QuestionText = q.QuestionText,
-                Topic = q.Topic,
-                SampleAnswer = q.SampleAnswer,
-                MaxScore = q.MaxScore ?? 1.0f,
-                Level = q.Level,
-                IsFollowUpAllowed = q.IsFollowUpAllowed ?? true
-            }).ToList()
+            Questions = questions.Select(q => QuestionBankService.ToDto(q, false)).ToList()
         };
     }
 }

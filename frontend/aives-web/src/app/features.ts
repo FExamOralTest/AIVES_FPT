@@ -118,10 +118,12 @@ export const FEATURES: FeatureDef[] = [
     status: 'pending',
     endpoints: [
       { method: 'POST', path: '/api/courses/{courseId}/documents/generate-questions', state: 'issue', note: 'Luôn trả về 0 câu: backend gọi sai route AI và che mất lỗi.' },
-      { method: 'GET', path: '/api/courses/{courseId}/questions', state: 'missing', note: 'Đề xuất: xem ngân hàng câu hỏi của môn.' },
-      { method: 'PUT', path: '/api/courses/{courseId}/questions/{id}', state: 'missing', note: 'Đề xuất: sửa câu hỏi.' },
+      { method: 'GET', path: '/api/courses/{courseId}/questions', state: 'ok', note: 'Danh sách câu hỏi theo môn, tìm kiếm và phân trang.' },
+      { method: 'POST', path: '/api/courses/{courseId}/questions', state: 'ok', note: 'Tạo câu hỏi thủ công cho môn được phân công.' },
+      { method: 'PUT', path: '/api/courses/{courseId}/questions/{questionId}', state: 'ok', note: 'Sửa câu hỏi chưa dùng trong đề hoặc câu trả lời.' },
+      { method: 'DELETE', path: '/api/courses/{courseId}/questions/{questionId}', state: 'ok', note: 'Xoá câu hỏi chưa dùng trong đề hoặc câu trả lời.' },
     ],
-    blockers: ['AI chưa sinh được câu hỏi và chưa có API xem danh sách câu hỏi.'],
+    blockers: ['Chưa có giao diện quản lý ngân hàng câu hỏi.'],
   },
   {
     role: 'TEACHER',
@@ -134,10 +136,10 @@ export const FEATURES: FeatureDef[] = [
       { method: 'GET', path: '/api/exams/my', state: 'ok', note: 'Đề thi do giảng viên đang đăng nhập tạo.' },
       { method: 'GET', path: '/api/exams/{examId}', state: 'ok', note: 'Chi tiết đề kèm câu hỏi.' },
       { method: 'POST', path: '/api/exams', state: 'ok', note: 'Tạo đề. Hệ thống tự sinh mã EX-XXXXXXXX.' },
-      { method: 'POST', path: '/api/exams/ai-suggest-questions', state: 'issue', note: 'Chỉ lọc theo từ khoá, chưa dùng AI. Ngân hàng câu hỏi đang trống.' },
+      { method: 'POST', path: '/api/exams/suggest-questions', state: 'ok', note: 'Xếp hạng câu hỏi theo từ khoá trong môn được phân công; selectionMethod là keyword.' },
       { method: 'PUT', path: '/api/exams/{examId}', state: 'missing', note: 'Chưa sửa, xoá hay đổi trạng thái đề được (luôn là DRAFT).' },
     ],
-    blockers: ['Chưa có API lấy courseId và ngân hàng câu hỏi đang trống, nên hiện chỉ tạo được đề chưa có câu hỏi.'],
+    blockers: ['Chưa có giao diện chọn câu hỏi từ ngân hàng khi tạo đề.'],
   },
   {
     role: 'TEACHER',

@@ -1,196 +1,124 @@
+using System.ComponentModel.DataAnnotations;
 using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
+using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
 
 namespace Aives.Application.Exams.Services;
 
-/// <summary>
-/// Triển khai nghiệp vụ quản lý Exam cho Teacher.
-/// Bao gồm tạo đề thi, sinh ExamCode bảo mật, và tích hợp AI gợi ý câu hỏi.
-/// </summary>
-public class ExamService : IExamService
+public class ExamService(
+    IExamRepository exams, IQuestionBankRepository questions,
+    ICourseRepository courses, IExamUnitOfWork unitOfWork) : IExamService
 {
-    private readonly IExamRepository _examRepository;
-    private readonly IQuestionBankRepository _questionBankRepository;
-
-    public ExamService(
-        IExamRepository examRepository,
-        IQuestionBankRepository questionBankRepository)
-    {
-        _examRepository = examRepository;
-        _questionBankRepository = questionBankRepository;
-    }
-
-    /// <inheritdoc/>
-    public async Task<ExamDto> CreateExamAsync(CreateExamRequest request, int teacherId)
-    {
-        // Sinh ExamCode duy nhất, chống collision bằng vòng lặp kiểm tra
-        var examCode = await GenerateUniqueExamCodeAsync();
-
-        var exam = new Exam
+    public Task<ExamDto> CreateExamAsync(CreateExamRequest request, int teacherId)
+        => unitOfWork.ExecuteAsync(async () =>
         {
-            Title = request.Title,
-            CourseId = request.CourseId,
-            CreatedBy = teacherId,
-            ExamCode = examCode,
-            DurationMinutes = request.DurationMinutes,
-            MaxQuestions = request.MaxQuestions,
-            ExamStatus = ExamStatus.DRAFT,
-            CreatedAt = DateTime.UtcNow
-        };
+            Validate(request);
+            await EnsureAssignedAsync(request.CourseId, teacherId);
+            var items = request.Questions ?? [];
+            if (items.Any(q => q is null))
+                throw new ArgumentException("Questions must not contain null items.");
+            foreach (var item in items)
+            {
+                Validate(item);
+                if (!float.IsFinite(item.QuestionScore))
+                    throw new ArgumentException("Question scores must be finite.");
+            }
+            if (items.Count > request.MaxQuestions)
+                throw new ArgumentException("Question count exceeds MaxQuestions.");
+            var ids = items.Select(q => q.QuestionId).ToList();
+            if (ids.Distinct().Count() != ids.Count)
+                throw new ArgumentException("Duplicate question IDs are not allowed.");
+            var selected = await questions.GetByIdsForCourseAsync(request.CourseId, ids);
+            if (selected.Count != ids.Count)
+                throw new ArgumentException("Every question must exist and belong to the exam course.");
+            if (selected.Any(q => string.IsNullOrWhiteSpace(q.QuestionText) || q.Level is < 1 or > 3
+                || !float.IsFinite(q.MaxScore ?? 1) || (q.MaxScore ?? 1) < 0.01f || (q.MaxScore ?? 1) > 100))
+                throw new ArgumentException("The selected question bank contains invalid questions.");
 
-        var created = await _examRepository.CreateAsync(exam);
+            var exam = new Exam
+            {
+                Title = request.Title.Trim(),
+                CourseId = request.CourseId,
+                CreatedBy = teacherId,
+                ExamCode = await GenerateUniqueExamCodeAsync(),
+                DurationMinutes = request.DurationMinutes,
+                MaxQuestions = request.MaxQuestions,
+                ExamStatus = ExamStatus.DRAFT,
+                CreatedAt = DateTime.UtcNow,
+                ExamQuestions = items.Select(q => new ExamQuestion
+                {
+                    QuestionId = q.QuestionId,
+                    QuestionScore = q.QuestionScore
+                }).ToList()
+            };
+            var created = await exams.CreateAsync(exam);
+            var fullExam = await exams.GetByIdWithQuestionsAsync(created.ExamId)
+                ?? throw new InvalidOperationException("Exam was created but could not be retrieved.");
+            return MapToExamDto(fullExam);
+        });
 
-        // Gán câu hỏi vào đề thi nếu Teacher đã cung cấp (thủ công hoặc từ AI)
-        if (request.Questions is { Count: > 0 })
-        {
-            await ValidateAndAddQuestionsAsync(created.ExamId, request.CourseId, request.Questions);
-        }
-
-        // Tải lại entity đầy đủ để trả về DTO
-        var fullExam = await _examRepository.GetByIdWithQuestionsAsync(created.ExamId)
-            ?? throw new InvalidOperationException("Exam was created but could not be retrieved.");
-
-        return MapToExamDto(fullExam);
-    }
-
-    /// <inheritdoc/>
     public async Task<ExamDto> GetExamByIdAsync(int examId, int teacherId)
     {
-        var exam = await _examRepository.GetByIdWithQuestionsAsync(examId)
+        var exam = await exams.GetByIdWithQuestionsAsync(examId)
             ?? throw new KeyNotFoundException($"Exam with ID {examId} not found.");
-
-        // Chỉ Teacher sở hữu mới được xem chi tiết
         if (exam.CreatedBy != teacherId)
             throw new UnauthorizedAccessException("You do not have permission to view this exam.");
-
+        await EnsureAssignedAsync(exam.CourseId, teacherId);
         return MapToExamDto(exam);
     }
 
-    /// <inheritdoc/>
     public async Task<IEnumerable<ExamDto>> GetExamsByTeacherAsync(int teacherId)
+        => (await exams.GetByTeacherIdAsync(teacherId)).Select(MapToExamDto);
+
+    public async Task<SuggestedQuestionsDto> GetSuggestedQuestionsAsync(SuggestQuestionsRequest request, int teacherId)
     {
-        var exams = await _examRepository.GetByTeacherIdAsync(teacherId);
-        return exams.Select(MapToExamDto);
-    }
-
-    /// <inheritdoc/>
-    public async Task<AiSuggestedQuestionsDto> GetAiSuggestedQuestionsAsync(
-        AiSuggestQuestionsRequest request, int teacherId)
-    {
-        // Lấy toàn bộ câu hỏi của môn học từ Question Bank
-        var allQuestions = await _questionBankRepository
-            .GetByCourseIdAsync(request.CourseId, request.MaxSuggestions * 3);
-
-        // ── AI Filtering Logic ──────────────────────────────────────────────────
-        // Hiện tại: Simple keyword-based ranking.
-        // TODO: Tích hợp gọi FastAPI AI service để dùng embedding/semantic search.
-        // ────────────────────────────────────────────────────────────────────────
-        var filtered = FilterQuestionsWithAi(allQuestions.ToList(), request.FocusTopic, request.MaxSuggestions);
-
-        return new AiSuggestedQuestionsDto
+        Validate(request);
+        await EnsureAssignedAsync(request.CourseId, teacherId);
+        var selected = await questions.GetSuggestionsAsync(request.CourseId, request.FocusTopic, request.MaxSuggestions);
+        return new SuggestedQuestionsDto
         {
-            SuggestedQuestions = filtered.Select(q => new ExamQuestionDto
+            SuggestedQuestions = selected.Select(q => new ExamQuestionDto
             {
                 QuestionId = q.QuestionId,
                 QuestionText = q.QuestionText,
-                QuestionScore = q.MaxScore ?? 1.0f,
+                QuestionScore = q.MaxScore ?? 1,
                 MaxScore = q.MaxScore,
                 IsFollowUpAllowed = q.IsFollowUpAllowed
             }).ToList(),
-            AiRationale = string.IsNullOrWhiteSpace(request.FocusTopic)
-                ? "Selected based on course coverage."
-                : $"Selected based on topic relevance to: \"{request.FocusTopic}\"."
+            SelectionMethod = "keyword",
+            Rationale = string.IsNullOrWhiteSpace(request.FocusTopic)
+                ? "Selected by maximum score, then newest question."
+                : $"Ranked by keyword matches in question text for: {request.FocusTopic.Trim()}."
         };
     }
 
-    // ─── Private Helpers ──────────────────────────────────────────────────────
+    private async Task EnsureAssignedAsync(int courseId, int teacherId)
+    {
+        var course = await courses.GetByIdAsync(courseId)
+            ?? throw new KeyNotFoundException("Course not found.");
+        if (course.TeacherId != teacherId)
+            throw new UnauthorizedAccessException("You are not assigned to this course.");
+    }
 
-    /// <summary>
-    /// Sinh ExamCode ngẫu nhiên bảo mật dạng "EX-XXXXXXXX" (8 ký tự hex).
-    /// Kiểm tra DB để đảm bảo không trùng.
-    /// </summary>
+    private static void Validate(object request)
+    {
+        var errors = new List<ValidationResult>();
+        if (!Validator.TryValidateObject(request, new ValidationContext(request), errors, true))
+            throw new ArgumentException("Invalid exam or suggestion fields.");
+    }
+
     private async Task<string> GenerateUniqueExamCodeAsync()
     {
-        const int maxAttempts = 10;
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        for (var attempt = 0; attempt < 10; attempt++)
         {
-            var code = GenerateExamCode();
-            if (!await _examRepository.ExamCodeExistsAsync(code))
+            var code = "EX-" + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(4));
+            if (!await exams.ExamCodeExistsAsync(code))
                 return code;
         }
-        throw new InvalidOperationException(
-            "Unable to generate a unique Exam Code after multiple attempts. Please try again.");
+        throw new InvalidOperationException("Unable to generate a unique Exam Code. Please try again.");
     }
-
-    /// <summary>Sinh ExamCode: "EX-" + 8 ký tự hex ngẫu nhiên, uppercase.</summary>
-    private static string GenerateExamCode()
-    {
-        var randomBytes = new byte[4];
-        System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
-        return "EX-" + Convert.ToHexString(randomBytes);
-    }
-
-    /// <summary>
-    /// Validate câu hỏi thuộc đúng CourseId, sau đó bulk-insert vào exam_questions.
-    /// </summary>
-    private async Task ValidateAndAddQuestionsAsync(
-        int examId, int courseId, List<ExamQuestionItem> items)
-    {
-        var questionIds = items.Select(q => q.QuestionId).Distinct().ToList();
-        var validIds = await _questionBankRepository.GetValidQuestionIdsForCourseAsync(courseId, questionIds);
-
-        var invalidIds = questionIds.Except(validIds).ToList();
-        if (invalidIds.Count > 0)
-        {
-            throw new InvalidOperationException(
-                $"The following question IDs do not belong to course {courseId}: " +
-                string.Join(", ", invalidIds));
-        }
-
-        var examQuestions = items
-            .Where(q => validIds.Contains(q.QuestionId))
-            .Select(q => new ExamQuestion
-            {
-                ExamId = examId,
-                QuestionId = q.QuestionId,
-                QuestionScore = q.QuestionScore
-            }).ToList();
-
-        await _examRepository.AddQuestionsAsync(examQuestions);
-        await _examRepository.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Simple AI-like filtering: keyword matching trên QuestionText.
-    /// Sẽ được thay thế bằng gọi FastAPI embedding service trong sprint sau.
-    /// </summary>
-    private static List<QuestionBank> FilterQuestionsWithAi(
-        List<QuestionBank> questions, string? focusTopic, int maxCount)
-    {
-        if (string.IsNullOrWhiteSpace(focusTopic))
-            return questions.Take(maxCount).ToList();
-
-        var keywords = focusTopic
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(k => k.ToLowerInvariant())
-            .ToHashSet();
-
-        return questions
-            .Select(q => new
-            {
-                Question = q,
-                Score = keywords.Count(kw => q.QuestionText.Contains(kw, StringComparison.OrdinalIgnoreCase))
-            })
-            .OrderByDescending(x => x.Score)
-            .ThenByDescending(x => x.Question.MaxScore)
-            .Take(maxCount)
-            .Select(x => x.Question)
-            .ToList();
-    }
-
-    // ─── Mapper ──────────────────────────────────────────────────────────────
 
     private static ExamDto MapToExamDto(Exam exam) => new()
     {
