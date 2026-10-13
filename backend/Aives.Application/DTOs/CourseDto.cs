@@ -15,7 +15,8 @@ public record CourseDto(
 public record CreateCourseRequest(
     string CourseCode,
     string CourseName,
-    int    CreatedBy
+    int?   CreatedBy = null,
+    int?   TeacherId = null
 );
 
 /// <summary>Admin cập nhật thông tin Course.</summary>

@@ -49,18 +49,29 @@ public class CourseService : ICourseService
         if (await _courseRepo.ExistsCodeAsync(req.CourseCode))
             throw new InvalidOperationException($"Course code '{req.CourseCode}' already exists.");
 
+        var createdBy = req.CreatedBy ?? throw new InvalidOperationException("CreatedBy is required.");
+
         // Kiểm tra creator tồn tại và có quyền Admin
-        var creator = await _userRepo.GetByIdAsync(req.CreatedBy)
-            ?? throw new KeyNotFoundException($"User {req.CreatedBy} not found.");
+        var creator = await _userRepo.GetByIdAsync(createdBy)
+            ?? throw new KeyNotFoundException($"User {createdBy} not found.");
 
         if (creator.Role != UserRole.ADMIN)
             throw new UnauthorizedAccessException("Only admin can create courses.");
+
+        if (req.TeacherId.HasValue && req.TeacherId.Value > 0)
+        {
+            var teacher = await _userRepo.GetByIdAsync(req.TeacherId.Value)
+                ?? throw new KeyNotFoundException($"Teacher {req.TeacherId.Value} not found.");
+            if (teacher.Role != UserRole.TEACHER)
+                throw new InvalidOperationException($"User {req.TeacherId.Value} is not a teacher.");
+        }
 
         var course = new Course
         {
             CourseCode = req.CourseCode.Trim().ToUpper(),
             CourseName = req.CourseName.Trim(),
-            CreatedBy  = req.CreatedBy,
+            CreatedBy  = createdBy,
+            TeacherId  = req.TeacherId.HasValue && req.TeacherId.Value > 0 ? req.TeacherId.Value : null,
             CreatedAt  = DateTime.UtcNow
         };
 
@@ -77,6 +88,8 @@ public class CourseService : ICourseService
         if (!string.IsNullOrWhiteSpace(req.CourseName))
             course.CourseName = req.CourseName.Trim();
 
+        course.Teacher = null;
+        course.CreatedByNavigation = null;
         var updated = await _courseRepo.UpdateAsync(course);
         return ToDto(await _courseRepo.GetByIdAsync(updated.CourseId) ?? updated);
     }
@@ -94,6 +107,8 @@ public class CourseService : ICourseService
             throw new InvalidOperationException($"User {req.TeacherId} is not a teacher.");
 
         course.TeacherId = req.TeacherId;
+        course.Teacher = null;
+        course.CreatedByNavigation = null;
         var updated = await _courseRepo.UpdateAsync(course);
         return ToDto(await _courseRepo.GetByIdAsync(updated.CourseId) ?? updated);
     }

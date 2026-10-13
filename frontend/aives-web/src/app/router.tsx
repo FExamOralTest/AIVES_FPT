@@ -1,11 +1,17 @@
 import type { ComponentType } from 'react'
 import { Route, Routes } from 'react-router-dom'
+import { AdminCoursesPage } from '@/features/admin-courses'
 import { UsersPage } from '@/features/admin-users'
 import { GuestRoute, LoginPage, ProtectedRoute, RegisterPage, ROLE_HOME, type UserRole } from '@/features/auth'
 import { EnrollPage } from '@/features/enroll'
 import { SessionsPage } from '@/features/exam-sessions'
 import { ExamsPage } from '@/features/exams'
 import { LandingPage } from '@/features/landing'
+import { StudentResultsPage } from '@/features/student-results'
+import { TeacherCoursesPage } from '@/features/teacher-courses'
+import { TeacherQuestionsPage } from '@/features/teacher-questions'
+import { TeacherResultsPage } from '@/features/teacher-results'
+import { VivaRoomPage } from '@/features/viva'
 import { featuresFor } from './features'
 import { AppShell } from './layout/AppShell'
 import NotFoundPage from './NotFoundPage'
@@ -17,9 +23,15 @@ const ROLES: UserRole[] = ['ADMIN', 'TEACHER', 'STUDENT']
 // Features whose real page is built, keyed "ROLE/path"; every other feature renders its placeholder.
 const PAGES: Record<string, ComponentType> = {
   'ADMIN/users': UsersPage,
+  'ADMIN/courses': AdminCoursesPage,
+  'TEACHER/courses': TeacherCoursesPage,
+  'TEACHER/questions': TeacherQuestionsPage,
   'TEACHER/exams': ExamsPage,
   'TEACHER/sessions': SessionsPage,
+  'TEACHER/results': TeacherResultsPage,
   'STUDENT/enroll': EnrollPage,
+  'STUDENT/viva': VivaRoomPage,
+  'STUDENT/results': StudentResultsPage,
 }
 
 export function AppRoutes() {
