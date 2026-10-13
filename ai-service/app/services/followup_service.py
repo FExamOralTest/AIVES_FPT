@@ -10,6 +10,7 @@ from typing import List
 from loguru import logger
 
 from app.core.ai_client import BaseAIClient, get_ai_client
+from app.models.ai_output import FollowUpOutput, parse_ai_output
 from app.models.request import GenerateFollowUpRequest, DocumentContext
 from app.models.response import GenerateFollowUpResponse
 from app.services.markdown_processor import MarkdownProcessor
@@ -76,23 +77,16 @@ class FollowUpService:
         system_prompt = system_prompt.replace("{student_answer}", request.student_answer)
         system_prompt = system_prompt.replace("{question_index}", str(request.question_index))
 
-        user_message = (
-            f"Hãy phân tích câu trả lời của sinh viên và quyết định "
-            f"có cần câu hỏi follow-up không."
-        )
+        user_message = json.dumps({"task": "generate_follow_up"})
 
         raw_response = await self.ai_client.complete(system_prompt, user_message)
 
         try:
-            data = json.loads(raw_response)
+            data = parse_ai_output(raw_response, FollowUpOutput)
             return GenerateFollowUpResponse(
                 success=True,
-                should_follow_up=data.get("should_follow_up", True),
-                follow_up_question=data.get("follow_up_question", ""),
-                reason=data.get("reason"),
+                **data.model_dump(),
             )
-        except (json.JSONDecodeError, KeyError) as exc:
-            logger.error(
-                f"[FollowUpService] Failed to parse AI response: {raw_response!r}"
-            )
-            raise ValueError(f"AI returned invalid response format: {exc}") from exc
+        except ValueError as exc:
+            logger.warning("[FollowUpService] Rejected invalid follow-up response.")
+            raise ValueError("AI returned an invalid follow-up response.") from exc

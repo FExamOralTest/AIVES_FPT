@@ -108,9 +108,12 @@ class QuestionService:
             raise ValueError("Return valid JSON without surrounding commentary") from exc
         if not isinstance(data, dict):
             raise ValueError("Return one JSON object, not a list or scalar")
+        fields = set(GenerateQuestionResponse.model_fields) - {"success", "message"}
+        if set(data) - fields:
+            raise ValueError("Return only the requested question fields")
         try:
             response = GenerateQuestionResponse.model_validate(
-                {**data, "success": True, "message": None}
+                {**data, "success": True, "message": None}, strict=True
             )
         except ValidationError as exc:
             errors = "; ".join(
