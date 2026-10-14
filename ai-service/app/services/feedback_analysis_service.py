@@ -17,10 +17,19 @@ _markdown = MarkdownProcessor()
 
 
 def _document_context(request: EvaluateAnswerRequest) -> str:
-    result = _markdown.process(request.documents)
-    if result.is_valid and result.context_string:
-        return result.context_string
-    return "\n\n".join(f"{document.title}\n{document.content}" for document in request.documents)
+    question = request.question_answer
+    focus_terms = [
+        question.topic or "",
+        question.question_text,
+        question.learning_outcome or "",
+        question.sample_answer or "",
+        *(criterion.description for criterion in question.rubric),
+    ]
+    documents = _markdown.prepare_documents(request.documents, focus_terms)
+    return "\n\n".join(
+        f"{document.document_type}: {document.title}\n{document.content}"
+        for document in documents
+    )
 
 
 class FeedbackAnalysisService:

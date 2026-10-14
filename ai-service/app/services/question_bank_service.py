@@ -5,6 +5,8 @@ from loguru import logger
 
 from app.core.ai_client import BaseAIClient, get_ai_client
 from app.models.question_bank import GenerateQuestionsRequest, GenerateQuestionsResponse
+from app.models.request import DocumentContext
+from app.services.markdown_processor import MarkdownProcessor
 from app.services.question_service import QuestionGenerationError, _normalise
 
 
@@ -28,11 +30,27 @@ Use the language of the documents. Do not include additional fields or commentar
 class QuestionBankService:
     def __init__(self, ai_client: BaseAIClient | None = None) -> None:
         self.ai_client = ai_client or get_ai_client()
+        self.processor = MarkdownProcessor()
 
     async def generate(self, request: GenerateQuestionsRequest) -> GenerateQuestionsResponse:
         questions = []
         seen: set[str] = set()
+        prepared = self.processor.prepare_documents([
+            DocumentContext(
+                document_id=str(doc.document_id),
+                title=doc.document_type,
+                document_type="course_content" if doc.document_type == "CONTENT" else "learning_outcomes",
+                content=doc.content,
+            ) for doc in request.documents
+        ], request.focus_topics)
+        documents = [
+            {**doc.model_dump(), "content": context.content}
+            for doc, context in zip(request.documents, prepared)
+        ]
         outcomes = " ".join(next(
+            doc["content"] for doc in documents if doc["document_type"] == "LEARNING_OUTCOMES"
+        ).split())
+        source_outcomes = " ".join(next(
             doc.content for doc in request.documents if doc.document_type == "LEARNING_OUTCOMES"
         ).split())
         while len(questions) < request.question_count:
@@ -41,6 +59,7 @@ class QuestionBankService:
             payload = request.model_dump()
             payload.update(
                 task="generate_question_bank",
+                documents=documents,
                 question_count=count,
                 already_generated_questions=[q.question_text for q in questions],
             )
@@ -62,9 +81,8 @@ class QuestionBankService:
                         raise ValueError("Empty topic or sample answer")
                     if question.max_score != request.max_score:
                         raise ValueError("Incorrect maximum score")
-                    if not _normalise(question.learning_outcome) or " ".join(
-                        question.learning_outcome.split()
-                    ) not in outcomes:
+                    outcome = " ".join(question.learning_outcome.split())
+                    if not _normalise(outcome) or outcome not in outcomes or outcome not in source_outcomes:
                         raise ValueError("Learning outcome must be copied from LEARNING_OUTCOMES")
                     seen.add(key)
                 questions.extend(batch.questions)
