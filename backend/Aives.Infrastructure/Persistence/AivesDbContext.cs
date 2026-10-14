@@ -59,6 +59,7 @@ public partial class AivesDbContext : DbContext
                 .UseIdentityAlwaysColumn()
                 .HasColumnName("answer_id");
             entity.Property(e => e.AiFeedback).HasColumnName("ai_feedback");
+            entity.Property(e => e.AiAnalysis).HasColumnName("ai_analysis").HasColumnType("jsonb");
             entity.Property(e => e.AiScore).HasColumnName("ai_score");
             entity.Property(e => e.AnsweredAt).HasColumnName("answered_at");
             entity.Property(e => e.AudioUrl).HasColumnName("audio_url");
@@ -349,6 +350,10 @@ public partial class AivesDbContext : DbContext
                 .UseIdentityAlwaysColumn()
                 .HasColumnName("result_id");
             entity.Property(e => e.AiFeedback).HasColumnName("ai_feedback");
+            entity.Property(e => e.AiAnalysis).HasColumnName("ai_analysis").HasColumnType("jsonb");
+            entity.Property(e => e.AiEvaluationStatus).HasColumnName("ai_evaluation_status")
+                .HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.AiEvaluationError).HasColumnName("ai_evaluation_error");
             entity.Property(e => e.AiScore).HasColumnName("ai_score");
             entity.Property(e => e.FinalFeedback).HasColumnName("final_feedback");
             entity.Property(e => e.FinalScore).HasColumnName("final_score");

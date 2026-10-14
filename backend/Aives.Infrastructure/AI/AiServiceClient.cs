@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Aives.Application.AI.DTOs;
+using Aives.Application.AI;
 using Aives.Application.AI.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -130,34 +131,53 @@ public class AiServiceClient : IAiServiceClient
         }
     }
 
-    public async Task<EvaluateSessionResponse> EvaluateSessionAsync(EvaluateSessionRequest request)
+    public async Task<EvaluateSessionResponse> EvaluateSessionAsync(
+        EvaluateSessionRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("/ai/evaluate/session", request);
+            using var response = await _httpClient.PostAsJsonAsync("/ai/evaluate/session", request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("Session evaluation failed with status {StatusCode}: {Error}", response.StatusCode, error);
-                return new EvaluateSessionResponse
-                {
-                    Success = false,
-                    Message = $"AI Evaluation service returned status {response.StatusCode}: {error}"
-                };
+                _logger.LogWarning("Session evaluation failed with status {StatusCode}", response.StatusCode);
+                return EvaluationFailure("http_error", $"AI evaluation returned HTTP {(int)response.StatusCode}.");
             }
 
-            var result = await response.Content.ReadFromJsonAsync<EvaluateSessionResponse>();
-            return result ?? new EvaluateSessionResponse { Success = false, Message = "Empty evaluation response." };
+            var result = await response.Content.ReadFromJsonAsync<EvaluateSessionResponse>(cancellationToken);
+            if (result == null)
+                return EvaluationFailure("invalid_response", "AI evaluation returned an empty response.");
+            if (!result.Success)
+                return EvaluationFailure("evaluation_failed", "AI service could not evaluate this submission.");
+
+            EvaluationContract.Validate(request, result);
+            return result;
         }
-        catch (Exception ex)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _logger.LogError(ex, "Exception calling AI Session evaluation service at {BaseAddress}", _httpClient.BaseAddress);
-            return new EvaluateSessionResponse
-            {
-                Success = false,
-                Message = $"Error connecting to AI Evaluation: {ex.Message}"
-            };
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("AI session evaluation timed out.");
+            return EvaluationFailure("timeout", "AI evaluation timed out. The submission is available for teacher review.");
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Could not connect to AI evaluation service.");
+            return EvaluationFailure("connection_error", "Could not connect to the AI evaluation service.");
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or NotSupportedException)
+        {
+            _logger.LogWarning(ex, "AI evaluation returned an invalid response.");
+            return EvaluationFailure("invalid_response", "AI evaluation returned an invalid response.");
         }
     }
+
+    private static EvaluateSessionResponse EvaluationFailure(string code, string message) => new()
+    {
+        Success = false,
+        ErrorCode = code,
+        Message = message
+    };
 }

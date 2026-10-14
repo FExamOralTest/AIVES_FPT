@@ -124,15 +124,17 @@ class ScoringService:
 
         question_scores: List[QuestionScoreDetail] = []
         total_score = 0.0
-        max_total = len(request.question_answers) * request.max_score_per_question
+        max_total = 0.0
 
         for qa in request.question_answers:
+            max_score = qa.max_score if qa.max_score is not None else request.max_score_per_question
+            max_total += max_score
             single_request = EvaluateAnswerRequest(
                 exam_session_id=request.exam_session_id,
                 course_name=request.course_name,
                 documents=request.documents,
                 question_answer=qa,
-                max_score=request.max_score_per_question,
+                max_score=max_score,
             )
             result = await self.evaluate_answer(single_request)
             total_score += result.score

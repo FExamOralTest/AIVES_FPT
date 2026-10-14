@@ -136,7 +136,7 @@ public class VivaSessionController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> FinishSession(int sessionId)
+    public async Task<IActionResult> FinishSession(int sessionId, CancellationToken cancellationToken)
     {
         var studentId = GetCurrentUserId();
         if (studentId is null)
@@ -144,7 +144,7 @@ public class VivaSessionController : ControllerBase
 
         try
         {
-            var response = await _vivaService.FinishSessionAsync(sessionId, studentId.Value);
+            var response = await _vivaService.FinishSessionAsync(sessionId, studentId.Value, cancellationToken);
             return Ok(response);
         }
         catch (KeyNotFoundException ex)

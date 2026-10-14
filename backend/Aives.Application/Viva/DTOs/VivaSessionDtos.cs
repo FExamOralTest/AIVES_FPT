@@ -55,4 +55,5 @@ public class FinishVivaSessionResponse
     public string Message { get; set; } = string.Empty;
     public DateTime SubmittedAt { get; set; }
     public float? AiScore { get; set; }
+    public string? AiEvaluationStatus { get; set; }
 }
