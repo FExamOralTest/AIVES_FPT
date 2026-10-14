@@ -57,6 +57,7 @@ public class ResultRepository : IResultRepository
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
                 .ThenInclude(a => a.Question)
+                    .ThenInclude(q => q.Rubric)
             .FirstOrDefaultAsync(r => r.SessionId == sessionId && r.StudentId == studentId);
     }
 
@@ -81,10 +82,9 @@ public class ResultRepository : IResultRepository
             if (!string.IsNullOrEmpty(answer.AudioUrl))
                 existing.AudioUrl = answer.AudioUrl;
             existing.IsFollowUp = answer.IsFollowUp;
-            if (answer.AiScore.HasValue)
-                existing.AiScore = answer.AiScore;
-            if (!string.IsNullOrEmpty(answer.AiFeedback))
-                existing.AiFeedback = answer.AiFeedback;
+            existing.AiScore = answer.AiScore;
+            existing.AiFeedback = answer.AiFeedback;
+            existing.AiAnalysis = answer.AiAnalysis;
             existing.AnsweredAt = answer.AnsweredAt ?? DateTime.UtcNow;
             _db.Answers.Update(existing);
         }

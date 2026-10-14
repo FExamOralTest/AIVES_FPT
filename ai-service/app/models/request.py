@@ -162,6 +162,7 @@ class QuestionAnswerPair(BaseModel):
     sample_answer: Optional[str] = Field(default=None, description="Approved sample answer")
     learning_outcome: Optional[str] = Field(default=None, description="Learning outcome for this question")
     topic: Optional[str] = Field(default=None, description="Topic assessed by this question")
+    max_score: Optional[float] = Field(default=None, ge=0, le=100, allow_inf_nan=False)
     rubric: List[AnswerRubricCriterion] = Field(
         default_factory=list,
         max_length=20,

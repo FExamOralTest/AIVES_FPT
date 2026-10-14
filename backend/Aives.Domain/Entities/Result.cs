@@ -19,6 +19,12 @@ public partial class Result
 
     public string? AiFeedback { get; set; }
 
+    public string? AiAnalysis { get; set; }
+
+    public AiEvaluationStatus? AiEvaluationStatus { get; set; }
+
+    public string? AiEvaluationError { get; set; }
+
     public float? FinalScore { get; set; }
 
     public string? FinalFeedback { get; set; }

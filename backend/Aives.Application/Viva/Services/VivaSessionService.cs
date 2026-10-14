@@ -1,11 +1,14 @@
 using Aives.Application.AI.DTOs;
 using Aives.Application.AI.Interfaces;
+using Aives.Application.Interfaces.Repositories;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Viva.DTOs;
 using Aives.Application.Viva.Interfaces;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
+using System.Text.Json;
 
 namespace Aives.Application.Viva.Services;
 
@@ -16,6 +19,7 @@ public class VivaSessionService : IVivaSessionService
     private readonly IQuestionBankRepository _questionRepository;
     private readonly IResultRepository _resultRepository;
     private readonly IAiServiceClient _aiServiceClient;
+    private readonly IMarkdownDocumentRepository _documentRepository;
     private readonly ILogger<VivaSessionService> _logger;
 
     public VivaSessionService(
@@ -24,6 +28,7 @@ public class VivaSessionService : IVivaSessionService
         IQuestionBankRepository questionRepository,
         IResultRepository resultRepository,
         IAiServiceClient aiServiceClient,
+        IMarkdownDocumentRepository documentRepository,
         ILogger<VivaSessionService> logger)
     {
         _sessionRepository = sessionRepository;
@@ -31,6 +36,7 @@ public class VivaSessionService : IVivaSessionService
         _questionRepository = questionRepository;
         _resultRepository = resultRepository;
         _aiServiceClient = aiServiceClient;
+        _documentRepository = documentRepository;
         _logger = logger;
     }
 
@@ -300,7 +306,8 @@ public class VivaSessionService : IVivaSessionService
         };
     }
 
-    public async Task<FinishVivaSessionResponse> FinishSessionAsync(int sessionId, int studentId)
+    public async Task<FinishVivaSessionResponse> FinishSessionAsync(
+        int sessionId, int studentId, CancellationToken cancellationToken = default)
     {
         var session = await _sessionRepository.GetByIdAsync(sessionId)
             ?? throw new KeyNotFoundException($"Ca thi ID {sessionId} không tồn tại.");
@@ -311,72 +318,126 @@ public class VivaSessionService : IVivaSessionService
         var result = await _resultRepository.GetBySessionAndStudentAsync(sessionId, studentId)
             ?? throw new KeyNotFoundException("Không tìm thấy kết quả thi của sinh viên.");
 
+        if (result.Status is SubmissionStatus.REVIEWED or SubmissionStatus.PUBLISHED)
+            throw new InvalidOperationException("Kết quả đã được giảng viên duyệt, không thể chấm AI lại.");
+
+        if (enrollment.Status == SessionStatus.COMPLETED && result.AiEvaluationStatus == AiEvaluationStatus.SUCCEEDED)
+            return MapFinishResponse(result);
+
         enrollment.Status = SessionStatus.COMPLETED;
         enrollment.LastActivityAt = DateTime.UtcNow;
-        await _sessionRepository.SaveChangesAsync();
+        result.Status = SubmissionStatus.PENDING_REVIEW;
+        result.SubmittedAt ??= DateTime.UtcNow;
+        result.AiEvaluationStatus = AiEvaluationStatus.PENDING;
+        result.AiEvaluationError = null;
+        result.AiScore = null;
+        result.AiFeedback = null;
+        result.AiAnalysis = null;
 
-        // Evaluate session via AI
-        var answers = result.Answers.ToList();
-        float overallAiScore = 0f;
-        string overallFeedback = "AI đánh giá sơ bộ hoàn tất.";
+        var answers = result.Answers.OrderBy(a => a.QuestionId).ToList();
+        foreach (var answer in answers)
+        {
+            answer.AiScore = null;
+            answer.AiFeedback = null;
+            answer.AiAnalysis = null;
+        }
+
+        // Persist submission before waiting for AI so an outage cannot lose it.
+        await _resultRepository.UpdateAsync(result);
+        await _resultRepository.SaveChangesAsync();
+        await _sessionRepository.SaveChangesAsync();
 
         if (answers.Count > 0)
         {
+            var documents = await _documentRepository.GetByCourseIdAsync(session.Exam!.CourseId);
             var evalRequest = new EvaluateSessionRequest
             {
-                ExamSessionId = sessionId.ToString(),
-                StudentId = studentId.ToString(),
+                ExamSessionId = sessionId.ToString(CultureInfo.InvariantCulture),
+                StudentId = studentId.ToString(CultureInfo.InvariantCulture),
                 CourseName = session.Exam?.Course?.CourseName ?? "",
+                Documents = documents.Select(d => new DocumentContextDto
+                {
+                    DocumentId = d.DocumentId.ToString(CultureInfo.InvariantCulture),
+                    Title = d.FileName,
+                    Content = d.Content,
+                    DocumentType = d.DocType == DocType.CONTENT ? "course_content" : "learning_outcomes"
+                }).ToList(),
                 QuestionAnswers = answers.Select(a => new QuestionAnswerPairDto
                 {
-                    QuestionId = a.QuestionId.ToString(),
+                    QuestionId = a.QuestionId.ToString(CultureInfo.InvariantCulture),
                     QuestionText = a.Question?.QuestionText ?? "",
                     StudentAnswer = a.StudentAnswer ?? a.Transcript ?? "",
-                    IsFollowUp = a.IsFollowUp ?? false
+                    IsFollowUp = a.IsFollowUp ?? false,
+                    SampleAnswer = a.Question?.SampleAnswer,
+                    LearningOutcome = a.Question?.LearningOutcome,
+                    Topic = a.Question?.Topic,
+                    MaxScore = a.Question?.MaxScore,
+                    Rubric = a.Question?.Rubric.OrderBy(c => c.Position).Select(c => new AnswerRubricCriterionDto
+                    {
+                        CriterionId = c.CriterionId.ToString(CultureInfo.InvariantCulture),
+                        Description = c.Description,
+                        MaxScore = (float)c.MaxScore
+                    }).ToList() ?? new()
                 }).ToList()
             };
 
-            var evalResponse = await _aiServiceClient.EvaluateSessionAsync(evalRequest);
+            var evalResponse = await _aiServiceClient.EvaluateSessionAsync(evalRequest, cancellationToken);
             if (evalResponse.Success)
             {
-                overallAiScore = evalResponse.TotalScore;
-                if (!string.IsNullOrWhiteSpace(evalResponse.OverallFeedback))
+                result.AiScore = evalResponse.TotalScore;
+                result.AiFeedback = evalResponse.OverallFeedback;
+                result.AiAnalysis = JsonSerializer.Serialize(new SessionAnalysisDto
                 {
-                    overallFeedback = evalResponse.OverallFeedback;
-                }
+                    MaxTotalScore = evalResponse.MaxTotalScore,
+                    Percentage = evalResponse.Percentage,
+                    StudySuggestions = evalResponse.StudySuggestions
+                });
+                result.AiEvaluationStatus = AiEvaluationStatus.SUCCEEDED;
 
+                var answersById = answers.ToDictionary(a => a.QuestionId.ToString(CultureInfo.InvariantCulture));
+                var contextsById = evalRequest.QuestionAnswers.ToDictionary(q => q.QuestionId);
                 foreach (var itemEval in evalResponse.QuestionScores)
                 {
-                    if (int.TryParse(itemEval.QuestionId, out var qId))
+                    var answer = answersById[itemEval.QuestionId];
+                    answer.AiScore = itemEval.Score;
+                    answer.AiFeedback = itemEval.Feedback;
+                    answer.AiAnalysis = JsonSerializer.Serialize(new StoredAnswerAnalysisDto
                     {
-                        var matchingAnswer = answers.FirstOrDefault(a => a.QuestionId == qId);
-                        if (matchingAnswer != null)
-                        {
-                            matchingAnswer.AiScore = itemEval.Score;
-                            matchingAnswer.AiFeedback = itemEval.Feedback;
-                            await _resultRepository.AddOrUpdateAnswerAsync(matchingAnswer);
-                        }
-                    }
+                        Context = contextsById[itemEval.QuestionId],
+                        Evaluation = itemEval
+                    });
                 }
             }
+            else
+            {
+                result.AiEvaluationStatus = AiEvaluationStatus.FAILED;
+                result.AiEvaluationError = evalResponse.Message ?? "AI evaluation failed.";
+                _logger.LogWarning("AI evaluation failed for result {ResultId}: {ErrorCode}",
+                    result.ResultId, evalResponse.ErrorCode);
+            }
         }
-
-        result.AiScore = overallAiScore;
-        result.AiFeedback = overallFeedback;
-        result.Status = SubmissionStatus.PENDING_REVIEW;
-        result.SubmittedAt = DateTime.UtcNow;
+        else
+        {
+            result.AiEvaluationStatus = AiEvaluationStatus.FAILED;
+            result.AiEvaluationError = "No answers were submitted for AI evaluation.";
+        }
 
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
 
-        return new FinishVivaSessionResponse
-        {
-            SessionId = sessionId,
-            StudentId = studentId,
-            Status = SubmissionStatus.PENDING_REVIEW.ToString(),
-            Message = "Bài thi đã được nộp thành công và AI đã hoàn thành chấm sơ bộ. Vui lòng đợi giảng viên duyệt và công bố kết quả.",
-            SubmittedAt = result.SubmittedAt.Value,
-            AiScore = overallAiScore
-        };
+        return MapFinishResponse(result);
     }
+
+    private static FinishVivaSessionResponse MapFinishResponse(Result result) => new()
+    {
+        SessionId = result.SessionId,
+        StudentId = result.StudentId,
+        Status = result.Status?.ToString() ?? "",
+        Message = result.AiEvaluationStatus == AiEvaluationStatus.SUCCEEDED
+            ? "Bài thi đã được nộp và AI đã hoàn thành chấm sơ bộ. Vui lòng đợi giảng viên duyệt kết quả."
+            : "Bài thi đã được lưu nhưng AI chưa chấm được. Có thể thử lại hoặc đợi giảng viên chấm và duyệt.",
+        SubmittedAt = result.SubmittedAt!.Value,
+        AiScore = result.AiScore,
+        AiEvaluationStatus = result.AiEvaluationStatus?.ToString()
+    };
 }
