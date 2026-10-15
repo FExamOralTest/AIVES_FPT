@@ -12,11 +12,16 @@ public partial class QuestionBank
     public int? DocumentId { get; set; }
 
     public string QuestionText { get; set; } = null!;
-
-    public float? MaxScore { get; set; }
-
+    public string? Topic { get; set; }
     public string? SampleAnswer { get; set; }
+    public string? LearningOutcome { get; set; }
+    public virtual ICollection<QuestionRubricCriterion> Rubric { get; set; } = new List<QuestionRubricCriterion>();
 
+    
+    public float? MaxScore { get; set; }
+    public int Level { get; set; }
+
+    
     public bool? IsFollowUpAllowed { get; set; }
 
     public DateTime? CreatedAt { get; set; }
@@ -29,3 +34,5 @@ public partial class QuestionBank
 
     public virtual ICollection<ExamQuestion> ExamQuestions { get; set; } = new List<ExamQuestion>();
 }
+
+

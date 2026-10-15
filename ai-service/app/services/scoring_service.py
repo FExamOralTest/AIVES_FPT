@@ -10,6 +10,7 @@ from typing import List
 from loguru import logger
 
 from app.core.ai_client import BaseAIClient, get_ai_client
+from app.models.ai_output import ScoringOutput, parse_ai_output
 from app.models.request import EvaluateAnswerRequest, EvaluateSessionRequest, DocumentContext
 from app.models.response import (
     EvaluateAnswerResponse,
@@ -82,34 +83,26 @@ class ScoringService:
         system_prompt = system_prompt.replace("{student_answer}", qa.student_answer)
         system_prompt = system_prompt.replace("{max_score}", str(request.max_score))
 
-        user_message = (
-            f"Hãy chấm điểm câu trả lời của sinh viên cho câu hỏi này "
-            f"với điểm tối đa là {request.max_score}."
+        user_message = json.dumps(
+            {"task": "evaluate_answer", "max_score": request.max_score},
+            ensure_ascii=False,
         )
 
         raw_response = await self.ai_client.complete(system_prompt, user_message)
 
         try:
-            data = json.loads(raw_response)
-            score = float(data.get("score", 0))
-            # Clamp score to valid range
-            score = max(0.0, min(score, request.max_score))
+            data = parse_ai_output(raw_response, ScoringOutput)
+            if data.max_score != request.max_score:
+                raise ValueError("AI max_score does not match the requested maximum.")
 
             return EvaluateAnswerResponse(
                 success=True,
                 question_id=qa.question_id,
-                score=score,
-                max_score=request.max_score,
-                feedback=data.get("feedback", ""),
-                strengths=data.get("strengths", []),
-                weaknesses=data.get("weaknesses", []),
-                missing_content=data.get("missing_content", []),
+                **data.model_dump(),
             )
-        except (json.JSONDecodeError, KeyError, ValueError) as exc:
-            logger.error(
-                f"[ScoringService] Failed to parse AI response: {raw_response!r}"
-            )
-            raise ValueError(f"AI returned invalid scoring format: {exc}") from exc
+        except ValueError as exc:
+            logger.warning("[ScoringService] Rejected invalid scoring response.")
+            raise ValueError("AI returned an invalid scoring response.") from exc
 
     async def evaluate_session(
         self, request: EvaluateSessionRequest
@@ -131,15 +124,17 @@ class ScoringService:
 
         question_scores: List[QuestionScoreDetail] = []
         total_score = 0.0
-        max_total = len(request.question_answers) * request.max_score_per_question
+        max_total = 0.0
 
         for qa in request.question_answers:
+            max_score = qa.max_score if qa.max_score is not None else request.max_score_per_question
+            max_total += max_score
             single_request = EvaluateAnswerRequest(
                 exam_session_id=request.exam_session_id,
                 course_name=request.course_name,
                 documents=request.documents,
                 question_answer=qa,
-                max_score=request.max_score_per_question,
+                max_score=max_score,
             )
             result = await self.evaluate_answer(single_request)
             total_score += result.score

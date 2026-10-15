@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -18,6 +19,8 @@ using Aives.Application.Auth.Services;
 using Aives.Infrastructure.Auth;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Exams.Services;
+using Aives.Application.Viva.Interfaces;
+using Aives.Application.Viva.Services;
 using Aives.Infrastructure.AI;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,9 +30,9 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// ──────────────────────────────────────────────
+
 // 1. PostgreSQL / EF Core
-// ──────────────────────────────────────────────
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
@@ -43,9 +46,9 @@ var dataSource = dataSourceBuilder.Build();
 builder.Services.AddDbContext<AivesDbContext>(options =>
     options.UseNpgsql(dataSource));
 
-// ──────────────────────────────────────────────
+
 // 2. JWT Authentication
-// ──────────────────────────────────────────────
+
 var jwtKey      = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key configuration is required.");
 var jwtIssuer   = builder.Configuration["Jwt:Issuer"]   ?? "AIVES";
@@ -53,6 +56,17 @@ var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "AIVES.Client";
 
 // Register JWT blacklist as singleton for sharing across requests
 builder.Services.AddSingleton<IJwtBlacklistService, JwtBlacklistService>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -68,13 +82,29 @@ builder.Services
             ValidAudience            = jwtAudience,
             IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var blacklistService = context.HttpContext.RequestServices.GetRequiredService<IJwtBlacklistService>();
+                var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+                var rawToken = authHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
+                    ? authHeader["Bearer ".Length..].Trim()
+                    : null;
+
+                if (!string.IsNullOrEmpty(rawToken) && await blacklistService.IsTokenBlacklistedAsync(rawToken))
+                {
+                    context.Fail("Token has been revoked.");
+                }
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
 
-// ──────────────────────────────────────────────
+
 // 2.1. Rate Limiting for Login
-// ──────────────────────────────────────────────
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -83,52 +113,74 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 5,
+                PermitLimit = 100,
                 Window = TimeSpan.FromMinutes(15),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
             }));
 });
 
-// ──────────────────────────────────────────────
-// 3. Dependency Injection — Auth
-// ──────────────────────────────────────────────
+
+// 3. Dependency Injection â€ Auth
+
 builder.Services.AddScoped<IAuthService,    AuthService>();
 builder.Services.AddScoped<IJwtService,     JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<Aives.Application.Auth.Interfaces.IUserRepository,
                             Aives.Infrastructure.Auth.UserRepository>();
 
-// ──────────────────────────────────────────────
-// 3b. Dependency Injection – Exam & ExamSession
-// ──────────────────────────────────────────────
+
+// 3b. Dependency Injection â€“ Exam & ExamSession
+
 builder.Services.AddScoped<IExamRepository, ExamRepository>();
 builder.Services.AddScoped<IExamSessionRepository, ExamSessionRepository>();
 builder.Services.AddScoped<IQuestionBankRepository, QuestionBankRepository>();
+builder.Services.AddScoped<IQuestionBankService, QuestionBankService>();
+builder.Services.AddScoped<IExamUnitOfWork, ExamUnitOfWork>();
 builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
 
-// ──────────────────────────────────────────────
-// 3c. Dependency Injection – Documents, Results, AI
-// ──────────────────────────────────────────────
+
+// 3c. Dependency Injection â€“ Documents, Results, AI
+
 builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
+builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository, Aives.Infrastructure.Repositories.UserRepository>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IResultRepository, ResultRepository>();
+// Services for 5 modules: AdminCourse, AdminUser, TeacherCourse, Documents (CRUD), Results
+builder.Services.AddScoped<IUserService,             UserService>();
+builder.Services.AddScoped<ICourseService,           CourseService>();
+builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
+builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
-builder.Services.AddScoped<IAIQuestionService, AIQuestionService>();
+builder.Services.AddScoped<IVivaSessionService, VivaSessionService>();
 
 // HttpClient cho AI Service (FastAPI)
 builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
+    var timeoutSeconds = builder.Configuration.GetValue<double>("AI:QuestionGenerationTimeoutSeconds", 300);
+    if (!double.IsFinite(timeoutSeconds) || timeoutSeconds <= 0 || timeoutSeconds > 3600)
+        throw new InvalidOperationException("AI:QuestionGenerationTimeoutSeconds must be between 0 and 3600.");
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+});
+builder.Services.AddHttpClient<Aives.Application.AI.Interfaces.IAiServiceClient, AiServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
     client.Timeout = TimeSpan.FromMinutes(5);
 });
+builder.Services.AddScoped<Aives.Infrastructure.AI.IAiServiceClient>(sp =>
+    (AiServiceClient)sp.GetRequiredService<Aives.Application.AI.Interfaces.IAiServiceClient>());
 
-// ──────────────────────────────────────────────
+
 // 4. Controllers + Swagger with JWT
-// ──────────────────────────────────────────────
-builder.Services.AddControllers();
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -157,9 +209,9 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// ──────────────────────────────────────────────
+
 // 6. Auto-seed default admin on startup
-// ──────────────────────────────────────────────
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
@@ -168,16 +220,21 @@ using (var scope = app.Services.CreateScope())
     await DatabaseSeeder.SeedAdminAsync(db, configuration, logger);
 }
 
-// ──────────────────────────────────────────────
+
 // 7. Middleware pipeline
-// ──────────────────────────────────────────────
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    app.UseHttpsRedirection();
+}
 
-app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseCors("CorsPolicy");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -199,3 +256,4 @@ app.MapGet("/api/health/db", async (AivesDbContext db) =>
 });
 
 app.Run();
+

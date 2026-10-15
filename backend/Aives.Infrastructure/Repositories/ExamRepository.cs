@@ -58,7 +58,8 @@ public class ExamRepository : IExamRepository
         return await _db.Exams
             .Include(e => e.Course)
             .Include(e => e.ExamQuestions)
-            .Where(e => e.CreatedBy == teacherId)
+                .ThenInclude(eq => eq.Question)
+            .Where(e => e.CreatedBy == teacherId && e.Course.TeacherId == teacherId)
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync();
     }
@@ -67,6 +68,15 @@ public class ExamRepository : IExamRepository
     public async Task AddQuestionsAsync(IEnumerable<ExamQuestion> questions)
     {
         await _db.ExamQuestions.AddRangeAsync(questions);
+    }
+
+    /// <inheritdoc/>
+    public async Task ReplaceQuestionsAsync(int examId, IEnumerable<ExamQuestion> questions)
+    {
+        var existing = await _db.ExamQuestions.Where(eq => eq.ExamId == examId).ToListAsync();
+        _db.ExamQuestions.RemoveRange(existing);
+        await _db.ExamQuestions.AddRangeAsync(questions);
+        await _db.SaveChangesAsync();
     }
 
     /// <inheritdoc/>

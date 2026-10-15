@@ -32,8 +32,12 @@ class Settings(BaseSettings):
 
     # --- AI Provider ---
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
+    question_generation_timeout_seconds: float = Field(
+        default=240, gt=0, le=3600, alias="QUESTION_GENERATION_TIMEOUT_SECONDS"
+    )
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-3.1-flash-lite", alias="GEMINI_MODEL")
+    gemini_stt_model: str = Field(default="", alias="GEMINI_STT_MODEL")
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
 

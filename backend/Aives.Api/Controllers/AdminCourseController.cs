@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Aives.Application.DTOs;
 using Aives.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -55,7 +56,19 @@ public class AdminCourseController : ControllerBase
     {
         try
         {
-            var created = await _courseService.CreateAsync(request);
+            var adminId = 0;
+            var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (int.TryParse(currentUserIdStr, out var parsedId))
+            {
+                adminId = parsedId;
+            }
+
+            var effectiveCreatedBy = request.CreatedBy.HasValue && request.CreatedBy.Value > 0
+                ? request.CreatedBy.Value
+                : adminId;
+
+            var fullRequest = request with { CreatedBy = effectiveCreatedBy };
+            var created = await _courseService.CreateAsync(fullRequest);
             return CreatedAtAction(nameof(GetById), new { id = created.CourseId }, created);
         }
         catch (KeyNotFoundException ex)

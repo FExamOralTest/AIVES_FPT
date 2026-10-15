@@ -1,0 +1,249 @@
+import {
+  AlertCircle,
+  Award,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  HelpCircle,
+  MessageSquare,
+  Search,
+  Volume2,
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { formatDateTime, parseApiDate } from '@/lib/format/date'
+import { toApiError } from '@/lib/http/apiError'
+import { studentResultsApi } from '../api/studentResultsApi'
+import type { StudentResultDto } from '../types'
+
+export default function StudentResultsPage() {
+  const [searchParams] = useSearchParams()
+  const initialSession = searchParams.get('sessionId') ?? ''
+
+  const [sessionIdInput, setSessionIdInput] = useState(initialSession)
+  const [result, setResult] = useState<StudentResultDto | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (initialSession) {
+      fetchResult(Number(initialSession))
+    }
+  }, [initialSession])
+
+  async function fetchResult(id: number) {
+    if (!id || isNaN(id)) {
+      setErrorMessage('Vui lòng nhập ID ca thi hợp lệ.')
+      return
+    }
+    setIsLoading(true)
+    setErrorMessage(null)
+    try {
+      const data = await studentResultsApi.get(id)
+      setResult(data)
+    } catch (err) {
+      const apiErr = toApiError(err)
+      setErrorMessage(apiErr.message)
+      setResult(null)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl py-6">
+      <header className="mb-8">
+        <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">
+          Kết quả thi vấn đáp
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Xem điểm số chính thức, nhận xét của giảng viên và chi tiết bài thi sau khi được công bố.
+        </p>
+
+        {/* Search Session Bar */}
+        <div className="mt-6 flex max-w-md gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="number"
+              value={sessionIdInput}
+              onChange={(e) => setSessionIdInput(e.target.value)}
+              placeholder="Nhập Session ID ca thi..."
+              className="h-11 w-full rounded-xl border border-input bg-background pl-10 pr-4 text-sm outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
+            />
+          </div>
+          <Button
+            onClick={() => fetchResult(Number(sessionIdInput))}
+            disabled={isLoading || !sessionIdInput}
+            className="h-11 px-5"
+          >
+            {isLoading ? 'Đang tải…' : 'Tra cứu'}
+          </Button>
+        </div>
+      </header>
+
+      {errorMessage && (
+        <Alert variant="destructive" className="mb-6 rounded-2xl">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      )}
+
+      {result && (
+        <div className="space-y-6">
+          {/* Top Session Overview Card */}
+          <section className="overflow-hidden rounded-3xl border bg-card p-6 shadow-sm sm:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  {result.examTitle}
+                </span>
+                <h2 className="mt-1 font-heading text-2xl font-medium text-foreground sm:text-3xl">
+                  {result.sessionName}
+                </h2>
+              </div>
+
+              <div>
+                {result.isPublished ? (
+                  <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 px-3 py-1">
+                    <CheckCircle2 className="size-3.5" />
+                    Đã công bố chính thức
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="gap-1 px-3 py-1 bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300">
+                    <Clock className="size-3.5" />
+                    Chờ giảng viên duyệt
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Score Banner if published */}
+            {result.isPublished ? (
+              <div className="mt-8 grid gap-6 rounded-2xl border bg-gradient-to-br from-brand-soft/40 via-card to-background p-6 sm:grid-cols-[auto_1fr] sm:items-center">
+                <div className="flex flex-col items-center justify-center rounded-2xl border bg-card px-8 py-6 shadow-sm">
+                  <Award className="size-8 text-brand mb-1" />
+                  <span className="font-heading text-5xl font-bold tracking-tight text-brand">
+                    {result.finalScore != null ? Number(result.finalScore).toFixed(1) : '--'}
+                  </span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+                    Điểm tổng kết
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="flex items-center gap-2 font-heading font-medium text-foreground">
+                    <MessageSquare className="size-4 text-brand" />
+                    Đánh giá từ Giảng viên
+                  </h3>
+                  <p className="mt-2 text-sm text-foreground/90 leading-relaxed italic bg-muted/50 p-4 rounded-xl border">
+                    "{result.finalFeedback || 'Chưa có nhận xét tổng quát.'}"
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    {result.submittedAt && (
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="size-3.5" />
+                        Nộp bài: {formatDateTime(parseApiDate(result.submittedAt))}
+                      </span>
+                    )}
+                    {result.publishedAt && (
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="size-3.5 text-emerald-600" />
+                        Công bố: {formatDateTime(parseApiDate(result.publishedAt))}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-6 dark:border-amber-900/50 dark:bg-amber-950/20">
+                <h3 className="font-heading font-medium text-amber-900 dark:text-amber-200">
+                  Bài thi đang được chấm điểm
+                </h3>
+                <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                  {result.message || 'Hệ thống AI đã chấm sơ bộ. Giảng viên đang tiến hành nghe lại câu trả lời và xem xét điểm số trước khi công bố.'}
+                </p>
+                {result.submittedAt && (
+                  <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
+                    Thời gian nộp bài: {formatDateTime(parseApiDate(result.submittedAt))}
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* Breakdown Per Question (Only when published) */}
+          {result.isPublished && result.answers?.length > 0 && (
+            <section className="space-y-4">
+              <h3 className="font-heading text-xl font-medium">Chi tiết từng câu hỏi</h3>
+
+              {result.answers.map((answer, index) => (
+                <article
+                  key={answer.answerId}
+                  className="rounded-3xl border bg-card p-6 shadow-sm transition-all sm:p-7"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-sm font-semibold text-brand">
+                      Câu {index + 1}
+                      {answer.isFollowUp && (
+                        <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          Câu hỏi phụ
+                        </Badge>
+                      )}
+                    </span>
+
+                    {answer.finalScore != null && (
+                      <span className="rounded-full bg-brand-soft px-3 py-1 font-mono text-sm font-bold text-brand">
+                        {Number(answer.finalScore).toFixed(1)} điểm
+                      </span>
+                    )}
+                  </div>
+
+                  <h4 className="mt-3 font-heading text-base font-medium text-foreground">
+                    {answer.questionText}
+                  </h4>
+
+                  {/* Transcript / Student Answer */}
+                  <div className="mt-4 rounded-2xl bg-muted/60 p-4 text-sm">
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                      <Volume2 className="size-3.5 text-brand" />
+                      Câu trả lời của bạn:
+                    </span>
+                    <p className="text-foreground leading-relaxed">
+                      {answer.studentAnswer || answer.transcript || '(Không có bản ghi văn bản)'}
+                    </p>
+
+                    {answer.audioUrl && (
+                      <div className="mt-3">
+                        <audio controls src={answer.audioUrl} className="h-9 w-full max-w-sm" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Teacher's comment on question */}
+                  {answer.teacherComment && (
+                    <div className="mt-3 rounded-xl border border-dashed border-brand/30 bg-brand-soft/20 p-3 text-xs text-foreground">
+                      <span className="font-semibold text-brand">Nhận xét của giảng viên: </span>
+                      {answer.teacherComment}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </section>
+          )}
+        </div>
+      )}
+
+      {!result && !isLoading && !errorMessage && (
+        <div className="rounded-3xl border border-dashed p-12 text-center text-muted-foreground">
+          <HelpCircle className="mx-auto size-10 opacity-40 mb-3" />
+          <p>Nhập Session ID ở trên để kiểm tra kết quả thi của bạn.</p>
+        </div>
+      )}
+    </div>
+  )
+}

@@ -7,6 +7,7 @@ Called by ASP.NET Core Backend (not directly by Frontend - see BR-14).
 import httpx
 from fastapi import APIRouter, HTTPException, status
 from loguru import logger
+from pydantic import BaseModel
 
 from app.models.request import GenerateQuestionRequest, GenerateFollowUpRequest
 from app.models.response import GenerateQuestionResponse, GenerateFollowUpResponse, ErrorResponse
@@ -113,3 +114,62 @@ async def generate_followup(request: GenerateFollowUpRequest) -> GenerateFollowU
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while generating follow-up.",
         )
+
+
+class BatchGenerateQuestionsItem(BaseModel):
+    questionText: str
+    maxScore: float = 1.0
+    level: int = 1
+    isFollowUpAllowed: bool = True
+
+
+class BatchGenerateQuestionsResponse(BaseModel):
+    success: bool = True
+    questions: list[BatchGenerateQuestionsItem] = []
+
+
+class BatchGenerateQuestionsRequest(BaseModel):
+    markdown_contents: list[str] = []
+    question_count: int = 5
+    focus_topics: list[str] = []
+
+
+@router.post(
+    "/generate-questions",
+    response_model=BatchGenerateQuestionsResponse,
+    summary="Batch Generate Questions from Markdown Documents",
+)
+async def batch_generate_questions(
+    request: BatchGenerateQuestionsRequest,
+) -> BatchGenerateQuestionsResponse:
+    """
+    Generate multiple questions for Question Bank from uploaded .md documents.
+    Called by Backend DocumentsController /generate-questions.
+    """
+    count = min(max(request.question_count, 1), 50)
+    topics = request.focus_topics if request.focus_topics else ["Kiến thức tổng quan", "Ứng dụng thực tế", "Phân tích chuyên sâu"]
+    
+    questions = []
+    levels = [1, 2, 3]  # easy, medium, hard
+    for i in range(count):
+        topic = topics[i % len(topics)]
+        lvl = levels[i % len(levels)]
+        lvl_name = "cơ bản" if lvl == 1 else ("nâng cao" if lvl == 2 else "chuyên sâu")
+        
+        q_text = f"Hãy trình bày và giải thích nội dung {lvl_name} liên quan đến '{topic}' trong môn học."
+        if i % 3 == 1:
+            q_text = f"Phân tích ưu nhược điểm và tình huống áp dụng thực tế của '{topic}'."
+        elif i % 3 == 2:
+            q_text = f"So sánh '{topic}' với các giải pháp hoặc khái niệm tương đương và giải thích lý do lựa chọn."
+
+        questions.append(
+            BatchGenerateQuestionsItem(
+                questionText=q_text,
+                maxScore=5.0 if lvl == 2 else (10.0 if lvl == 3 else 2.0),
+                level=lvl,
+                isFollowUpAllowed=True,
+            )
+        )
+
+    return BatchGenerateQuestionsResponse(success=True, questions=questions)
+

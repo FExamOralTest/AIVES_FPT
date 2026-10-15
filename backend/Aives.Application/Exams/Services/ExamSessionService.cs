@@ -157,6 +157,12 @@ public class ExamSessionService : IExamSessionService
         };
     }
 
+    public Task<IEnumerable<StudentSessionEnrollmentDto>> GetStudentEnrollmentsAsync(
+        int studentId, CancellationToken cancellationToken = default)
+    {
+        return _sessionRepository.GetStudentEnrollmentsAsync(studentId, cancellationToken);
+    }
+
     // === P0: Teacher gets enrollments ===
     public async Task<IEnumerable<SessionEnrollmentDto>> GetSessionEnrollmentsAsync(int sessionId, int teacherId)
     {
@@ -204,19 +210,24 @@ public class ExamSessionService : IExamSessionService
             Status = session.Status?.ToString() ?? "",
             MaxCapacity = session.MaxCapacity,
             CurrentEnrollment = session.CurrentEnrollment,
-            Students = session.SessionEnrollments.Select(e => new StudentProgressDto
+            Students = session.SessionEnrollments.Select(e =>
             {
-                SessionEnrollmentId = e.SessionEnrollmentId,
-                StudentId = e.StudentId,
-                StudentName = e.Student?.FullName ?? "",
-                StudentEmail = e.Student?.Email ?? "",
-                EnrollmentStatus = e.Status?.ToString() ?? "",
-                EnrolledAt = e.EnrolledAt,
-                StartedAt = e.StartedAt,
-                LastActivityAt = e.LastActivityAt,
-                CurrentQuestionIndex = e.CurrentQuestionIndex ?? 0,
-                TotalQuestions = session.Exam?.MaxQuestions ?? 0,
-                AnsweredQuestions = 0 // TODO: calculate from answers
+                var studentResult = session.Results.FirstOrDefault(r => r.StudentId == e.StudentId);
+                var answeredCount = studentResult?.Answers?.Count ?? 0;
+                return new StudentProgressDto
+                {
+                    SessionEnrollmentId = e.SessionEnrollmentId,
+                    StudentId = e.StudentId,
+                    StudentName = e.Student?.FullName ?? "",
+                    StudentEmail = e.Student?.Email ?? "",
+                    EnrollmentStatus = e.Status?.ToString() ?? "",
+                    EnrolledAt = e.EnrolledAt,
+                    StartedAt = e.StartedAt,
+                    LastActivityAt = e.LastActivityAt,
+                    CurrentQuestionIndex = e.CurrentQuestionIndex ?? 0,
+                    TotalQuestions = session.Exam?.MaxQuestions ?? 0,
+                    AnsweredQuestions = answeredCount
+                };
             }).ToList()
         };
     }

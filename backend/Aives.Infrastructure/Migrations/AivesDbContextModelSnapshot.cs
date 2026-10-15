@@ -37,6 +37,10 @@ namespace Aives.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("AnswerId"));
 
+                    b.Property<string>("AiAnalysis")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("ai_analysis");
+
                     b.Property<string>("AiFeedback")
                         .HasColumnType("text")
                         .HasColumnName("ai_feedback");
@@ -418,6 +422,15 @@ namespace Aives.Infrastructure.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_follow_up_allowed");
 
+                    b.Property<string>("LearningOutcome")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("learning_outcome");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer")
+                        .HasColumnName("level");
+
                     b.Property<float?>("MaxScore")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("real")
@@ -433,6 +446,10 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("sample_answer");
 
+                    b.Property<string>("Topic")
+                        .HasColumnType("text")
+                        .HasColumnName("topic");
+
                     b.HasKey("QuestionId")
                         .HasName("question_bank_pkey");
 
@@ -443,6 +460,47 @@ namespace Aives.Infrastructure.Migrations
                     b.ToTable("question_bank", (string)null);
                 });
 
+            modelBuilder.Entity("Aives.Domain.Entities.QuestionRubricCriterion", b =>
+                {
+                    b.Property<int>("CriterionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("criterion_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("CriterionId"));
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<decimal>("MaxScore")
+                        .HasPrecision(8, 4)
+                        .HasColumnType("numeric(8,4)")
+                        .HasColumnName("max_score");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<int>("QuestionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("question_id");
+
+                    b.HasKey("CriterionId")
+                        .HasName("question_rubric_criteria_pkey");
+
+                    b.HasIndex(new[] { "QuestionId" }, "idx_question_rubric_question");
+
+                    b.ToTable("question_rubric_criteria", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_question_rubric_position", "position >= 0 AND position < 20");
+
+                            t.HasCheckConstraint("ck_question_rubric_score", "max_score > 0 AND max_score <= 100");
+                        });
+                });
+
             modelBuilder.Entity("Aives.Domain.Entities.Result", b =>
                 {
                     b.Property<int>("ResultId")
@@ -451,6 +509,19 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnName("result_id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ResultId"));
+
+                    b.Property<string>("AiAnalysis")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("ai_analysis");
+
+                    b.Property<string>("AiEvaluationError")
+                        .HasColumnType("text")
+                        .HasColumnName("ai_evaluation_error");
+
+                    b.Property<string>("AiEvaluationStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("ai_evaluation_status");
 
                     b.Property<string>("AiFeedback")
                         .HasColumnType("text")
@@ -784,6 +855,18 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("Document");
                 });
 
+            modelBuilder.Entity("Aives.Domain.Entities.QuestionRubricCriterion", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.QuestionBank", "Question")
+                        .WithMany("Rubric")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("question_rubric_question_id_fkey");
+
+                    b.Navigation("Question");
+                });
+
             modelBuilder.Entity("Aives.Domain.Entities.Result", b =>
                 {
                     b.HasOne("Aives.Domain.Entities.User", "ReviewedByNavigation")
@@ -869,6 +952,8 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("Answers");
 
                     b.Navigation("ExamQuestions");
+
+                    b.Navigation("Rubric");
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.Result", b =>

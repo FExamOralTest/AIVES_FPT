@@ -1,3 +1,4 @@
+using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
@@ -42,6 +43,8 @@ public class ExamSessionRepository : IExamSessionRepository
             .Include(s => s.Exam)
             .Include(s => s.SessionEnrollments)
                 .ThenInclude(se => se.Student)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Answers)
             .FirstOrDefaultAsync(s => s.SessionId == sessionId);
     }
 
@@ -61,6 +64,33 @@ public class ExamSessionRepository : IExamSessionRepository
             .Where(s => s.ScheduledBy == teacherId)
             .OrderByDescending(s => s.StartTime)
             .ToListAsync();
+    }
+
+    public async Task<IEnumerable<StudentSessionEnrollmentDto>> GetStudentEnrollmentsAsync(
+        int studentId, CancellationToken cancellationToken = default)
+    {
+        return await _db.SessionEnrollments
+            .AsNoTracking()
+            .Where(e => e.StudentId == studentId)
+            .OrderByDescending(e => e.Session.StartTime)
+            .ThenByDescending(e => e.SessionEnrollmentId)
+            .Select(e => new StudentSessionEnrollmentDto
+            {
+                SessionEnrollmentId = e.SessionEnrollmentId,
+                SessionId = e.SessionId,
+                SessionName = e.Session.SessionName,
+                ExamTitle = e.Session.Exam.Title,
+                CourseName = e.Session.Exam.Course.CourseName,
+                Room = e.Session.Room,
+                StartTime = e.Session.StartTime,
+                EndTime = e.Session.EndTime,
+                EnrolledAt = e.EnrolledAt,
+                SessionStatus = e.Session.Status ?? SessionStatus.NOT_STARTED,
+                EnrollmentStatus = e.Status ?? SessionStatus.NOT_STARTED,
+                IsPublished = e.Session.Results.Any(r =>
+                    r.StudentId == studentId && r.Status == SubmissionStatus.PUBLISHED)
+            })
+            .ToListAsync(cancellationToken);
     }
 
     public async Task UpdateStatusAsync(int sessionId, SessionStatus status)

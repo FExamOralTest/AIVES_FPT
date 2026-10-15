@@ -55,12 +55,39 @@ class MockAIClient(BaseAIClient):
     async def complete(self, system_prompt: str, user_message: str) -> str:
         logger.debug("[MockAIClient] Returning mock response.")
 
-        # Structured task routing keeps generated metadata tied to the documents.
         try:
             payload = json.loads(user_message)
-        except json.JSONDecodeError:
-            payload = None
-        if isinstance(payload, dict) and payload.get("task") == "generate_viva_question":
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError("Mock AI requests must be JSON objects with a task.") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("Mock AI requests must be JSON objects with a task.")
+
+        task = payload.get("task")
+        if task == "generate_question_bank":
+            content = next(d["content"] for d in payload["documents"] if d["document_type"] == "CONTENT")
+            outcome_content = next(d["content"] for d in payload["documents"] if d["document_type"] == "LEARNING_OUTCOMES")
+            outcomes = [line.strip().lstrip("-*+ ") for line in outcome_content.splitlines()
+                        if line.strip() and not line.strip().startswith("#")]
+            outcomes = outcomes or [outcome_content.strip()]
+            topics = payload["focus_topics"] or ["Course content"]
+            offset = len(payload["already_generated_questions"])
+            return json.dumps({"questions": [
+                {
+                    "question_text": f"Question {offset + i + 1}: Explain {topics[i % len(topics)]} using the course material.",
+                    "topic": topics[i % len(topics)],
+                    "sample_answer": content.strip(),
+                    "learning_outcome": outcomes[(offset + i) % len(outcomes)],
+                    "rubric": [{
+                        "description": f"Explain {topics[i % len(topics)]} accurately using this course evidence: {content.strip()[:1500]}",
+                        "max_score": payload["max_score"],
+                    }],
+                    "max_score": payload["max_score"],
+                    "level": (offset + i) % 3 + 1,
+                    "is_follow_up_allowed": True,
+                }
+                for i in range(payload["question_count"])
+            ]}, ensure_ascii=False)
+        if task == "generate_viva_question":
             context = payload["context"]
             topic = context["available_topics"][0]
             question_type = context["question_type"]
@@ -83,34 +110,27 @@ class MockAIClient(BaseAIClient):
                 ensure_ascii=False,
             )
 
-        # Detect intent from system_prompt keywords to return relevant mocks
-        sp_lower = system_prompt.lower()
-
-        if "câu hỏi" in sp_lower or "question" in sp_lower or "hỏi" in sp_lower:
+        if task == "generate_follow_up":
             return json.dumps(
                 {
-                    "question": "Bạn có thể giải thích khái niệm đã học trong môn này và cho ví dụ thực tế không?",
-                    "question_type": "conceptual",
-                    "difficulty": "medium",
-                    "expected_keywords": ["khái niệm", "ví dụ", "ứng dụng"],
-                },
-                ensure_ascii=False,
-            )
-
-        if "follow" in sp_lower or "đào sâu" in sp_lower or "phụ" in sp_lower:
-            return json.dumps(
-                {
+                    "should_follow_up": True,
                     "follow_up_question": "Bạn có thể giải thích chi tiết hơn về ví dụ vừa đề cập không?",
-                    "reason": "Student cần làm rõ thêm về ví dụ thực tế.",
+                    "reason": "Cần làm rõ thêm về ví dụ thực tế.",
                 },
                 ensure_ascii=False,
             )
 
-        if "chấm điểm" in sp_lower or "scoring" in sp_lower or "đánh giá" in sp_lower or "evaluat" in sp_lower:
+        if task == "analyze_answer":
+            from app.services.answer_evidence import build_mock_analysis
+
+            return json.dumps(build_mock_analysis(payload), ensure_ascii=False)
+
+        if task == "evaluate_answer":
+            max_score = payload["max_score"]
             return json.dumps(
                 {
-                    "score": 7.5,
-                    "max_score": 10.0,
+                    "score": round(max_score * 0.75, 2),
+                    "max_score": max_score,
                     "feedback": "Câu trả lời đã nêu đúng khái niệm cơ bản, tuy nhiên cần bổ sung thêm ví dụ thực tế.",
                     "strengths": ["Nắm đúng khái niệm", "Trình bày rõ ràng"],
                     "weaknesses": ["Thiếu ví dụ minh hoạ", "Chưa liên hệ thực tế"],
@@ -119,11 +139,7 @@ class MockAIClient(BaseAIClient):
                 ensure_ascii=False,
             )
 
-        # Default fallback
-        return json.dumps(
-            {"response": "Mock AI response. Hãy cấu hình AI_PROVIDER thực tế."},
-            ensure_ascii=False,
-        )
+        raise ValueError("Unsupported mock AI task.")
 
 
 # ─────────────────────────────────────────────
