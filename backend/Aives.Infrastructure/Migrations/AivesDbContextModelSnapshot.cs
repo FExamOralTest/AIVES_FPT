@@ -37,6 +37,10 @@ namespace Aives.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("AnswerId"));
 
+                    b.Property<string>("AiAnalysis")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("ai_analysis");
+
                     b.Property<string>("AiFeedback")
                         .HasColumnType("text")
                         .HasColumnName("ai_feedback");
@@ -505,6 +509,19 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnName("result_id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ResultId"));
+
+                    b.Property<string>("AiAnalysis")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("ai_analysis");
+
+                    b.Property<string>("AiEvaluationError")
+                        .HasColumnType("text")
+                        .HasColumnName("ai_evaluation_error");
+
+                    b.Property<string>("AiEvaluationStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("ai_evaluation_status");
 
                     b.Property<string>("AiFeedback")
                         .HasColumnType("text")

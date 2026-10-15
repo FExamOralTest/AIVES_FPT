@@ -1,4 +1,6 @@
 using Aives.Application.Exams.DTOs;
+using Aives.Application.AI.DTOs;
+using System.Text.Json;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
@@ -110,6 +112,9 @@ public class ResultService : IResultService
 
         // BR-10: Teacher approve và publish Final Result
         // BR-11: Final Result được giao cho Student
+        if (!result.FinalScore.HasValue && !result.AiScore.HasValue)
+            throw new InvalidOperationException("A teacher score is required when AI evaluation is unavailable.");
+
         result.Status = SubmissionStatus.PUBLISHED;
         result.PublishedAt = DateTime.UtcNow;
 
@@ -204,6 +209,9 @@ public class ResultService : IResultService
         ExamTitle     = result.Session?.Exam?.Title ?? "",
         AiScore       = result.AiScore,
         AiFeedback    = result.AiFeedback,
+        AiAnalysis    = result.AiAnalysis == null ? null : JsonSerializer.Deserialize<SessionAnalysisDto>(result.AiAnalysis),
+        AiEvaluationStatus = result.AiEvaluationStatus?.ToString(),
+        AiEvaluationError = result.AiEvaluationError,
         FinalScore    = result.FinalScore,
         FinalFeedback = result.FinalFeedback,
         Status        = result.Status?.ToString() ?? "",
@@ -219,6 +227,7 @@ public class ResultService : IResultService
             AudioUrl       = a.AudioUrl,
             AiScore        = a.AiScore,
             AiFeedback     = a.AiFeedback,
+            AiAnalysis     = a.AiAnalysis == null ? null : JsonSerializer.Deserialize<StoredAnswerAnalysisDto>(a.AiAnalysis),
             FinalScore     = a.FinalScore,
             TeacherComment = a.TeacherComment,
             IsFollowUp     = a.IsFollowUp ?? false

@@ -117,6 +117,33 @@ public class QuestionAnswerPairDto
 
     [JsonPropertyName("is_follow_up")]
     public bool IsFollowUp { get; set; }
+
+    [JsonPropertyName("sample_answer")]
+    public string? SampleAnswer { get; set; }
+
+    [JsonPropertyName("learning_outcome")]
+    public string? LearningOutcome { get; set; }
+
+    [JsonPropertyName("topic")]
+    public string? Topic { get; set; }
+
+    [JsonPropertyName("max_score")]
+    public float? MaxScore { get; set; }
+
+    [JsonPropertyName("rubric")]
+    public List<AnswerRubricCriterionDto> Rubric { get; set; } = new();
+}
+
+public class AnswerRubricCriterionDto
+{
+    [JsonPropertyName("criterion_id")]
+    public string CriterionId { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("max_score")]
+    public float MaxScore { get; set; }
 }
 
 public class EvaluateSessionRequest
@@ -142,60 +169,150 @@ public class EvaluateSessionRequest
 
 public class QuestionScoreDetailDto
 {
+    [JsonRequired]
     [JsonPropertyName("question_id")]
     public string QuestionId { get; set; } = string.Empty;
 
+    [JsonRequired]
     [JsonPropertyName("question_text")]
     public string QuestionText { get; set; } = string.Empty;
 
+    [JsonRequired]
     [JsonPropertyName("student_answer")]
     public string StudentAnswer { get; set; } = string.Empty;
 
+    [JsonRequired]
     [JsonPropertyName("score")]
     public float Score { get; set; }
 
+    [JsonRequired]
     [JsonPropertyName("max_score")]
     public float MaxScore { get; set; }
 
+    [JsonRequired]
     [JsonPropertyName("feedback")]
     public string Feedback { get; set; } = string.Empty;
 
+    [JsonRequired]
     [JsonPropertyName("strengths")]
     public List<string> Strengths { get; set; } = new();
 
+    [JsonRequired]
     [JsonPropertyName("weaknesses")]
     public List<string> Weaknesses { get; set; } = new();
 
+    [JsonRequired]
     [JsonPropertyName("missing_content")]
     public List<string> MissingContent { get; set; } = new();
+
+    [JsonRequired]
+    [JsonPropertyName("sentence_feedback")]
+    public List<SentenceFeedbackDto> SentenceFeedback { get; set; } = new();
+
+    [JsonRequired]
+    [JsonPropertyName("criterion_analyses")]
+    public List<CriterionAnalysisDto> CriterionAnalyses { get; set; } = new();
+
+    [JsonRequired]
+    [JsonPropertyName("improvements")]
+    public List<string> Improvements { get; set; } = new();
+}
+
+public class SentenceFeedbackDto
+{
+    [JsonRequired]
+    [JsonPropertyName("sentence")]
+    public string Sentence { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("judgment")]
+    public string Judgment { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("comment")]
+    public string Comment { get; set; } = string.Empty;
+}
+
+public class CriterionAnalysisDto
+{
+    [JsonRequired]
+    [JsonPropertyName("criterion_id")]
+    public string CriterionId { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("judgment")]
+    public string Judgment { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("explanation")]
+    public string Explanation { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("errors")]
+    public List<string> Errors { get; set; } = new();
+
+    [JsonRequired]
+    [JsonPropertyName("omissions")]
+    public List<string> Omissions { get; set; } = new();
+
+    [JsonRequired]
+    [JsonPropertyName("evidence_quotes")]
+    public List<string> EvidenceQuotes { get; set; } = new();
+}
+
+public class StoredAnswerAnalysisDto
+{
+    public QuestionAnswerPairDto Context { get; set; } = new();
+    public QuestionScoreDetailDto Evaluation { get; set; } = new();
+}
+
+public class SessionAnalysisDto
+{
+    public float MaxTotalScore { get; set; }
+    public float Percentage { get; set; }
+    public List<string> StudySuggestions { get; set; } = new();
 }
 
 public class EvaluateSessionResponse
 {
+    [JsonRequired]
     [JsonPropertyName("success")]
-    public bool Success { get; set; } = true;
+    public bool Success { get; set; }
 
     [JsonPropertyName("message")]
     public string? Message { get; set; }
 
+    [JsonRequired]
     [JsonPropertyName("exam_session_id")]
     public string ExamSessionId { get; set; } = string.Empty;
 
+    [JsonRequired]
     [JsonPropertyName("total_score")]
     public float TotalScore { get; set; }
 
+    [JsonRequired]
     [JsonPropertyName("max_total_score")]
     public float MaxTotalScore { get; set; }
 
+    [JsonRequired]
     [JsonPropertyName("percentage")]
     public float Percentage { get; set; }
 
+    [JsonRequired]
     [JsonPropertyName("overall_feedback")]
     public string OverallFeedback { get; set; } = string.Empty;
 
+    [JsonRequired]
     [JsonPropertyName("question_scores")]
     public List<QuestionScoreDetailDto> QuestionScores { get; set; } = new();
 
     [JsonPropertyName("status")]
     public string Status { get; set; } = "PendingReview";
+
+    [JsonRequired]
+    [JsonPropertyName("study_suggestions")]
+    public List<string> StudySuggestions { get; set; } = new();
+
+    [JsonIgnore]
+    public string? ErrorCode { get; set; }
 }

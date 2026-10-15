@@ -1,4 +1,4 @@
-import { CalendarClock, CircleAlert, CircleCheck, Info, KeyRound, Mic } from 'lucide-react'
+import { CalendarClock, CircleAlert, CircleCheck, Info, KeyRound } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -87,7 +87,9 @@ function EnrollForm({ onEnrolled }: { onEnrolled: (session: EnrollSessionRespons
             {notice.tone === 'error' ? <CircleAlert /> : <Info className="text-brand" />}
             <AlertDescription className={notice.tone === 'info' ? 'text-foreground' : undefined}>
               {notice.text}
-              {notice.tone === 'info' && ' Bạn chỉ cần vào phòng thi khi ca thi bắt đầu.'}
+              {notice.tone === 'info' && (
+                <Link to="/student/sessions" className="ml-1 font-medium underline underline-offset-4">Xem trong Ca thi của tôi.</Link>
+              )}
             </AlertDescription>
           </Alert>
         )}
@@ -181,9 +183,13 @@ function EnrolledCard({
       <h2 id="enrolled-heading" ref={headingRef} tabIndex={-1} className="mt-3 font-heading text-2xl font-medium outline-none">
         {session.examTitle || 'Ca thi vấn đáp'}
       </h2>
-      <p className="mt-1 text-muted-foreground">{session.sessionName}</p>
+      <p className="mt-1 text-muted-foreground">Tên ca thi: {session.sessionName}</p>
 
       <dl className="mt-6 divide-y rounded-2xl bg-muted px-5">
+        <div className="flex flex-col gap-1 py-3.5 sm:flex-row sm:gap-4">
+          <dt className="w-28 shrink-0 text-muted-foreground">ID ca thi</dt>
+          <dd className="font-mono font-medium">{session.sessionId}</dd>
+        </div>
         <div className="flex flex-col gap-1 py-3.5 sm:flex-row sm:gap-4">
           <dt className="w-28 shrink-0 text-muted-foreground">Thời gian</dt>
           <dd className="font-medium">{formatTimeRange(start, end)}</dd>
@@ -209,9 +215,9 @@ function EnrolledCard({
 
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
         <Button asChild>
-          <Link to="/student/viva">
-            <Mic aria-hidden="true" />
-            Đến phòng thi
+          <Link to="/student/sessions">
+            <CalendarClock aria-hidden="true" />
+            Ca thi của tôi
           </Link>
         </Button>
         <Button variant="secondary" onClick={onEnrollAnother}>

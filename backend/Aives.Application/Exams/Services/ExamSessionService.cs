@@ -157,6 +157,12 @@ public class ExamSessionService : IExamSessionService
         };
     }
 
+    public Task<IEnumerable<StudentSessionEnrollmentDto>> GetStudentEnrollmentsAsync(
+        int studentId, CancellationToken cancellationToken = default)
+    {
+        return _sessionRepository.GetStudentEnrollmentsAsync(studentId, cancellationToken);
+    }
+
     // === P0: Teacher gets enrollments ===
     public async Task<IEnumerable<SessionEnrollmentDto>> GetSessionEnrollmentsAsync(int sessionId, int teacherId)
     {

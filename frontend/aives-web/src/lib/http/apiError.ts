@@ -31,7 +31,7 @@ const KNOWN_MESSAGES: Record<string, string> = {
   'You do not have permission to create a session for this exam.': 'Bạn không phải người tạo đề thi này.',
 }
 
-// Statuses whose meaning doesn't depend on the endpoint, so the UI message is fixed.
+// Use status messages when the backend provides no specific reason.
 const STATUS_MESSAGES: Record<number, string> = {
   403: 'Tài khoản của bạn không có quyền thực hiện thao tác này.',
   429: 'Bạn đã thử quá nhiều lần. Vui lòng đợi khoảng 15 phút rồi thử lại.',
@@ -67,11 +67,15 @@ export function toApiError(error: unknown, fallback = 'Đã có lỗi xảy ra. 
       ? data.message
       : null
 
-  if (STATUS_MESSAGES[status]) return { status, message: STATUS_MESSAGES[status], fieldErrors, rawMessage }
+  if (status === 429) return { status, message: STATUS_MESSAGES[status], fieldErrors, rawMessage }
 
   const message =
     (rawMessage && KNOWN_MESSAGES[rawMessage]) ??
-    (status === 400 ? 'Thông tin chưa hợp lệ. Kiểm tra lại các trường bên dưới.' : rawMessage ?? fallback)
+    (status === 400 && Object.keys(fieldErrors).length > 0
+      ? 'Thông tin chưa hợp lệ. Kiểm tra lại các trường bên dưới.'
+      : rawMessage) ??
+    STATUS_MESSAGES[status] ??
+    (status === 400 ? 'Thông tin chưa hợp lệ. Kiểm tra lại các trường bên dưới.' : fallback)
 
   return { status, message, fieldErrors, rawMessage }
 }

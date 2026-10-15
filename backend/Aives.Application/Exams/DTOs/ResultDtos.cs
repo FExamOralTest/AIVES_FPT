@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Aives.Application.AI.DTOs;
 
 namespace Aives.Application.Exams.DTOs;
 
@@ -13,6 +14,9 @@ public class ResultForReviewDto
     public string ExamTitle { get; set; } = null!;
     public float? AiScore { get; set; }
     public string? AiFeedback { get; set; }
+    public SessionAnalysisDto? AiAnalysis { get; set; }
+    public string? AiEvaluationStatus { get; set; }
+    public string? AiEvaluationError { get; set; }
     public float? FinalScore { get; set; }
     public string? FinalFeedback { get; set; }
     public string Status { get; set; } = null!;
@@ -31,6 +35,7 @@ public class AnswerForReviewDto
     public string? AudioUrl { get; set; }
     public float? AiScore { get; set; }
     public string? AiFeedback { get; set; }
+    public StoredAnswerAnalysisDto? AiAnalysis { get; set; }
     public float? FinalScore { get; set; }
     public string? TeacherComment { get; set; }
     public bool IsFollowUp { get; set; }

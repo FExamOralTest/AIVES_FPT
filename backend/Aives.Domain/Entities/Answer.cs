@@ -23,6 +23,8 @@ public partial class Answer
 
     public string? AiFeedback { get; set; }
 
+    public string? AiAnalysis { get; set; }
+
     public float? FinalScore { get; set; }
 
     public string? TeacherComment { get; set; }
