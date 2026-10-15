@@ -71,6 +71,15 @@ public class ExamRepository : IExamRepository
     }
 
     /// <inheritdoc/>
+    public async Task ReplaceQuestionsAsync(int examId, IEnumerable<ExamQuestion> questions)
+    {
+        var existing = await _db.ExamQuestions.Where(eq => eq.ExamId == examId).ToListAsync();
+        _db.ExamQuestions.RemoveRange(existing);
+        await _db.ExamQuestions.AddRangeAsync(questions);
+        await _db.SaveChangesAsync();
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> IsOwnerAsync(int examId, int teacherId)
     {
         return await _db.Exams

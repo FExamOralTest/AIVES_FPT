@@ -1,4 +1,4 @@
-﻿using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
@@ -81,6 +81,102 @@ public class DocumentService : IDocumentService
             Content = d.Content,
             UploadedAt = d.UploadedAt
         });
+    }
+
+    public async Task<MarkdownDocumentDto> GetDocumentByIdAsync(int courseId, int documentId, int teacherId)
+    {
+        var course = await _courseRepository.GetByIdAsync(courseId)
+            ?? throw new KeyNotFoundException("Course not found.");
+        if (course.TeacherId != teacherId)
+            throw new UnauthorizedAccessException("Not your course.");
+
+        var doc = await _docRepository.GetByIdAsync(documentId)
+            ?? throw new KeyNotFoundException("Document not found.");
+
+        if (doc.CourseId != courseId)
+            throw new InvalidOperationException("Document does not belong to this course.");
+
+        return new MarkdownDocumentDto
+        {
+            DocumentId = doc.DocumentId,
+            CourseId = doc.CourseId,
+            FileName = doc.FileName,
+            DocType = doc.DocType.ToString(),
+            Content = doc.Content,
+            UploadedAt = doc.UploadedAt
+        };
+    }
+
+    public async Task<MarkdownDocumentDto> UpdateDocumentAsync(int courseId, int documentId, UpdateMarkdownRequest request, int teacherId)
+    {
+        var course = await _courseRepository.GetByIdAsync(courseId)
+            ?? throw new KeyNotFoundException("Course not found.");
+        if (course.TeacherId != teacherId)
+            throw new UnauthorizedAccessException("Not your course.");
+
+        var doc = await _docRepository.GetByIdAsync(documentId)
+            ?? throw new KeyNotFoundException("Document not found.");
+
+        if (doc.CourseId != courseId)
+            throw new InvalidOperationException("Document does not belong to this course.");
+
+        doc.DocType = request.DocType;
+
+        if (request.File != null && request.File.Length > 0)
+        {
+            if (!request.File.FileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Only .md files are allowed.");
+
+            using var reader = new StreamReader(request.File.OpenReadStream());
+            doc.Content = await reader.ReadToEndAsync();
+            doc.FileName = Path.GetFileName(request.File.FileName);
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(request.FileName))
+            {
+                var safeName = Path.GetFileName(request.FileName);
+                if (!safeName.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+                    safeName += ".md";
+                doc.FileName = safeName;
+            }
+            if (!string.IsNullOrWhiteSpace(request.Content))
+            {
+                doc.Content = request.Content;
+            }
+        }
+
+        doc.UploadedAt = DateTime.UtcNow;
+
+        var updated = await _docRepository.UpdateAsync(doc);
+        await _docRepository.SaveChangesAsync();
+
+        return new MarkdownDocumentDto
+        {
+            DocumentId = updated.DocumentId,
+            CourseId = updated.CourseId,
+            FileName = updated.FileName,
+            DocType = updated.DocType.ToString(),
+            Content = updated.Content,
+            UploadedAt = updated.UploadedAt
+        };
+    }
+
+    public async Task DeleteDocumentAsync(int courseId, int documentId, int teacherId)
+    {
+        var course = await _courseRepository.GetByIdAsync(courseId)
+            ?? throw new KeyNotFoundException("Course not found.");
+        if (course.TeacherId != teacherId)
+            throw new UnauthorizedAccessException("Not your course.");
+
+        var doc = await _docRepository.GetByIdAsync(documentId)
+            ?? throw new KeyNotFoundException("Document not found.");
+
+        if (doc.CourseId != courseId)
+            throw new InvalidOperationException("Document does not belong to this course.");
+
+        await _docRepository.DeleteAsync(documentId);
+        await _docRepository.SaveChangesAsync();
     }
 
     public async Task<GenerateQuestionsResponse> GenerateQuestionsAsync(

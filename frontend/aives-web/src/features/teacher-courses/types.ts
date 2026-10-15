@@ -6,6 +6,7 @@ export interface CourseDocument {
   fileName: string
   docType: DocType
   uploadedAt: string
+  content?: string
 }
 
 export interface TeacherCourse {

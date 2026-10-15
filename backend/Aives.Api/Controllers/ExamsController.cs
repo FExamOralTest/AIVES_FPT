@@ -38,10 +38,17 @@ public class ExamsController(IExamService service) : ControllerBase
         => ExecuteAsync(async teacherId => Ok(await service.GetExamsByTeacherAsync(teacherId)));
 
     [HttpPost("suggest-questions")]
+    [HttpPost("ai-suggest-questions")]
     [ProducesResponseType(typeof(SuggestedQuestionsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public Task<IActionResult> GetSuggestedQuestions([FromBody] SuggestQuestionsRequest request)
         => ExecuteAsync(async teacherId => Ok(await service.GetSuggestedQuestionsAsync(request, teacherId)));
+
+    [HttpPut("{examId:int}/questions")]
+    [ProducesResponseType(typeof(ExamDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public Task<IActionResult> UpdateExamQuestions(int examId, [FromBody] UpdateExamQuestionsRequest request)
+        => ExecuteAsync(async teacherId => Ok(await service.UpdateExamQuestionsAsync(examId, request.Questions, teacherId)));
 
     private async Task<IActionResult> ExecuteAsync(Func<int, Task<IActionResult>> action)
     {

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
 using Aives.Domain.Enums;
 using Aives.Application.Exams.Services;
@@ -12,6 +12,14 @@ public class UploadMarkdownRequest
 
     [Required]
     public DocType DocType { get; set; }
+}
+
+public class UpdateMarkdownRequest
+{
+    public IFormFile? File { get; set; }
+    public DocType DocType { get; set; }
+    public string? FileName { get; set; }
+    public string? Content { get; set; }
 }
 
 public class MarkdownDocumentDto

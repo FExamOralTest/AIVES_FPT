@@ -37,6 +37,11 @@ public class ExamQuestionItem
     public float QuestionScore { get; set; } = 1.0f;
 }
 
+public class UpdateExamQuestionsRequest
+{
+    public List<ExamQuestionItem> Questions { get; set; } = [];
+}
+
 public class SuggestQuestionsRequest
 {
     [Range(1, int.MaxValue)]

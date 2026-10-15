@@ -1,6 +1,7 @@
 export interface QuestionItemDto {
   questionId: number
   questionText: string
+  topic?: string | null
   level: number
   maxScore?: number | null
   isFollowUpAllowed?: boolean | null
@@ -15,6 +16,7 @@ export interface GenerateQuestionsRequest {
 
 export interface GenerateQuestionsResponse {
   count?: number
+  generatedCount?: number
   message?: string
   questions: QuestionItemDto[]
 }

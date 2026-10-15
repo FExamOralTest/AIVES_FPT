@@ -64,6 +64,72 @@ public class DocumentsController : ControllerBase
     }
 
     /// <summary>
+    /// [TEACHER] Xem chi tiết nội dung file .md.
+    /// </summary>
+    [HttpGet("{documentId:int}")]
+    [ProducesResponseType(typeof(MarkdownDocumentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDocumentById(int courseId, int documentId)
+    {
+        var teacherId = GetCurrentUserId();
+        if (teacherId is null) return Unauthorized();
+
+        try { return Ok(await _docService.GetDocumentByIdAsync(courseId, documentId, teacherId.Value)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// [TEACHER] Cập nhật loại tài liệu hoặc thay thế file .md.
+    /// </summary>
+    [HttpPut("{documentId:int}")]
+    [ProducesResponseType(typeof(MarkdownDocumentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateDocument(int courseId, int documentId, [FromForm] UpdateMarkdownRequest request)
+    {
+        var teacherId = GetCurrentUserId();
+        if (teacherId is null) return Unauthorized();
+
+        try
+        {
+            var updated = await _docService.UpdateDocumentAsync(courseId, documentId, request, teacherId.Value);
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// [TEACHER] Xóa tài liệu .md khỏi môn học.
+    /// </summary>
+    [HttpDelete("{documentId:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDocument(int courseId, int documentId)
+    {
+        var teacherId = GetCurrentUserId();
+        if (teacherId is null) return Unauthorized();
+
+        try
+        {
+            await _docService.DeleteDocumentAsync(courseId, documentId, teacherId.Value);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>
     /// [TEACHER] Gọi AI sinh câu hỏi từ tài liệu .md đã upload.
     /// </summary>
     [HttpPost("generate-questions")]
