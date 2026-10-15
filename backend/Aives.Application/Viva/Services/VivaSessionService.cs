@@ -54,6 +54,16 @@ public class VivaSessionService : IVivaSessionService
         if (enrollment.Status == SessionStatus.COMPLETED)
             throw new InvalidOperationException("Sinh viên đã hoàn thành ca thi này.");
 
+        if (enrollment.Status == SessionStatus.CANCELLED)
+            throw new InvalidOperationException("Đăng ký ca thi này đã bị hủy.");
+
+        var now = DateTime.UtcNow;
+        if (session.Status == SessionStatus.COMPLETED || now >= session.EndTime)
+            throw new InvalidOperationException("Ca thi này đã kết thúc.");
+
+        if (session.Status != SessionStatus.IN_PROGRESS || now < session.StartTime)
+            throw new InvalidOperationException("Ca thi chưa mở. Vui lòng chờ đến giờ thi và giảng viên mở ca.");
+
         // Mark enrollment as IN_PROGRESS
         enrollment.Status = SessionStatus.IN_PROGRESS;
         enrollment.StartedAt ??= DateTime.UtcNow;
