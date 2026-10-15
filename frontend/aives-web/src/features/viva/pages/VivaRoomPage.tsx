@@ -10,7 +10,7 @@ import {
   Sparkles,
   Volume2,
 } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -40,6 +40,7 @@ export default function VivaRoomPage() {
 
   const recorder = useAudioRecorder()
   const textInputId = useId()
+  const autoStartedSession = useRef<string | null>(null)
 
   // Format recording seconds MM:SS
   const formatTime = (secs: number) => {
@@ -48,16 +49,11 @@ export default function VivaRoomPage() {
     return `${mins.toString().padStart(2, '0')}:${rem.toString().padStart(2, '0')}`
   }
 
-  // Auto-start if sessionId provided in URL query
-  useEffect(() => {
-    if (sessionParam && !session) {
-      handleStartSession(Number(sessionParam))
-    }
-  }, [sessionParam])
-
-  async function handleStartSession(id: number) {
-    if (!id || isNaN(id)) {
-      setErrorMessage('Vui lòng nhập ID ca thi hợp lệ.')
+  const handleStartSession = useCallback(async (rawId: string) => {
+    const value = rawId.trim()
+    const id = Number(value)
+    if (!/^\d+$/.test(value) || !Number.isInteger(id) || id < 1 || id > 2147483647) {
+      setErrorMessage('ID ca thi phải là số nguyên dương, không phải tên ca thi hoặc mã tham gia ESS-XXXXXXXX.')
       return
     }
     setIsLoading(true)
@@ -72,6 +68,19 @@ export default function VivaRoomPage() {
     } finally {
       setIsLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    if (sessionParam && !session && autoStartedSession.current !== sessionParam) {
+      autoStartedSession.current = sessionParam
+      setInputSessionId(sessionParam)
+      void handleStartSession(sessionParam)
+    }
+  }, [sessionParam, session, handleStartSession])
+
+  function handleEntrySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!isLoading) void handleStartSession(inputSessionId)
   }
 
   async function handleSubmitAnswer() {
@@ -161,31 +170,40 @@ export default function VivaRoomPage() {
             </Alert>
           )}
 
-          <div className="flex flex-col gap-4">
+          <form onSubmit={handleEntrySubmit} noValidate className="flex flex-col gap-4">
             <label htmlFor="session-id-input" className="text-sm font-semibold">
-              Mã số ca thi (Session ID)
+              ID ca thi (Session ID)
             </label>
             <div className="flex gap-3">
               <input
                 id="session-id-input"
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={inputSessionId}
-                onChange={(e) => setInputSessionId(e.target.value)}
-                placeholder="Ví dụ: 1"
+                onChange={(e) => {
+                  setInputSessionId(e.target.value)
+                  setErrorMessage(null)
+                }}
+                aria-describedby="session-id-hint"
+                placeholder="Nhập ID được hiển thị sau khi đăng ký"
                 className="h-12 w-full rounded-xl border border-input bg-background px-4 font-mono text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
               <Button
-                onClick={() => handleStartSession(Number(inputSessionId))}
-                disabled={isLoading || !inputSessionId}
+                type="submit"
+                disabled={isLoading || !inputSessionId.trim()}
                 className="h-12 px-6 shrink-0"
               >
                 {isLoading ? 'Đang vào…' : 'Vào phòng thi'}
               </Button>
             </div>
-          </div>
+            <p id="session-id-hint" className="text-sm text-muted-foreground">
+              Dùng ID dạng số hiển thị sau khi đăng ký ca thi. Tên ca thi có thể khác ID;
+              mã ESS-XXXXXXXX dùng ở trang Tham gia ca thi.
+            </p>
+          </form>
 
           <div className="mt-6 flex items-center justify-between border-t pt-5 text-sm text-muted-foreground">
-            <span>Chưa có mã ca thi?</span>
+            <span>Chưa đăng ký ca thi?</span>
             <Link to="/student/enroll" className="font-semibold text-brand hover:text-brand-hover">
               Đăng ký tham gia ca thi ngay
             </Link>
