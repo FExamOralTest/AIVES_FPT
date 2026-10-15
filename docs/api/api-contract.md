@@ -2,12 +2,16 @@
 
 Base URL: `http://localhost:8000`
 Prefix: `/ai`
-Auth: Internal secret key shared with Backend (`AI_SERVICE_SECRET_KEY`)
+Auth: Header `X-AI-Service-Key` (shared secret giữa Backend .NET ↔ AI Service)
+Health endpoint `/health` **không** cần key.
+
+---
 
 ## Endpoints
 
 ### POST /ai/interview/question
-Generate the next viva interview question.
+
+**Mục đích:** Tạo câu hỏi vấn đáp tiếp theo cho sinh viên.
 
 **Request:**
 ```json
@@ -29,6 +33,9 @@ Generate the next viva interview question.
 }
 ```
 
+**Headers:**
+- `X-AI-Service-Key`: required (trừ `/health`)
+
 **Response 200:**
 ```json
 {
@@ -45,7 +52,8 @@ Generate the next viva interview question.
 ---
 
 ### POST /ai/interview/follow-up
-Analyse student answer and decide if a follow-up question is needed.
+
+**Mục đích:** Phân tích câu trả lời và quyết định follow-up question.
 
 **Request:**
 ```json
@@ -73,7 +81,8 @@ Analyse student answer and decide if a follow-up question is needed.
 ---
 
 ### POST /ai/speech/transcribe
-Speech-to-Text (multipart/form-data).
+
+**Mục đích:** STT - Chuyển giọng nói thành văn bản.
 
 **Form fields:**
 - `audio_file`: audio file (WAV / WebM / MP3)
@@ -94,7 +103,8 @@ Speech-to-Text (multipart/form-data).
 ---
 
 ### POST /ai/speech/synthesize
-Text-to-Speech.
+
+**Mục đích:** TTS - Chuyển văn bản thành giọng nói.
 
 **Request:**
 ```json
@@ -112,14 +122,15 @@ Text-to-Speech.
   "message": null,
   "audio_base64": "...",
   "audio_format": "mp3",
-  "duration_seconds": null
+  "duration_seconds": 3.2
 }
 ```
 
 ---
 
 ### POST /ai/evaluate/answer
-Score a single Q&A pair.
+
+**Mục đích:** Chấm điểm 1 cặp câu hỏi - câu trả lời.
 
 **Request:**
 ```json
@@ -132,18 +143,11 @@ Score a single Q&A pair.
     "question_text": "...",
     "student_answer": "...",
     "is_follow_up": false,
-    "sample_answer": "Independent services communicate through APIs.",
-    "learning_outcome": "LO1: Explain service communication.",
-    "topic": "Microservices",
-    "rubric": [
-      {"criterion_id": "c1", "description": "Explain independent services", "max_score": 4}
-    ]
+    "max_score": 10.0
   },
   "max_score": 10.0
 }
 ```
-
-`student_answer` is the transcript. `sample_answer`, `learning_outcome`, and `rubric` are optional. When `rubric` is present, the sample answer and learning outcome are required, criterion ids must be unique, and the response adds sentence and criterion analysis. The numeric `score` is unchanged by that analysis.
 
 **Response 200:**
 ```json
@@ -156,30 +160,15 @@ Score a single Q&A pair.
   "feedback": "...",
   "strengths": ["..."],
   "weaknesses": ["..."],
-  "missing_content": ["..."],
-  "sentence_feedback": [
-    {"sentence": "exact transcript sentence", "judgment": "correct", "comment": "..."}
-  ],
-  "criterion_analyses": [
-    {
-      "criterion_id": "c1",
-      "judgment": "partial",
-      "explanation": "...",
-      "errors": [],
-      "omissions": ["..."],
-      "evidence_quotes": ["exact transcript excerpt"]
-    }
-  ],
-  "improvements": ["..."]
+  "missing_content": ["..."]
 }
 ```
-
-`sentence_feedback.judgment` is `correct`, `error`, `omission`, or `irrelevant`. `criterion_analyses.judgment` is `met`, `partial`, or `not_met`. Every `evidence_quotes` value is copied from the transcript.
 
 ---
 
 ### POST /ai/evaluate/session
-Evaluate a full exam session.
+
+**Mục đích:** Chấm điểm toàn bộ phiên thi một lần.
 
 **Request:**
 ```json
@@ -193,20 +182,12 @@ Evaluate a full exam session.
       "question_id": "uuid",
       "question_text": "...",
       "student_answer": "...",
-      "is_follow_up": false,
-      "sample_answer": "...",
-      "learning_outcome": "...",
-      "topic": "...",
-      "rubric": [
-        {"criterion_id": "c1", "description": "...", "max_score": 4}
-      ]
+      "is_follow_up": false
     }
   ],
   "max_score_per_question": 10.0
 }
 ```
-
-When any answer includes a rubric, `overall_feedback` summarizes those analyses and cites transcript excerpts. `study_suggestions` lists the learning outcome or topic for criteria that are partial or not met. Requests without a rubric keep the previous score-band summary.
 
 **Response 200:**
 ```json
@@ -229,15 +210,48 @@ When any answer includes a rubric, `overall_feedback` summarizes those analyses 
       "improvements": []
     }
   ],
-  "study_suggestions": ["LO1: Explain service communication. — Criterion c1 is not covered by the transcript."]
+  "study_suggestions": ["LO1: Explain service communication."]
 }
 ```
 
 ---
 
+### GET /health
+
+**Mục đích:** Kiểm tra trạng thái service.
+
+**Auth:** **Bypass** - không cần `X-AI-Service-Key`.
+
+**Response 200:**
+```json
+{
+  "Status": "Healthy",
+  "DatabaseConnected": true,
+  "UserCount": 15,
+  "CourseCount": 8,
+  "ServerTime": "2026-10-14T03:00:00Z"
+}
+```
+
+---
+
+### POST /ai/generate-questions (Deprecated)
+
+**Mục đích:** **Deprecated** - delegate sang `QuestionBankService.generate`. Giữ lại cho backward compatibility.
+
+**Headers:**
+- `X-AI-Service-Key`: required
+- Log warning: "Deprecated endpoint: delegate to QuestionBankService"
+
+**Response:** Trả về response từ `QuestionBankService.generate`.
+
+**Catena:** Endpoint này KH�ONG xóa ngay; delegate sang `QuestionBankService`; mark deprecated trong OpenAPI/docs.
+
+---
+
 ## Error Responses
 
-All endpoints return standard error format:
+All endpoints trả về format lỗi chuẩn:
 
 ```json
 {
@@ -247,7 +261,14 @@ All endpoints return standard error format:
 }
 ```
 
-Status codes: 400 (bad request), 422 (validation), 500 (internal), 503 (AI provider unavailable).
+Status codes:
+- `400` (bad request)
+- `401` (missing/invalid `X-AI-Service-Key`, trừ `/health`)
+- `422` (validation error)
+- `500` (internal error)
+- `503` (AI provider unavailable)
+
+---
 
 ## Backend question bank and exam selection
 
@@ -312,7 +333,7 @@ POST and PUT share this body:
 `questionText` is required and nonblank (at most 10000 characters); `topic` and
 `sampleAnswer` are optional (at most 1000 and 10000 characters). Text is trimmed.
 `level` defaults to 1 and accepts 1–3; `maxScore` defaults to 1 and accepts finite
-values 0.01–100; `isFollowUpAllowed` defaults to true. PUT replaces these editable
+values 0.01–100; `isFollowUpAllowed` defaults to true. UT replaces these editable
 fields; course, document provenance and creation time remain fixed. A manually
 created question has `documentId: null`. The question shape above also applies
 to the existing generated-question response.

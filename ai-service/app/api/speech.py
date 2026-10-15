@@ -4,17 +4,21 @@ Endpoints for Speech-to-Text and Text-to-Speech.
 Called by ASP.NET Core Backend (not directly by Frontend - see BR-14).
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from loguru import logger
 
+from app.api.deps import get_speech_service, get_tts_service
+from app.api.errors import to_http_exception
 from app.models.request import TextToSpeechRequest
-from app.models.response import SpeechToTextResponse, TextToSpeechResponse, ErrorResponse
+from app.models.response import (
+    ErrorResponse,
+    SpeechToTextResponse,
+    TextToSpeechResponse,
+)
 from app.services.speech_service import SpeechToTextService
 from app.services.tts_service import TextToSpeechService
 
 router = APIRouter(prefix="/speech", tags=["Speech"])
-_stt_service = SpeechToTextService()
-_tts_service = TextToSpeechService()
 
 
 @router.post(
@@ -29,6 +33,7 @@ _tts_service = TextToSpeechService()
     responses={
         200: {"description": "Transcript returned successfully"},
         400: {"description": "Invalid audio file"},
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
         500: {"model": ErrorResponse, "description": "STT transcription failed"},
     },
 )
@@ -36,6 +41,7 @@ async def speech_to_text(
     audio_file: UploadFile = File(..., description="Student voice recording"),
     exam_session_id: str = Form(..., description="UUID of the ExamSession"),
     language: str = Form(default="vi-VN", description="BCP-47 language code"),
+    service: SpeechToTextService = Depends(get_speech_service),
 ) -> SpeechToTextResponse:
     """
     Transcribe audio to text using the configured STT provider.
@@ -61,7 +67,7 @@ async def speech_to_text(
                 detail="Audio file is empty.",
             )
 
-        return await _stt_service.transcribe(
+        return await service.transcribe(
             audio_bytes=audio_bytes,
             exam_session_id=exam_session_id,
             language=language,
@@ -69,18 +75,9 @@ async def speech_to_text(
 
     except HTTPException:
         raise
-    except ValueError as exc:
-        logger.error(f"[SpeechAPI] STT error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
     except Exception as exc:
-        logger.exception(f"[SpeechAPI] Unexpected STT error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Transcription failed unexpectedly.",
-        )
+        logger.exception(f"[SpeechAPI] STT error: {exc}")
+        raise to_http_exception(exc, context="Transcription") from exc
 
 
 @router.post(
@@ -93,11 +90,15 @@ async def speech_to_text(
     ),
     responses={
         200: {"description": "Audio returned as base64"},
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
         422: {"description": "Validation error in request body"},
         500: {"model": ErrorResponse, "description": "TTS synthesis failed"},
     },
 )
-async def text_to_speech(request: TextToSpeechRequest) -> TextToSpeechResponse:
+async def text_to_speech(
+    request: TextToSpeechRequest,
+    service: TextToSpeechService = Depends(get_tts_service),
+) -> TextToSpeechResponse:
     """
     Synthesize text to speech audio.
 
@@ -108,16 +109,9 @@ async def text_to_speech(request: TextToSpeechRequest) -> TextToSpeechResponse:
             f"POST /speech/synthesize | text_len={len(request.text)} | "
             f"lang={request.language}"
         )
-        return await _tts_service.synthesize(request)
-    except ValueError as exc:
-        logger.error(f"[SpeechAPI] TTS error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+        return await service.synthesize(request)
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.exception(f"[SpeechAPI] Unexpected TTS error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Speech synthesis failed unexpectedly.",
-        )
+        logger.exception(f"[SpeechAPI] TTS error: {exc}")
+        raise to_http_exception(exc, context="Speech synthesis") from exc

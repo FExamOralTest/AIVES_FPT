@@ -1,230 +1,298 @@
 """
-AIVES AI Service - AI Client
-Abstract base + concrete implementations for each AI provider.
-Swap providers by changing AI_PROVIDER env var.
+AIVES AI Service - AI Client Abstraction
+Supports multiple LLM providers: mock (deterministic, for tests/dev), gemini, openai.
+
+Provider selection is driven by settings.ai_provider. When gemini/openai is
+selected the matching client is constructed eagerly; a missing/invalid
+configuration raises at startup (see app.core.config) instead of falling back
+to mock answers.
 """
 
-from __future__ import annotations
-
-import abc
+import asyncio
 import json
-from typing import Optional
+import logging
+import re
+from abc import ABC, abstractmethod
+from typing import Any, List, Optional
 
 import httpx
-from loguru import logger
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
+# Number of attempts (1 initial + retries) for transient provider errors.
+_MAX_ATTEMPTS = 4
+_RETRYABLE_STATUS = {408, 409, 429, 500, 502, 503, 504}
+_MAX_RETRY_DELAY_SECONDS = 30.0
 
-# ─────────────────────────────────────────────
-#  Abstract Base Client
-# ─────────────────────────────────────────────
+
+def strip_code_fence(text: str) -> str:
+    """
+    Remove a single surrounding ```json ... ``` (or plain ``` ... ```) fence
+    from a model response and return the inner content.
+
+    If the response is not fully wrapped in a fence, returns it unchanged.
+    """
+    if not text:
+        return text
+    stripped = text.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, re.DOTALL)
+    if fenced:
+        return fenced.group(1).strip()
+    # Fallback: response contains prose before/after a fenced block.
+    inner = re.search(r"```(?:json)?\s*(.*?)\s*```", stripped, re.DOTALL)
+    if inner:
+        return inner.group(1).strip()
+    return stripped
 
 
-class BaseAIClient(abc.ABC):
-    """Abstract AI client. All providers must implement `complete()`."""
+def _collect_texts(node: Any) -> List[str]:
+    """Recursively collect text fragments from a nested response structure."""
+    out: List[str] = []
+    if isinstance(node, str):
+        out.append(node)
+    elif isinstance(node, dict):
+        text = node.get("text")
+        if isinstance(text, str):
+            out.append(text)
+        for key in ("parts", "content", "outputs", "output", "steps", "data"):
+            if key in node:
+                out.extend(_collect_texts(node[key]))
+    elif isinstance(node, list):
+        for item in node:
+            out.extend(_collect_texts(item))
+    return out
 
-    @abc.abstractmethod
+
+class BaseAIClient(ABC):
+    """Abstract base class for AI clients."""
+
+    @abstractmethod
     async def complete(self, system_prompt: str, user_message: str) -> str:
         """
-        Send a prompt to the LLM and return the text response.
-
-        Args:
-            system_prompt: The system/context instructions for the AI.
-            user_message: The user's input message.
-
-        Returns:
-            The AI's text response.
+        Send a system + user prompt to the model and return its raw text response.
         """
-        ...
-
-
-# ─────────────────────────────────────────────
-#  Mock Client (for development/testing)
-# ─────────────────────────────────────────────
+        pass
 
 
 class MockAIClient(BaseAIClient):
     """
-    Mock AI client that returns realistic placeholder responses.
-    Use in development without needing real API keys.
+    Deterministic mock used for local development and tests.
+
+    It produces valid, parseable responses so the full request pipeline can be
+    exercised without a network call or an API key.
     """
 
     async def complete(self, system_prompt: str, user_message: str) -> str:
-        logger.debug("[MockAIClient] Returning mock response.")
+        logger.info("[MockAIClient] complete() called")
+        lowered = (system_prompt + " " + user_message).lower()
 
-        try:
-            payload = json.loads(user_message)
-        except (json.JSONDecodeError, TypeError) as exc:
-            raise ValueError("Mock AI requests must be JSON objects with a task.") from exc
-        if not isinstance(payload, dict):
-            raise ValueError("Mock AI requests must be JSON objects with a task.")
-
-        task = payload.get("task")
-        if task == "generate_question_bank":
-            content = next(d["content"] for d in payload["documents"] if d["document_type"] == "CONTENT")
-            outcome_content = next(d["content"] for d in payload["documents"] if d["document_type"] == "LEARNING_OUTCOMES")
-            outcomes = [line.strip().lstrip("-*+ ") for line in outcome_content.splitlines()
-                        if line.strip() and not line.strip().startswith("#")]
-            outcomes = outcomes or [outcome_content.strip()]
-            topics = payload["focus_topics"] or ["Course content"]
-            offset = len(payload["already_generated_questions"])
-            return json.dumps({"questions": [
-                {
-                    "question_text": f"Question {offset + i + 1}: Explain {topics[i % len(topics)]} using the course material.",
-                    "topic": topics[i % len(topics)],
-                    "sample_answer": content.strip(),
-                    "learning_outcome": outcomes[(offset + i) % len(outcomes)],
-                    "rubric": [{
-                        "description": f"Explain {topics[i % len(topics)]} accurately using this course evidence: {content.strip()[:1500]}",
-                        "max_score": payload["max_score"],
-                    }],
-                    "max_score": payload["max_score"],
-                    "level": (offset + i) % 3 + 1,
-                    "is_follow_up_allowed": True,
-                }
-                for i in range(payload["question_count"])
-            ]}, ensure_ascii=False)
-        if task == "generate_viva_question":
-            context = payload["context"]
-            topic = context["available_topics"][0]
-            question_type = context["question_type"]
-            templates = {
-                "conceptual": "Bạn hãy giải thích nội dung cốt lõi của chủ đề {topic} trong môn {course}.",
-                "application": "Bạn sẽ vận dụng kiến thức về {topic} vào một tình huống thực tế như thế nào?",
-                "analysis": "Bạn hãy phân tích các yếu tố quan trọng của {topic} và giải thích mối liên hệ giữa chúng.",
+        if "json" in lowered:
+            payload = {
+                "questions": [
+                    {
+                        "question": "Mock generated question 1?",
+                        "level": "easy",
+                        "max_score": 5,
+                        "is_follow_up_allowed": False,
+                    },
+                    {
+                        "question": "Mock generated question 2?",
+                        "level": "medium",
+                        "max_score": 10,
+                        "is_follow_up_allowed": True,
+                    },
+                ]
             }
-            return json.dumps(
-                {
-                    "question": templates[question_type].format(
-                        topic=topic, course=context["course_name"]
-                    ),
-                    "question_type": question_type,
-                    "difficulty": context["difficulty"],
-                    "expected_keywords": [topic],
-                    "topic": topic,
-                    "learning_outcome": context["learning_outcomes"][0],
-                },
-                ensure_ascii=False,
-            )
+            return json.dumps(payload, ensure_ascii=False)
 
-        if task == "generate_follow_up":
-            return json.dumps(
-                {
-                    "should_follow_up": True,
-                    "follow_up_question": "Bạn có thể giải thích chi tiết hơn về ví dụ vừa đề cập không?",
-                    "reason": "Cần làm rõ thêm về ví dụ thực tế.",
-                },
-                ensure_ascii=False,
-            )
-
-        if task == "analyze_answer":
-            from app.services.answer_evidence import build_mock_analysis
-
-            return json.dumps(build_mock_analysis(payload), ensure_ascii=False)
-
-        if task == "evaluate_answer":
-            max_score = payload["max_score"]
-            return json.dumps(
-                {
-                    "score": round(max_score * 0.75, 2),
-                    "max_score": max_score,
-                    "feedback": "Câu trả lời đã nêu đúng khái niệm cơ bản, tuy nhiên cần bổ sung thêm ví dụ thực tế.",
-                    "strengths": ["Nắm đúng khái niệm", "Trình bày rõ ràng"],
-                    "weaknesses": ["Thiếu ví dụ minh hoạ", "Chưa liên hệ thực tế"],
-                    "missing_content": ["Ví dụ ứng dụng thực tế", "Liên hệ với learning outcomes"],
-                },
-                ensure_ascii=False,
-            )
-
-        raise ValueError("Unsupported mock AI task.")
-
-
-# ─────────────────────────────────────────────
-#  Gemini Client
-# ─────────────────────────────────────────────
+        return "Mock AI response."
 
 
 class GeminiAIClient(BaseAIClient):
     """
-    Google Gemini API client (Interactions endpoint, auth-key compatible).
-    Set AI_PROVIDER=gemini and GEMINI_API_KEY in .env to use.
-    """
+    Google Gemini client using the Interactions API.
 
-    BASE_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
-    API_REVISION = "2026-05-20"
+    Endpoint shape:  {GEMINI_API_BASE_URL}/interactions
+    Auth:            x-goog-api-key header (Google AI Studio key)
+    Revision:        Api-Revision header (see GEMINI_API_REVISION)
+
+    The response parser is intentionally tolerant: it prefers the
+    convenience `output_text` field, then walks `steps`/`outputs`/`output`
+    for text parts, and finally falls back to `candidates` (generateContent
+    shape). This keeps the client working across Interactions API revisions.
+    """
 
     def __init__(self) -> None:
         self.api_key = settings.gemini_api_key
         self.model = settings.gemini_model
+        self.base_url = settings.gemini_api_base_url.rstrip("/")
+        self.api_revision = settings.gemini_api_revision
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY is not set in environment variables.")
+            raise ValueError(
+                "GEMINI_API_KEY is not set. Configure it in ai-service/.env or "
+                "set AI_PROVIDER=mock."
+            )
+
+    @property
+    def _endpoint(self) -> str:
+        return f"{self.base_url}/interactions"
 
     async def complete(self, system_prompt: str, user_message: str) -> str:
-        import asyncio
-
         headers = {
             "x-goog-api-key": self.api_key,
-            "Api-Revision": self.API_REVISION,
             "Content-Type": "application/json",
         }
+        if self.api_revision:
+            headers["Api-Revision"] = self.api_revision
+
         combined_input = f"{system_prompt}\n\n---\n\n{user_message}"
         payload = {"model": self.model, "input": combined_input}
 
-        last_exc: Exception | None = None
-        for attempt in range(5):
+        data = await self._post_with_retry(headers, payload)
+        return self._extract_text(data)
+
+    async def _post_with_retry(
+        self, headers: dict, payload: dict
+    ) -> dict:
+        """POST to the Interactions endpoint, retrying transient failures."""
+        last_exc: Optional[Exception] = None
+        for attempt in range(_MAX_ATTEMPTS):
             try:
-                async with httpx.AsyncClient(timeout=60.0) as client:
-                    response = await client.post(self.BASE_URL, headers=headers, json=payload)
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    response = await client.post(
+                        self._endpoint, headers=headers, json=payload
+                    )
                     response.raise_for_status()
-                    data = response.json()
-                break
+                    return response.json()
             except httpx.HTTPStatusError as exc:
                 last_exc = exc
-                if exc.response.status_code in (429, 500, 502, 503, 504) and attempt < 4:
-                    await asyncio.sleep(3 * (2 ** attempt))
+                status = exc.response.status_code
+                # Che body trước khi log - xoá/chuyển key nhạy cảm
+                raw_body = exc.response.text
+                cheated_body = self._cheat_sensitive_data(raw_body)
+                retryable = status in _RETRYABLE_STATUS
+                if retryable and attempt < _MAX_ATTEMPTS - 1:
+                    delay = self._retry_delay(exc.response, attempt)
+                    logger.warning(
+                        "[GeminiAIClient] HTTP %s from %s; retry %d/%d in %.1fs",
+                        status,
+                        self._endpoint,
+                        attempt + 1,
+                        _MAX_ATTEMPTS - 1,
+                        delay,
+                    )
+                    logger.info(
+                        "[GeminiAIClient] response body (cheated): %s", cheated_body
+                    )
+                    await asyncio.sleep(delay)
                     continue
-                raise
-        else:
-            raise ValueError(f"Gemini API failed after retries: {last_exc}") from last_exc
+                # Lỗi không thể retry: log body che, raise ValueError an toàn
+                logger.error(
+                    "[GeminiAIClient] HTTP %s from %s; body (cheated): %s",
+                    status,
+                    self._endpoint,
+                    cheated_body,
+                )
+                raise ValueError(
+                    f"Gemini provider returned HTTP {status}. The AI service is temporarily unavailable. Please retry later."
+                ) from exc
+            except httpx.HTTPError as exc:
+                last_exc = exc
+                if attempt < _MAX_ATTEMPTS - 1:
+                    delay = min(2.0 ** attempt, _MAX_RETRY_DELAY_SECONDS)
+                    logger.warning(
+                        "[GeminiAIClient] network error (%s); retry %d/%d in %.1fs",
+                        exc,
+                        attempt + 1,
+                        _MAX_ATTEMPTS - 1,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                logger.error(
+                    "[GeminiAIClient] network error from %s; %s", self._endpoint, exc
+                )
+                raise ValueError(
+                    "The AI service is temporarily unavailable. Please retry later."
+                ) from exc
 
-        texts = []
-        for step in data.get("steps", []):
-            if step.get("type") == "model_output":
-                for part in step.get("content", []):
-                    if part.get("type") == "text":
-                        texts.append(part.get("text", ""))
-        raw = "".join(texts).strip()
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
-        return raw
+        # Defensive: loop always returns or raises.
+        raise ValueError(
+            "The AI provider failed after maximum retries. Please try again later."
+        ) from last_exc
 
+    @staticmethod
+    def _cheat_sensitive_data(body: str) -> str:
+        """Mask potential API keys or secrets in the provider response body."""
+        import re
+        # Remove anything that looks like an API key (AQ. followed by caps/alphanum)
+        cheated = re.sub(r'AQ\.[A-Za-z0-9_\-]+', 'AQ.<masked>', body)
+        # Replace common secret patterns
+        cheated = cheated.replace('"api_key"', '"api_key": "<redacted>"')
+        cheated = cheated.replace('"key"', '"key": "<redacted>"')
+        # Truncate if very long
+        if len(cheated) > 500:
+            cheated = cheated[:500] + "...[truncated]"
+        return cheated
 
-# ─────────────────────────────────────────────
-#  OpenAI Client
-# ─────────────────────────────────────────────
+    @staticmethod
+    def _retry_delay(response: httpx.Response, attempt: int) -> float:
+        """Honour Retry-After when present, otherwise use exponential backoff."""
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            retry_after = retry_after.strip()
+            try:
+                return min(float(retry_after), _MAX_RETRY_DELAY_SECONDS)
+            except ValueError:
+                # HTTP-date form is uncommon here; fall through to backoff.
+                pass
+        return min(2.0 ** attempt, _MAX_RETRY_DELAY_SECONDS)
+
+    def _extract_text(self, data: Any) -> str:
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"Unexpected Gemini response type: {type(data).__name__}"
+            )
+
+        raw = data.get("output_text")
+        if isinstance(raw, str) and raw.strip():
+            return strip_code_fence(raw)
+
+        texts: List[str] = []
+        for key in ("steps", "outputs", "output", "candidates", "messages"):
+            if key in data:
+                texts.extend(_collect_texts(data[key]))
+
+        combined = "".join(texts).strip()
+        if not combined:
+            logger.error(
+                "[GeminiAIClient] unreadable response. Top-level keys: %s",
+                sorted(data.keys()),
+            )
+            raise ValueError(
+                "Gemini response did not contain any text output. "
+                "The Interactions API response schema may have changed."
+            )
+        return strip_code_fence(combined)
 
 
 class OpenAIClient(BaseAIClient):
-    """
-    OpenAI Chat Completions API client.
-    Set AI_PROVIDER=openai and OPENAI_API_KEY in .env to use.
-    """
-
-    BASE_URL = "https://api.openai.com/v1/chat/completions"
+    """OpenAI client using the Chat Completions API."""
 
     def __init__(self) -> None:
         self.api_key = settings.openai_api_key
         self.model = settings.openai_model
         if not self.api_key:
-            raise ValueError("OPENAI_API_KEY is not set in environment variables.")
+            raise ValueError(
+                "OPENAI_API_KEY is not set. Configure it in ai-service/.env or "
+                "set AI_PROVIDER=mock."
+            )
 
     async def complete(self, system_prompt: str, user_message: str) -> str:
+        url = "https://api.openai.com/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -235,43 +303,29 @@ class OpenAIClient(BaseAIClient):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
             ],
-            "temperature": 0.7,
-            "max_tokens": 2048,
-            "response_format": {"type": "json_object"},
         }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(self.BASE_URL, headers=headers, json=payload)
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()
-
-        try:
-            return data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError) as exc:
-            logger.error(f"[OpenAIClient] Unexpected response structure: {data}")
-            raise ValueError("Failed to parse OpenAI response.") from exc
-
-
-# ─────────────────────────────────────────────
-#  Client Factory
-# ─────────────────────────────────────────────
+        return data["choices"][0]["message"]["content"]
 
 
 def get_ai_client() -> BaseAIClient:
     """
-    Factory function. Returns the AI client based on AI_PROVIDER env var.
-    Supported values: 'mock', 'gemini', 'openai'
-    """
-    provider = settings.ai_provider.lower()
-    logger.info(f"[AIClient] Initialising provider: {provider}")
+    Factory: returns the AI client for the configured provider.
 
+    Raises ValueError for an unknown provider or missing credentials; it never
+    silently substitutes the mock client.
+    """
+    provider = settings.ai_provider
     if provider == "gemini":
+        logger.info("[AI] Using GeminiAIClient (model=%s)", settings.gemini_model)
         return GeminiAIClient()
-    elif provider == "openai":
+    if provider == "openai":
+        logger.info("[AI] Using OpenAIClient (model=%s)", settings.openai_model)
         return OpenAIClient()
-    else:
-        if provider != "mock":
-            logger.warning(
-                f"[AIClient] Unknown provider '{provider}'. Falling back to Mock."
-            )
+    if provider == "mock":
+        logger.info("[AI] Using MockAIClient")
         return MockAIClient()
+    raise ValueError(f"Unsupported AI_PROVIDER: {provider!r}")

@@ -6,9 +6,10 @@ into a structured AI context string.
 Called by ASP.NET Core Backend (not directly by Frontend - see BR-14).
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
 
+from app.api.deps import get_markdown_processor
 from app.models.request import ProcessMarkdownRequest
 from app.models.response import (
     ProcessMarkdownResponse,
@@ -18,7 +19,6 @@ from app.models.response import (
 from app.services.markdown_processor import MarkdownProcessor
 
 router = APIRouter(prefix="/markdown", tags=["Markdown Processing"])
-_processor = MarkdownProcessor()
 
 
 @router.post(
@@ -36,12 +36,14 @@ _processor = MarkdownProcessor()
     ),
     responses={
         200: {"description": "Documents processed (may contain validation warnings)"},
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
         422: {"description": "Validation error in request body"},
         500: {"model": ErrorResponse, "description": "Processing failed unexpectedly"},
     },
 )
 async def process_markdown(
     request: ProcessMarkdownRequest,
+    processor: MarkdownProcessor = Depends(get_markdown_processor),
 ) -> ProcessMarkdownResponse:
     """
     Process 2 .md documents and return structured AI context.
@@ -54,7 +56,7 @@ async def process_markdown(
             f"docs={[d.document_type for d in request.documents]}"
         )
 
-        result = _processor.process(request.documents)
+        result = processor.process(request.documents)
 
         # Build per-document summaries for the response
         summaries: list[DocumentProcessingSummary] = []

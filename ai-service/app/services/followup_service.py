@@ -5,42 +5,17 @@ Generates probing / follow-up questions based on student's answers.
 
 import json
 from pathlib import Path
-from typing import List
 
 from loguru import logger
 
 from app.core.ai_client import BaseAIClient, get_ai_client
 from app.models.ai_output import FollowUpOutput, parse_ai_output
-from app.models.request import GenerateFollowUpRequest, DocumentContext
+from app.models.request import GenerateFollowUpRequest
 from app.models.response import GenerateFollowUpResponse
-from app.services.markdown_processor import MarkdownProcessor
+from app.services.document_context import build_document_context
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "followup_prompt.txt"
 _FOLLOWUP_PROMPT_TEMPLATE: str = _PROMPT_PATH.read_text(encoding="utf-8")
-
-# Shared MarkdownProcessor instance (stateless, safe to reuse)
-_md_processor = MarkdownProcessor()
-
-
-def _build_document_context(documents: List[DocumentContext]) -> str:
-    """
-    Process and normalise .md documents using MarkdownProcessor.
-    Falls back to raw content joining if processing fails.
-    """
-    result = _md_processor.process(documents)
-    if result.is_valid and result.context_string:
-        return result.context_string
-
-    logger.warning(
-        "[FollowUpService] MarkdownProcessor validation failed; "
-        f"errors={result.validation_errors}. Using raw content fallback."
-    )
-    parts = []
-    for doc in documents:
-        parts.append(
-            f"### {doc.document_type.replace('_', ' ').title()} - {doc.title}\n\n{doc.content}"
-        )
-    return "\n\n---\n\n".join(parts)
 
 
 class FollowUpService:
@@ -68,7 +43,9 @@ class FollowUpService:
             f"[FollowUpService] Generating follow-up for session {request.exam_session_id}"
         )
 
-        document_context = _build_document_context(request.documents)
+        document_context = build_document_context(
+            request.documents, source="FollowUpService"
+        )
 
         system_prompt = _FOLLOWUP_PROMPT_TEMPLATE
         system_prompt = system_prompt.replace("{course_name}", request.course_name)

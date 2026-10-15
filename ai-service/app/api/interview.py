@@ -4,18 +4,22 @@ Endpoints for AI question generation and follow-up questions.
 Called by ASP.NET Core Backend (not directly by Frontend - see BR-14).
 """
 
-import httpx
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
-from pydantic import BaseModel
 
-from app.models.request import GenerateQuestionRequest, GenerateFollowUpRequest
-from app.models.response import GenerateQuestionResponse, GenerateFollowUpResponse, ErrorResponse
+from app.api.deps import get_interview_service, get_question_bank_service
+from app.api.errors import to_http_exception
+from app.models.question_bank import GenerateQuestionsRequest, GenerateQuestionsResponse
+from app.models.request import GenerateFollowUpRequest, GenerateQuestionRequest
+from app.models.response import (
+    ErrorResponse,
+    GenerateFollowUpResponse,
+    GenerateQuestionResponse,
+)
 from app.services.interview_service import InterviewService
-from app.services.question_service import InvalidQuestionContext, QuestionGenerationError
+from app.services.question_bank_service import QuestionBankService
 
 router = APIRouter(prefix="/interview", tags=["Interview"])
-_service = InterviewService()
 
 
 @router.post(
@@ -29,12 +33,16 @@ _service = InterviewService()
     ),
     responses={
         200: {"description": "Question generated successfully"},
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
         422: {"description": "Invalid request, course documents or exhausted topics"},
         502: {"description": "AI provider failed or returned invalid questions"},
         500: {"model": ErrorResponse, "description": "AI generation failed"},
     },
 )
-async def generate_question(request: GenerateQuestionRequest) -> GenerateQuestionResponse:
+async def generate_question(
+    request: GenerateQuestionRequest,
+    service: InterviewService = Depends(get_interview_service),
+) -> GenerateQuestionResponse:
     """
     Generate the next interview question.
 
@@ -45,35 +53,12 @@ async def generate_question(request: GenerateQuestionRequest) -> GenerateQuestio
             f"POST /interview/question | session={request.exam_session_id} "
             f"q={request.question_index}/{request.total_questions}"
         )
-        return await _service.get_next_question(request)
-    except InvalidQuestionContext as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
-    except QuestionGenerationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exc),
-        ) from exc
-    except httpx.HTTPError as exc:
-        logger.warning("[InterviewAPI] Question generation provider request failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The AI provider is unavailable. Please retry later.",
-        ) from exc
-    except ValueError as exc:
-        logger.error(f"[InterviewAPI] Question generation error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Question generation failed due to a service configuration error.",
-        )
+        return await service.get_next_question(request)
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.exception(f"[InterviewAPI] Unexpected error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred while generating the question.",
-        )
+        logger.exception(f"[InterviewAPI] Question generation error: {exc}")
+        raise to_http_exception(exc, context="Question generation") from exc
 
 
 @router.post(
@@ -87,89 +72,66 @@ async def generate_question(request: GenerateQuestionRequest) -> GenerateQuestio
     ),
     responses={
         200: {"description": "Follow-up decision + question returned"},
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
         422: {"description": "Validation error in request body"},
         500: {"model": ErrorResponse, "description": "AI generation failed"},
     },
 )
-async def generate_followup(request: GenerateFollowUpRequest) -> GenerateFollowUpResponse:
+async def generate_followup(
+    request: GenerateFollowUpRequest,
+    service: InterviewService = Depends(get_interview_service),
+) -> GenerateFollowUpResponse:
     """
     Generate a follow-up question based on the student's answer.
 
     Flow: Backend → POST /ai/interview/follow-up → AI → follow_up_question or skip
     """
     try:
-        logger.info(
-            f"POST /interview/follow-up | session={request.exam_session_id}"
-        )
-        return await _service.get_follow_up(request)
-    except ValueError as exc:
-        logger.error(f"[InterviewAPI] Follow-up generation error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+        logger.info(f"POST /interview/follow-up | session={request.exam_session_id}")
+        return await service.get_follow_up(request)
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.exception(f"[InterviewAPI] Unexpected error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred while generating follow-up.",
-        )
-
-
-class BatchGenerateQuestionsItem(BaseModel):
-    questionText: str
-    maxScore: float = 1.0
-    level: int = 1
-    isFollowUpAllowed: bool = True
-
-
-class BatchGenerateQuestionsResponse(BaseModel):
-    success: bool = True
-    questions: list[BatchGenerateQuestionsItem] = []
-
-
-class BatchGenerateQuestionsRequest(BaseModel):
-    markdown_contents: list[str] = []
-    question_count: int = 5
-    focus_topics: list[str] = []
+        logger.exception(f"[InterviewAPI] Follow-up generation error: {exc}")
+        raise to_http_exception(exc, context="Follow-up generation") from exc
 
 
 @router.post(
     "/generate-questions",
-    response_model=BatchGenerateQuestionsResponse,
-    summary="Batch Generate Questions from Markdown Documents",
+    response_model=GenerateQuestionsResponse,
+    summary="(Deprecated) Generate Questions from Markdown",
+    description=(
+        "**Deprecated.** Use `POST /ai/questions/generate` instead.\n\n"
+        "Kept temporarily for backwards compatibility: it accepts the same "
+        "request body as `/ai/questions/generate` and delegates to the same "
+        "QuestionBankService. It will be removed once no client uses it."
+    ),
+    deprecated=True,
+    responses={
+        200: {"description": "Questions generated successfully"},
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
+        422: {"description": "Invalid documents or generation parameters"},
+        502: {"description": "Provider unavailable or invalid response"},
+    },
 )
-async def batch_generate_questions(
-    request: BatchGenerateQuestionsRequest,
-) -> BatchGenerateQuestionsResponse:
+async def generate_questions_legacy(
+    payload: GenerateQuestionsRequest,
+    service: QuestionBankService = Depends(get_question_bank_service),
+) -> GenerateQuestionsResponse:
     """
-    Generate multiple questions for Question Bank from uploaded .md documents.
-    Called by Backend DocumentsController /generate-questions.
+    Deprecated alias for /ai/questions/generate.
+
+    Delegates to QuestionBankService so behaviour matches the canonical
+    endpoint exactly.
     """
-    count = min(max(request.question_count, 1), 50)
-    topics = request.focus_topics if request.focus_topics else ["Kiến thức tổng quan", "Ứng dụng thực tế", "Phân tích chuyên sâu"]
-    
-    questions = []
-    levels = [1, 2, 3]  # easy, medium, hard
-    for i in range(count):
-        topic = topics[i % len(topics)]
-        lvl = levels[i % len(levels)]
-        lvl_name = "cơ bản" if lvl == 1 else ("nâng cao" if lvl == 2 else "chuyên sâu")
-        
-        q_text = f"Hãy trình bày và giải thích nội dung {lvl_name} liên quan đến '{topic}' trong môn học."
-        if i % 3 == 1:
-            q_text = f"Phân tích ưu nhược điểm và tình huống áp dụng thực tế của '{topic}'."
-        elif i % 3 == 2:
-            q_text = f"So sánh '{topic}' với các giải pháp hoặc khái niệm tương đương và giải thích lý do lựa chọn."
-
-        questions.append(
-            BatchGenerateQuestionsItem(
-                questionText=q_text,
-                maxScore=5.0 if lvl == 2 else (10.0 if lvl == 3 else 2.0),
-                level=lvl,
-                isFollowUpAllowed=True,
-            )
-        )
-
-    return BatchGenerateQuestionsResponse(success=True, questions=questions)
-
+    logger.warning(
+        "Deprecated endpoint POST /ai/interview/generate-questions called; "
+        "use POST /ai/questions/generate instead."
+    )
+    try:
+        return await service.generate(payload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("[InterviewAPI] Legacy generate-questions error: %s", exc)
+        raise to_http_exception(exc, context="Question generation") from exc

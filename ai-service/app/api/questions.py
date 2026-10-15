@@ -4,6 +4,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 
+from app.api.deps import get_question_bank_service
 from app.core.config import get_settings
 from app.models.question_bank import GenerateQuestionsRequest, GenerateQuestionsResponse
 from app.services.question_bank_service import QuestionBankService
@@ -11,10 +12,6 @@ from app.services.question_service import QuestionGenerationError
 
 
 router = APIRouter(prefix="/questions", tags=["Question Bank"])
-
-
-def get_question_bank_service() -> QuestionBankService:
-    return QuestionBankService()
 
 
 async def _wait_for_disconnect(request: Request) -> None:
@@ -28,6 +25,7 @@ async def _wait_for_disconnect(request: Request) -> None:
     "/generate",
     response_model=GenerateQuestionsResponse,
     responses={
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
         422: {"description": "Invalid documents or generation parameters"},
         502: {"description": "Provider unavailable or invalid response"},
         504: {"description": "Question generation timed out"},

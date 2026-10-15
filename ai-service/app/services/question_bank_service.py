@@ -88,6 +88,10 @@ class QuestionBankService:
                 questions.extend(batch.questions)
             except ValueError as exc:
                 logger.warning("Question bank provider response rejected at batch offset {}", len(questions))
-                raise QuestionGenerationError("The AI provider returned an invalid question bank response.") from exc
+                msg = str(exc)
+                # Thử trích xuất status HTTP từ message lỗi (_post_with_retry raise ValueError f"Gemini provider returned HTTP {status}...")
+                m = re.search(r'HTTP (\d+)', msg)
+                status_part = f" (HTTP {m.group(1)})" if m else ""
+                raise QuestionGenerationError(f"The AI provider returned an invalid question bank response{status_part}.") from exc
         logger.info("Generated question bank with {} questions", len(questions))
         return GenerateQuestionsResponse(questions=questions)

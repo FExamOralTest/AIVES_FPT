@@ -10,26 +10,13 @@ from app.models.ai_output import parse_ai_output
 from app.models.feedback import FeedbackAnalysisOutput
 from app.models.request import EvaluateAnswerRequest
 from app.services.answer_evidence import blank_analysis, split_sentences, uses_vietnamese, validate_analysis
-from app.services.markdown_processor import MarkdownProcessor
+from app.services.document_context import build_document_context
 
 _PROMPT = (Path(__file__).parent.parent / "prompts" / "feedback_analysis_prompt.txt").read_text(encoding="utf-8")
-_markdown = MarkdownProcessor()
 
 
 def _document_context(request: EvaluateAnswerRequest) -> str:
-    question = request.question_answer
-    focus_terms = [
-        question.topic or "",
-        question.question_text,
-        question.learning_outcome or "",
-        question.sample_answer or "",
-        *(criterion.description for criterion in question.rubric),
-    ]
-    documents = _markdown.prepare_documents(request.documents, focus_terms)
-    return "\n\n".join(
-        f"{document.document_type}: {document.title}\n{document.content}"
-        for document in documents
-    )
+    return build_document_context(request.documents, source="FeedbackAnalysisService")
 
 
 class FeedbackAnalysisService:

@@ -27,7 +27,7 @@ def make_wav(seconds=1, freq=440, rate=16000):
 
 
 async def main():
-    async with httpx.AsyncClient(timeout=180.0) as c:
+    async with httpx.AsyncClient(timeout=180.0, headers={"X-AI-Service-Key": "test-key"}) as c:
         docs = [
             {
                 "document_id": "d1",

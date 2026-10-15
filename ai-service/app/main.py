@@ -11,12 +11,14 @@ API prefix: /ai
 
 from contextlib import asynccontextmanager
 from loguru import logger
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.core.config import get_settings
 from app.api import interview, speech, evaluation, markdown, questions
+from app.core.config import get_settings
+from app.core.security import verify_ai_service_key
+from app.models.question_bank import GenerateQuestionsResponse
 from app.models.response import HealthResponse
 
 settings = get_settings()
@@ -37,6 +39,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"   STT Provider: {settings.stt_provider}")
     logger.info(f"   TTS Provider: {settings.tts_provider}")
     logger.info(f"   Backend URL : {settings.backend_url}")
+    logger.info(
+        "   API guard   : {}",
+        "X-AI-Service-Key enforced"
+        if settings.ai_service_api_key.strip()
+        else "DISABLED (AI_SERVICE_API_KEY not set - development only)",
+    )
     logger.info("=" * 60)
     yield
     logger.info("🛑 AIVES AI Service shutting down")
@@ -82,16 +90,27 @@ def create_app() -> FastAPI:
     )
 
     # ── Routers ────────────────────────────────────────────
+    # All business endpoints require the internal backend key (see security.py).
     api_prefix = "/ai"
-    app.include_router(interview.router, prefix=api_prefix)
-    app.include_router(speech.router, prefix=api_prefix)
-    app.include_router(evaluation.router, prefix=api_prefix)
-    app.include_router(markdown.router, prefix=api_prefix)
-    app.include_router(questions.router, prefix=api_prefix)
-    
-    # Aliases for backwards compatibility
-    app.post("/ai/generate-questions", tags=["Interview"], include_in_schema=False)(interview.batch_generate_questions)
-    app.post("/api/ai/generate-questions", tags=["Interview"], include_in_schema=False)(interview.batch_generate_questions)
+    auth = [Depends(verify_ai_service_key)]
+    app.include_router(interview.router, prefix=api_prefix, dependencies=auth)
+    app.include_router(speech.router, prefix=api_prefix, dependencies=auth)
+    app.include_router(evaluation.router, prefix=api_prefix, dependencies=auth)
+    app.include_router(markdown.router, prefix=api_prefix, dependencies=auth)
+    app.include_router(questions.router, prefix=api_prefix, dependencies=auth)
+
+    # Deprecated aliases kept for backwards compatibility. They delegate to
+    # QuestionBankService and will be removed once no client uses them.
+    for alias in ("/ai/generate-questions", "/api/ai/generate-questions"):
+        app.add_api_route(
+            alias,
+            interview.generate_questions_legacy,
+            methods=["POST"],
+            response_model=GenerateQuestionsResponse,
+            tags=["Interview (deprecated)"],
+            deprecated=True,
+            dependencies=auth,
+        )
 
     # ── Health & Root ──────────────────────────────────────
     @app.get(

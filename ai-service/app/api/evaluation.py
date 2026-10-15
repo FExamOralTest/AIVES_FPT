@@ -4,15 +4,20 @@ Endpoints for AI scoring of student answers (single Q&A + full session).
 Result is always PendingReview until Teacher approves it (see BR-09, BR-10).
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
+from app.api.deps import get_evaluation_service
+from app.api.errors import to_http_exception
 from app.models.request import EvaluateAnswerRequest, EvaluateSessionRequest
-from app.models.response import EvaluateAnswerResponse, EvaluateSessionResponse, ErrorResponse
+from app.models.response import (
+    ErrorResponse,
+    EvaluateAnswerResponse,
+    EvaluateSessionResponse,
+)
 from app.services.evaluation_service import EvaluationService
 
 router = APIRouter(prefix="/evaluate", tags=["Evaluation"])
-_service = EvaluationService()
 
 
 @router.post(
@@ -26,11 +31,15 @@ _service = EvaluationService()
     ),
     responses={
         200: {"description": "Answer evaluated successfully"},
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
         422: {"description": "Validation error"},
         500: {"model": ErrorResponse, "description": "Evaluation failed"},
     },
 )
-async def evaluate_answer(request: EvaluateAnswerRequest) -> EvaluateAnswerResponse:
+async def evaluate_answer(
+    request: EvaluateAnswerRequest,
+    service: EvaluationService = Depends(get_evaluation_service),
+) -> EvaluateAnswerResponse:
     """
     Evaluate a single Q&A pair.
 
@@ -41,19 +50,12 @@ async def evaluate_answer(request: EvaluateAnswerRequest) -> EvaluateAnswerRespo
             f"POST /evaluate/answer | session={request.exam_session_id} | "
             f"question={request.question_answer.question_id}"
         )
-        return await _service.evaluate_answer(request)
-    except ValueError as exc:
-        logger.error(f"[EvalAPI] Evaluation error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+        return await service.evaluate_answer(request)
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.exception(f"[EvalAPI] Unexpected error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Evaluation failed unexpectedly.",
-        )
+        logger.exception(f"[EvalAPI] Evaluation error: {exc}")
+        raise to_http_exception(exc, context="Answer evaluation") from exc
 
 
 @router.post(
@@ -68,11 +70,15 @@ async def evaluate_answer(request: EvaluateAnswerRequest) -> EvaluateAnswerRespo
     ),
     responses={
         200: {"description": "Session evaluated; result is PendingReview"},
+        401: {"description": "Missing or invalid X-AI-Service-Key"},
         422: {"description": "Validation error"},
         500: {"model": ErrorResponse, "description": "Session evaluation failed"},
     },
 )
-async def evaluate_session(request: EvaluateSessionRequest) -> EvaluateSessionResponse:
+async def evaluate_session(
+    request: EvaluateSessionRequest,
+    service: EvaluationService = Depends(get_evaluation_service),
+) -> EvaluateSessionResponse:
     """
     Evaluate a complete exam session.
 
@@ -84,16 +90,9 @@ async def evaluate_session(request: EvaluateSessionRequest) -> EvaluateSessionRe
             f"POST /evaluate/session | session={request.exam_session_id} | "
             f"questions={len(request.question_answers)}"
         )
-        return await _service.evaluate_session(request)
-    except ValueError as exc:
-        logger.error(f"[EvalAPI] Session evaluation error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+        return await service.evaluate_session(request)
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.exception(f"[EvalAPI] Unexpected error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Session evaluation failed unexpectedly.",
-        )
+        logger.exception(f"[EvalAPI] Session evaluation error: {exc}")
+        raise to_http_exception(exc, context="Session evaluation") from exc

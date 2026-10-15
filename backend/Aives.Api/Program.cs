@@ -164,11 +164,21 @@ builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
     if (!double.IsFinite(timeoutSeconds) || timeoutSeconds <= 0 || timeoutSeconds > 3600)
         throw new InvalidOperationException("AI:QuestionGenerationTimeoutSeconds must be between 0 and 3600.");
     client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+    var apiKey = builder.Configuration["AI:ApiKey"];
+    if (!string.IsNullOrEmpty(apiKey))
+    {
+        client.DefaultRequestHeaders.Add("X-AI-Service-Key", apiKey);
+    }
 });
 builder.Services.AddHttpClient<Aives.Application.AI.Interfaces.IAiServiceClient, AiServiceClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
     client.Timeout = TimeSpan.FromMinutes(5);
+    var apiKey = builder.Configuration["AI:ApiKey"];
+    if (!string.IsNullOrEmpty(apiKey))
+    {
+        client.DefaultRequestHeaders.Add("X-AI-Service-Key", apiKey);
+    }
 });
 builder.Services.AddScoped<Aives.Infrastructure.AI.IAiServiceClient>(sp =>
     (AiServiceClient)sp.GetRequiredService<Aives.Application.AI.Interfaces.IAiServiceClient>());
