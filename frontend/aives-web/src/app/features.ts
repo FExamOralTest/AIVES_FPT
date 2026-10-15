@@ -186,11 +186,10 @@ export const FEATURES: FeatureDef[] = [
     title: 'Ca thi của tôi',
     icon: CalendarClock,
     summary: 'Các ca thi đã đăng ký, thời gian bắt đầu và trạng thái.',
-    status: 'pending',
+    status: 'done',
     endpoints: [
-      { method: 'GET', path: '/api/student/enrollments', state: 'missing', note: 'Đề xuất: danh sách ca thi đã đăng ký.' },
+      { method: 'GET', path: '/api/student/enrollments', state: 'ok', note: 'Danh sách ca thi đã đăng ký của sinh viên đang đăng nhập.' },
     ],
-    blockers: ['Backend chưa có API cho sinh viên xem các ca thi đã đăng ký.'],
   },
   {
     role: 'STUDENT',

@@ -8,6 +8,7 @@ import { SessionsPage } from '@/features/exam-sessions'
 import { ExamsPage } from '@/features/exams'
 import { LandingPage } from '@/features/landing'
 import { StudentResultsPage } from '@/features/student-results'
+import { StudentSessionsPage } from '@/features/student-sessions'
 import { TeacherCoursesPage } from '@/features/teacher-courses'
 import { TeacherQuestionsPage } from '@/features/teacher-questions'
 import { TeacherResultsPage } from '@/features/teacher-results'
@@ -30,6 +31,7 @@ const PAGES: Record<string, ComponentType> = {
   'TEACHER/sessions': SessionsPage,
   'TEACHER/results': TeacherResultsPage,
   'STUDENT/enroll': EnrollPage,
+  'STUDENT/sessions': StudentSessionsPage,
   'STUDENT/viva': VivaRoomPage,
   'STUDENT/results': StudentResultsPage,
 }

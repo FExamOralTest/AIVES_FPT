@@ -1,4 +1,4 @@
-import { CalendarClock, CircleAlert, CircleCheck, Info, KeyRound, Mic } from 'lucide-react'
+import { CalendarClock, CircleAlert, CircleCheck, Info, KeyRound } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -87,7 +87,9 @@ function EnrollForm({ onEnrolled }: { onEnrolled: (session: EnrollSessionRespons
             {notice.tone === 'error' ? <CircleAlert /> : <Info className="text-brand" />}
             <AlertDescription className={notice.tone === 'info' ? 'text-foreground' : undefined}>
               {notice.text}
-              {notice.tone === 'info' && ' Vào phòng thi bằng ID ca thi đã đăng ký khi ca thi bắt đầu.'}
+              {notice.tone === 'info' && (
+                <Link to="/student/sessions" className="ml-1 font-medium underline underline-offset-4">Xem trong Ca thi của tôi.</Link>
+              )}
             </AlertDescription>
           </Alert>
         )}
@@ -213,9 +215,9 @@ function EnrolledCard({
 
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
         <Button asChild>
-          <Link to={`/student/viva?sessionId=${session.sessionId}`}>
-            <Mic aria-hidden="true" />
-            Đến phòng thi
+          <Link to="/student/sessions">
+            <CalendarClock aria-hidden="true" />
+            Ca thi của tôi
           </Link>
         </Button>
         <Button variant="secondary" onClick={onEnrollAnother}>

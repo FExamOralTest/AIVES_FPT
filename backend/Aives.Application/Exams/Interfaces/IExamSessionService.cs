@@ -18,6 +18,7 @@ public interface IExamSessionService
 
     // === P0: Student Enroll & Teacher Monitor ===
     Task<EnrollSessionResponse> EnrollStudentAsync(EnrollSessionRequest request, int studentId);
+    Task<IEnumerable<StudentSessionEnrollmentDto>> GetStudentEnrollmentsAsync(int studentId, CancellationToken cancellationToken = default);
     Task<IEnumerable<SessionEnrollmentDto>> GetSessionEnrollmentsAsync(int sessionId, int teacherId);
     Task<SessionMonitorDto> GetSessionMonitorAsync(int sessionId, int teacherId);
 }
