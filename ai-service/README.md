@@ -103,6 +103,18 @@ Chỉnh `AI_PROVIDER` trong `.env`:
 
 Tương tự cho STT (`STT_PROVIDER`) và TTS (`TTS_PROVIDER`).
 
+Để nhận dạng giọng nói bằng key Gemini hiện có, đặt `STT_PROVIDER=gemini`.
+Provider này nhận WAV, WebM, Ogg, MP3 và MP4, tối đa 14 MB mỗi lần gửi;
+`GEMINI_STT_MODEL` mặc định dùng model của `GEMINI_MODEL`.
+Đọc câu hỏi tiếng Việt không cần key riêng: đặt `TTS_PROVIDER=edge_tts`.
+
+Khi backend có API mới, cần build và khởi động lại backend; chạy trực tiếp DLL cũ
+có thể trả HTTP 404 dù controller đã có trong mã nguồn. Từ repo root trên PowerShell,
+dùng `./scripts/run-backend.ps1` sau khi cấu hình `ConnectionStrings__DefaultConnection`,
+`ASPNETCORE_ENVIRONMENT`, `Jwt__Key` và `ASPNETCORE_URLS` cho môi trường cần chạy.
+Script tự build mã nguồn hiện tại và giữ cấu hình từ terminal; dùng database development
+cho kiểm tra thông thường. Đặt `AI__BaseUrl=http://localhost:8000` để kết nối AI service.
+
 ## 🐳 Docker
 
 ```bash
