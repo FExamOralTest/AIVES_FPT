@@ -3,134 +3,64 @@ using Aives.Application.DTOs;
 using Aives.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Aives.Api.Controllers;
 
-/// <summary>
-/// Admin tạo, quản lý Course và phân công Teacher.
-/// Base route: /api/admin/courses
-/// </summary>
 [ApiController]
 [Route("api/admin/courses")]
 [Authorize(Roles = "ADMIN")]
-public class AdminCourseController : ControllerBase
+public class AdminCourseController(ICourseService courses) : ControllerBase
 {
-    private readonly ICourseService _courseService;
-
-    public AdminCourseController(ICourseService courseService) => _courseService = courseService;
-
-    // GET /api/admin/courses
     [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var courses = await _courseService.GetAllAsync();
-        return Ok(courses);
-    }
+    public Task<IActionResult> GetAll() => ExecuteAsync(async () => Ok(await courses.GetAllAsync()));
 
-    // GET /api/admin/courses/{id}
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        try
-        {
-            var course = await _courseService.GetByIdAsync(id);
-            return Ok(course);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-    }
+    public Task<IActionResult> GetById(int id) => ExecuteAsync(async () => Ok(await courses.GetByIdAsync(id)));
 
-    // GET /api/admin/courses/teacher/{teacherId}
     [HttpGet("teacher/{teacherId:int}")]
-    public async Task<IActionResult> GetByTeacher(int teacherId)
-    {
-        var courses = await _courseService.GetByTeacherIdAsync(teacherId);
-        return Ok(courses);
-    }
+    public Task<IActionResult> GetByTeacher(int teacherId)
+        => ExecuteAsync(async () => Ok(await courses.GetByTeacherIdAsync(teacherId)));
 
-    // POST /api/admin/courses
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateCourseRequest request)
+    public Task<IActionResult> Create([FromBody] CreateCourseRequest request) => ExecuteAsync(async () =>
     {
-        try
-        {
-            var adminId = 0;
-            var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (int.TryParse(currentUserIdStr, out var parsedId))
-            {
-                adminId = parsedId;
-            }
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId))
+            return Unauthorized();
+        var created = await courses.CreateAsync(request with { CreatedBy = adminId });
+        return CreatedAtAction(nameof(GetById), new { id = created.CourseId }, created);
+    });
 
-            var effectiveCreatedBy = request.CreatedBy.HasValue && request.CreatedBy.Value > 0
-                ? request.CreatedBy.Value
-                : adminId;
-
-            var fullRequest = request with { CreatedBy = effectiveCreatedBy };
-            var created = await _courseService.CreateAsync(fullRequest);
-            return CreatedAtAction(nameof(GetById), new { id = created.CourseId }, created);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Forbid(ex.Message);
-        }
-    }
-
-    // PUT /api/admin/courses/{id}
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] UpdateCourseRequest request)
-    {
-        try
-        {
-            var updated = await _courseService.UpdateAsync(id, request);
-            return Ok(updated);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-    }
+    public Task<IActionResult> Update(int id, [FromBody] UpdateCourseRequest request)
+        => ExecuteAsync(async () => Ok(await courses.UpdateAsync(id, request)));
 
-    // PUT /api/admin/courses/{id}/assign-teacher
     [HttpPut("{id:int}/assign-teacher")]
-    public async Task<IActionResult> AssignTeacher(int id, [FromBody] AssignTeacherRequest request)
-    {
-        try
-        {
-            var updated = await _courseService.AssignTeacherAsync(id, request);
-            return Ok(updated);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    public Task<IActionResult> AssignTeacher(int id, [FromBody] AssignTeacherRequest request)
+        => ExecuteAsync(async () => Ok(await courses.AssignTeacherAsync(id, request)));
 
-    // DELETE /api/admin/courses/{id}
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    public Task<IActionResult> Delete(int id) => ExecuteAsync(async () =>
     {
-        try
+        await courses.DeleteAsync(id);
+        return NoContent();
+    });
+
+    private async Task<IActionResult> ExecuteAsync(Func<Task<IActionResult>> action)
+    {
+        try { return await action(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505" or "23503" or "40001" })
         {
-            await _courseService.DeleteAsync(id);
-            return NoContent();
+            return Conflict(new { message = "The course code already exists or related data changed. Reload and try again." });
         }
-        catch (KeyNotFoundException ex)
+        catch (PostgresException ex) when (ex.SqlState is "40001" or "40P01")
         {
-            return NotFound(new { message = ex.Message });
+            return Conflict(new { message = "The data changed concurrently. Reload and try again." });
         }
     }
 }

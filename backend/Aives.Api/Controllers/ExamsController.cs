@@ -50,6 +50,22 @@ public class ExamsController(IExamService service) : ControllerBase
     public Task<IActionResult> UpdateExamQuestions(int examId, [FromBody] UpdateExamQuestionsRequest request)
         => ExecuteAsync(async teacherId => Ok(await service.UpdateExamQuestionsAsync(examId, request.Questions, teacherId)));
 
+    [HttpPut("{examId:int}")]
+    [ProducesResponseType(typeof(ExamDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> UpdateExam(int examId, [FromBody] UpdateExamRequest request)
+        => ExecuteAsync(async teacherId => Ok(await service.UpdateExamAsync(examId, request, teacherId)));
+
+    [HttpDelete("{examId:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> DeleteExam(int examId) => ExecuteAsync(async teacherId =>
+    {
+        await service.DeleteExamAsync(examId, teacherId);
+        return NoContent();
+    });
+
     private async Task<IActionResult> ExecuteAsync(Func<int, Task<IActionResult>> action)
     {
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var teacherId))

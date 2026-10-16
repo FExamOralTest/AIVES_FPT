@@ -1,14 +1,20 @@
 import { http } from '@/lib/http/client'
 import type { CreateUserInput, UpdateUserInput, User, UserRole } from '../types'
-
-// The backend has no JsonStringEnumConverter yet, so request bodies must send the enum's number
-// ("TEACHER" → 400). Responses already use names. Numbers keep working once strings are enabled.
 const ROLE_CODE: Record<UserRole, number> = { ADMIN: 0, STUDENT: 1, TEACHER: 2 }
 
 export const usersApi = {
   async list(): Promise<User[]> {
     const { data } = await http.get<User[]>('/api/auth/admin/users')
     return data
+  },
+
+  async get(userId: number): Promise<User> {
+    const { data } = await http.get<User>(`/api/admin/users/${userId}`)
+    return data
+  },
+
+  async delete(userId: number): Promise<void> {
+    await http.delete(`/api/admin/users/${userId}`)
   },
 
   async create({ role, ...rest }: CreateUserInput): Promise<User> {

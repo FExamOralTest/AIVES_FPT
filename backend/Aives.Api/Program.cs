@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -24,14 +25,9 @@ using Aives.Application.Viva.Services;
 using Aives.Infrastructure.AI;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Add logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
-
-
-// 1. PostgreSQL / EF Core
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -46,15 +42,10 @@ var dataSource = dataSourceBuilder.Build();
 builder.Services.AddDbContext<AivesDbContext>(options =>
     options.UseNpgsql(dataSource));
 
-
-// 2. JWT Authentication
-
 var jwtKey      = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key configuration is required.");
 var jwtIssuer   = builder.Configuration["Jwt:Issuer"]   ?? "AIVES";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "AIVES.Client";
-
-// Register JWT blacklist as singleton for sharing across requests
 builder.Services.AddSingleton<IJwtBlacklistService, JwtBlacklistService>();
 
 builder.Services.AddCors(options =>
@@ -95,15 +86,18 @@ builder.Services
                 if (!string.IsNullOrEmpty(rawToken) && await blacklistService.IsTokenBlacklistedAsync(rawToken))
                 {
                     context.Fail("Token has been revoked.");
+                    return;
                 }
+                var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var users = context.HttpContext.RequestServices.GetRequiredService<Aives.Application.Auth.Interfaces.IUserRepository>();
+                var currentUser = int.TryParse(userId, out var id) ? await users.GetByIdAsync(id) : null;
+                if (currentUser is null || context.Principal?.FindFirstValue(ClaimTypes.Role) != currentUser.Role.ToString())
+                    context.Fail("The account no longer exists or its role has changed.");
             }
         };
     });
 
 builder.Services.AddAuthorization();
-
-
-// 2.1. Rate Limiting for Login
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -120,17 +114,11 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-
-// 3. Dependency Injection â€ Auth
-
 builder.Services.AddScoped<IAuthService,    AuthService>();
 builder.Services.AddScoped<IJwtService,     JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<Aives.Application.Auth.Interfaces.IUserRepository,
                             Aives.Infrastructure.Auth.UserRepository>();
-
-
-// 3b. Dependency Injection â€“ Exam & ExamSession
 
 builder.Services.AddScoped<IExamRepository, ExamRepository>();
 builder.Services.AddScoped<IExamSessionRepository, ExamSessionRepository>();
@@ -140,14 +128,10 @@ builder.Services.AddScoped<IExamUnitOfWork, ExamUnitOfWork>();
 builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
 
-
-// 3c. Dependency Injection â€“ Documents, Results, AI
-
 builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
 builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository, Aives.Infrastructure.Repositories.UserRepository>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IResultRepository, ResultRepository>();
-// Services for 5 modules: AdminCourse, AdminUser, TeacherCourse, Documents (CRUD), Results
 builder.Services.AddScoped<IUserService,             UserService>();
 builder.Services.AddScoped<ICourseService,           CourseService>();
 builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
@@ -155,8 +139,6 @@ builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
 builder.Services.AddScoped<IVivaSessionService, VivaSessionService>();
-
-// HttpClient cho AI Service (FastAPI)
 builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
@@ -172,9 +154,6 @@ builder.Services.AddHttpClient<Aives.Application.AI.Interfaces.IAiServiceClient,
 });
 builder.Services.AddScoped<Aives.Infrastructure.AI.IAiServiceClient>(sp =>
     (AiServiceClient)sp.GetRequiredService<Aives.Application.AI.Interfaces.IAiServiceClient>());
-
-
-// 4. Controllers + Swagger with JWT
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -209,9 +188,6 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-
-// 6. Auto-seed default admin on startup
-
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
@@ -219,9 +195,6 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await DatabaseSeeder.SeedAdminAsync(db, configuration, logger);
 }
-
-
-// 7. Middleware pipeline
 
 if (app.Environment.IsDevelopment())
 {

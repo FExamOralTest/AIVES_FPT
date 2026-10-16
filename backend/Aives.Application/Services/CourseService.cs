@@ -17,10 +17,6 @@ public class CourseService : ICourseService
         _userRepo   = userRepo;
     }
 
-    // ------------------------------------------------------------------ //
-    //  Queries                                                             //
-    // ------------------------------------------------------------------ //
-
     public async Task<IEnumerable<CourseDto>> GetAllAsync()
     {
         var courses = await _courseRepo.GetAllAsync();
@@ -40,18 +36,15 @@ public class CourseService : ICourseService
         return ToDto(course);
     }
 
-    // ------------------------------------------------------------------ //
-    //  Commands                                                            //
-    // ------------------------------------------------------------------ //
-
     public async Task<CourseDto> CreateAsync(CreateCourseRequest req)
     {
-        if (await _courseRepo.ExistsCodeAsync(req.CourseCode))
+        if (string.IsNullOrWhiteSpace(req.CourseCode) || string.IsNullOrWhiteSpace(req.CourseName))
+            throw new ArgumentException("Course code and name are required.");
+        var courseCode = req.CourseCode.Trim().ToUpperInvariant();
+        if (await _courseRepo.ExistsCodeAsync(courseCode))
             throw new InvalidOperationException($"Course code '{req.CourseCode}' already exists.");
 
         var createdBy = req.CreatedBy ?? throw new InvalidOperationException("CreatedBy is required.");
-
-        // Kiểm tra creator tồn tại và có quyền Admin
         var creator = await _userRepo.GetByIdAsync(createdBy)
             ?? throw new KeyNotFoundException($"User {createdBy} not found.");
 
@@ -68,7 +61,7 @@ public class CourseService : ICourseService
 
         var course = new Course
         {
-            CourseCode = req.CourseCode.Trim().ToUpper(),
+            CourseCode = courseCode,
             CourseName = req.CourseName.Trim(),
             CreatedBy  = createdBy,
             TeacherId  = req.TeacherId.HasValue && req.TeacherId.Value > 0 ? req.TeacherId.Value : null,
@@ -76,7 +69,6 @@ public class CourseService : ICourseService
         };
 
         var created = await _courseRepo.CreateAsync(course);
-        // Reload để lấy navigation property Teacher
         return ToDto(await _courseRepo.GetByIdAsync(created.CourseId) ?? created);
     }
 
@@ -85,8 +77,18 @@ public class CourseService : ICourseService
         var course = await _courseRepo.GetByIdAsync(courseId)
             ?? throw new KeyNotFoundException($"Course {courseId} not found.");
 
-        if (!string.IsNullOrWhiteSpace(req.CourseName))
-            course.CourseName = req.CourseName.Trim();
+        if (string.IsNullOrWhiteSpace(req.CourseName))
+            throw new ArgumentException("Course name is required.");
+        if (req.CourseCode is not null)
+        {
+            if (string.IsNullOrWhiteSpace(req.CourseCode))
+                throw new ArgumentException("Course code is required.");
+            var code = req.CourseCode.Trim().ToUpperInvariant();
+            if (await _courseRepo.ExistsCodeAsync(code, courseId))
+                throw new InvalidOperationException("Course code already exists.");
+            course.CourseCode = code;
+        }
+        course.CourseName = req.CourseName.Trim();
 
         course.Teacher = null;
         course.CreatedByNavigation = null;
@@ -98,8 +100,6 @@ public class CourseService : ICourseService
     {
         var course = await _courseRepo.GetByIdAsync(courseId)
             ?? throw new KeyNotFoundException($"Course {courseId} not found.");
-
-        // Kiểm tra user tồn tại và có role TEACHER
         var teacher = await _userRepo.GetByIdAsync(req.TeacherId)
             ?? throw new KeyNotFoundException($"User {req.TeacherId} not found.");
 
@@ -119,10 +119,6 @@ public class CourseService : ICourseService
             ?? throw new KeyNotFoundException($"Course {courseId} not found.");
         await _courseRepo.DeleteAsync(courseId);
     }
-
-    // ------------------------------------------------------------------ //
-    //  Mapping                                                             //
-    // ------------------------------------------------------------------ //
 
     private static CourseDto ToDto(Course c) => new(
         c.CourseId,
