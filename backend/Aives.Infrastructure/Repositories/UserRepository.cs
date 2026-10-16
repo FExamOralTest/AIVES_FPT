@@ -52,9 +52,21 @@ public class UserRepository : IUserRepository
 
     public async Task DeleteAsync(int userId)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var user = await _db.Users.FindAsync(userId)
             ?? throw new KeyNotFoundException($"User {userId} not found.");
+        if (user.Role == UserRole.ADMIN && !await _db.Users.AnyAsync(u => u.Role == UserRole.ADMIN && u.UserId != userId))
+            throw new InvalidOperationException("Cannot delete the last admin user.");
+        if (await _db.Courses.AnyAsync(c => c.CreatedBy == userId || c.TeacherId == userId)
+            || await _db.Exams.AnyAsync(e => e.CreatedBy == userId)
+            || await _db.ExamSessions.AnyAsync(s => s.ScheduledBy == userId)
+            || await _db.MarkdownDocuments.AnyAsync(d => d.UploadedBy == userId)
+            || await _db.Enrollments.AnyAsync(e => e.StudentId == userId)
+            || await _db.SessionEnrollments.AnyAsync(e => e.StudentId == userId)
+            || await _db.Results.AnyAsync(r => r.StudentId == userId || r.ReviewedBy == userId))
+            throw new InvalidOperationException("This user has related courses, exams, documents, enrollments or results and cannot be deleted.");
         _db.Users.Remove(user);
         await _db.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 }

@@ -1,10 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace Aives.Application.Exams.DTOs;
-
-// ─── Request DTOs ───────────────────────────────────────────────
-
-/// <summary>Payload để Teacher tạo đề thi mới.</summary>
 public class CreateExamRequest
 {
     [Required]
@@ -19,15 +15,8 @@ public class CreateExamRequest
 
     [Range(1, 200)]
     public int MaxQuestions { get; set; } = 10;
-
-    /// <summary>
-    /// Danh sách câu hỏi được chọn thủ công hoặc từ AI gợi ý.
-    /// Nếu null/rỗng, tạo đề thi chưa có câu hỏi (Draft).
-    /// </summary>
     public List<ExamQuestionItem>? Questions { get; set; }
 }
-
-/// <summary>Một câu hỏi được gán vào đề thi kèm điểm số.</summary>
 public class ExamQuestionItem
 {
     [Range(1, int.MaxValue)]
@@ -35,6 +24,18 @@ public class ExamQuestionItem
 
     [Range(typeof(float), "0.01", "100")]
     public float QuestionScore { get; set; } = 1.0f;
+}
+
+public class UpdateExamRequest
+{
+    [Required, MaxLength(255)]
+    public string Title { get; set; } = null!;
+    [Range(1, 480)]
+    public int DurationMinutes { get; set; }
+    [Range(1, 200)]
+    public int MaxQuestions { get; set; }
+    [Required]
+    public List<ExamQuestionItem> Questions { get; set; } = [];
 }
 
 public class UpdateExamQuestionsRequest
@@ -53,12 +54,9 @@ public class SuggestQuestionsRequest
     [Range(1, 100)]
     public int MaxSuggestions { get; set; } = 10;
 }
-
-// ─── Response DTOs ──────────────────────────────────────────────
-
-/// <summary>Thông tin đề thi trả về cho client.</summary>
 public class ExamDto
 {
+    public bool CanEdit { get; set; }
     public int ExamId { get; set; }
     public string Title { get; set; } = null!;
     public string ExamCode { get; set; } = null!;
@@ -72,8 +70,6 @@ public class ExamDto
     public DateTime? CreatedAt { get; set; }
     public List<ExamQuestionDto> Questions { get; set; } = new();
 }
-
-/// <summary>Thông tin một câu hỏi trong đề thi.</summary>
 public class ExamQuestionDto
 {
     public int QuestionId { get; set; }
@@ -89,8 +85,6 @@ public class SuggestedQuestionsDto
     public string SelectionMethod { get; set; } = "keyword";
     public string? Rationale { get; set; }
 }
-
-// ── Generate Exam from QuestionBank ──────────────────────────────────────────
 
 public record GenerateExamRequest(
     int CourseId,

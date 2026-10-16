@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams.Exceptions;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
@@ -94,44 +95,81 @@ public class ExamService(
         };
     }
 
-    public async Task<ExamDto> UpdateExamQuestionsAsync(int examId, List<ExamQuestionItem> newQuestions, int teacherId)
+    public Task<ExamDto> UpdateExamAsync(int examId, UpdateExamRequest request, int teacherId)
+        => unitOfWork.ExecuteAsync(async () =>
+        {
+            Validate(request);
+            var exam = await GetEditableExamAsync(examId, teacherId);
+            await ValidateQuestionsAsync(exam.CourseId, request.Questions, request.MaxQuestions);
+            exam.Title = request.Title.Trim();
+            exam.DurationMinutes = request.DurationMinutes;
+            exam.MaxQuestions = request.MaxQuestions;
+            await ReplaceQuestionsAsync(examId, request.Questions);
+            return MapToExamDto(await exams.GetByIdWithQuestionsAsync(examId)
+                ?? throw new KeyNotFoundException("Exam not found."));
+        });
+
+    public async Task DeleteExamAsync(int examId, int teacherId)
+        => await unitOfWork.ExecuteAsync(async () =>
+        {
+            var exam = await GetEditableExamAsync(examId, teacherId);
+            exams.Remove(exam);
+            await exams.SaveChangesAsync();
+            return true;
+        });
+
+    public Task<ExamDto> UpdateExamQuestionsAsync(int examId, List<ExamQuestionItem> newQuestions, int teacherId)
+        => unitOfWork.ExecuteAsync(async () =>
+        {
+            var exam = await GetEditableExamAsync(examId, teacherId);
+            await ValidateQuestionsAsync(exam.CourseId, newQuestions, exam.MaxQuestions);
+            await ReplaceQuestionsAsync(examId, newQuestions);
+            return MapToExamDto(await exams.GetByIdWithQuestionsAsync(examId)
+                ?? throw new KeyNotFoundException("Exam not found."));
+        });
+
+    private async Task<Exam> GetEditableExamAsync(int examId, int teacherId)
     {
         var exam = await exams.GetByIdWithQuestionsAsync(examId)
-            ?? throw new KeyNotFoundException($"Exam with ID {examId} not found.");
+            ?? throw new KeyNotFoundException("Exam not found.");
         if (exam.CreatedBy != teacherId)
             throw new UnauthorizedAccessException("You do not have permission to edit this exam.");
         await EnsureAssignedAsync(exam.CourseId, teacherId);
+        if (exam.ExamStatus != ExamStatus.DRAFT || await exams.HasSessionsAsync(examId))
+            throw new QuestionBankConflictException("Only draft exams without sessions can be changed or deleted.");
+        return exam;
+    }
 
-        if (exam.ExamStatus != ExamStatus.DRAFT)
-            throw new ArgumentException("Only draft exams can have their questions modified.");
-
-        var items = newQuestions ?? [];
-        if (items.Count > exam.MaxQuestions)
-            throw new ArgumentException($"Number of questions ({items.Count}) exceeds maximum allowed ({exam.MaxQuestions}).");
-
+    private async Task ValidateQuestionsAsync(int courseId, List<ExamQuestionItem>? items, int maxQuestions)
+    {
+        if (items is null || items.Any(q => q is null))
+            throw new ArgumentException("Questions must not be null or contain null items.");
+        foreach (var item in items)
+        {
+            Validate(item);
+            if (!float.IsFinite(item.QuestionScore))
+                throw new ArgumentException("Question scores must be finite.");
+        }
+        if (items.Count > maxQuestions)
+            throw new ArgumentException("Question count exceeds MaxQuestions.");
         var ids = items.Select(q => q.QuestionId).ToList();
         if (ids.Distinct().Count() != ids.Count)
             throw new ArgumentException("Duplicate question IDs are not allowed.");
+        var selected = await questions.GetByIdsForCourseAsync(courseId, ids);
+        if (selected.Count != ids.Count)
+            throw new ArgumentException("Every question must exist and belong to the exam course.");
+        if (selected.Any(q => string.IsNullOrWhiteSpace(q.QuestionText) || q.Level is < 1 or > 3
+            || !QuestionRubricValidator.IsValidMaxScore(q.MaxScore ?? 1)))
+            throw new ArgumentException("The selected question bank contains invalid questions.");
+    }
 
-        if (ids.Count > 0)
-        {
-            var selected = await questions.GetByIdsForCourseAsync(exam.CourseId, ids);
-            if (selected.Count != ids.Count)
-                throw new ArgumentException("Every question must exist and belong to the exam course.");
-        }
-
-        var examQuestions = items.Select(q => new ExamQuestion
+    private Task ReplaceQuestionsAsync(int examId, List<ExamQuestionItem> items)
+        => exams.ReplaceQuestionsAsync(examId, items.Select(q => new ExamQuestion
         {
             ExamId = examId,
             QuestionId = q.QuestionId,
-            QuestionScore = q.QuestionScore > 0 ? q.QuestionScore : 1.0f
-        }).ToList();
-
-        await exams.ReplaceQuestionsAsync(examId, examQuestions);
-        var updated = await exams.GetByIdWithQuestionsAsync(examId)
-            ?? throw new InvalidOperationException("Exam could not be retrieved after update.");
-        return MapToExamDto(updated);
-    }
+            QuestionScore = q.QuestionScore
+        }));
 
     private async Task EnsureAssignedAsync(int courseId, int teacherId)
     {
@@ -161,6 +199,7 @@ public class ExamService(
 
     private static ExamDto MapToExamDto(Exam exam) => new()
     {
+        CanEdit = exam.ExamStatus == ExamStatus.DRAFT && !exam.ExamSessions.Any(),
         ExamId = exam.ExamId,
         Title = exam.Title,
         ExamCode = exam.ExamCode,

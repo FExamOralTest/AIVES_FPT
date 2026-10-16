@@ -7,9 +7,8 @@ export interface ExamQuestion {
   maxScore: number | null
   isFollowUpAllowed: boolean | null
 }
-
-/** GET /api/exams/my, GET /api/exams/{id}, POST /api/exams. */
 export interface Exam {
+  canEdit: boolean
   examId: number
   title: string
   examCode: string
@@ -21,7 +20,6 @@ export interface Exam {
   maxQuestions: number
   examStatus: ExamStatus | null
   createdAt: string | null
-  /** In the list endpoint question texts are empty; fetch the exam by id for the full list. */
   questions: ExamQuestion[]
 }
 
@@ -39,8 +37,9 @@ export interface CreateExamInput {
 }
 
 export type DocType = 'CONTENT' | 'LEARNING_OUTCOMES'
-
-/** Result of checking a courseId the teacher typed (there is no "my courses" API yet). */
-export type CourseCheck =
-  | { ok: true; docTypes: DocType[] }
-  | { ok: false; message: string }
+export interface UpdateExamInput {
+  title: string
+  durationMinutes: number
+  maxQuestions: number
+  questions: CreateExamQuestionItem[]
+}

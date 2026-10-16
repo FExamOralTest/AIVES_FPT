@@ -1,15 +1,13 @@
 using Aives.Application.DTOs;
 using Aives.Application.Interfaces.Services;
 using Aives.Domain.Enums;
+using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Aives.Api.Controllers;
-
-/// <summary>
-/// Admin quản lý User (Teacher, Student, Admin).
-/// Base route: /api/admin/users
-/// </summary>
 [ApiController]
 [Route("api/admin/users")]
 [Authorize(Roles = "ADMIN")]
@@ -18,16 +16,12 @@ public class AdminUserController : ControllerBase
     private readonly IUserService _userService;
 
     public AdminUserController(IUserService userService) => _userService = userService;
-
-    // GET /api/admin/users
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
         var users = await _userService.GetAllAsync();
         return Ok(users);
     }
-
-    // GET /api/admin/users/role/{role}
     [HttpGet("role/{role}")]
     public async Task<IActionResult> GetByRole(string role)
     {
@@ -37,8 +31,6 @@ public class AdminUserController : ControllerBase
         var users = await _userService.GetByRoleAsync(parsed);
         return Ok(users);
     }
-
-    // GET /api/admin/users/{id}
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -52,8 +44,6 @@ public class AdminUserController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
-
-    // POST /api/admin/users
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
@@ -67,8 +57,6 @@ public class AdminUserController : ControllerBase
             return Conflict(new { message = ex.Message });
         }
     }
-
-    // PUT /api/admin/users/{id}
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserRequest request)
     {
@@ -86,11 +74,13 @@ public class AdminUserController : ControllerBase
             return Conflict(new { message = ex.Message });
         }
     }
-
-    // DELETE /api/admin/users/{id}
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var callerId))
+            return Unauthorized();
+        if (id == callerId)
+            return Conflict(new { message = "You cannot delete your own account." });
         try
         {
             await _userService.DeleteAsync(id);
@@ -99,6 +89,15 @@ public class AdminUserController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23503" or "40001" })
+        {
+            return Conflict(new { message = "This user has related data or changed concurrently. Reload and try again." });
+        }
+        catch (PostgresException ex) when (ex.SqlState is "40001" or "40P01")
+        {
+            return Conflict(new { message = "The data changed concurrently. Reload and try again." });
         }
     }
 }

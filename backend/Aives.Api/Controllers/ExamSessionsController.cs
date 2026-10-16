@@ -1,14 +1,11 @@
 using System.Security.Claims;
 using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams.Exceptions;
 using Aives.Application.Exams.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Aives.Api.Controllers;
-
-/// <summary>
-/// Quản lý Ca thi / Phòng thi (ExamSession). Chỉ dành cho Teacher.
-/// </summary>
 [ApiController]
 [Route("api/exam-sessions")]
 [Authorize(Roles = "TEACHER")]
@@ -20,11 +17,6 @@ public class ExamSessionsController : ControllerBase
     {
         _sessionService = sessionService;
     }
-
-    /// <summary>
-    /// [TEACHER] Tạo ca thi mới từ một Exam có sẵn.
-    /// Hệ thống tự động thiết lập trạng thái ban đầu là NOT_STARTED.
-    /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(ExamSessionDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -56,15 +48,12 @@ public class ExamSessionsController : ControllerBase
         {
             return Forbid();
         }
+        catch (QuestionBankConflictException ex) { return Conflict(new { message = ex.Message }); }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
-
-    /// <summary>
-    /// [TEACHER] Lấy chi tiết ca thi theo ID.
-    /// </summary>
     [HttpGet("{sessionId:int}")]
     [ProducesResponseType(typeof(ExamSessionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -89,11 +78,6 @@ public class ExamSessionsController : ControllerBase
             return Forbid();
         }
     }
-
-    /// <summary>
-    /// [TEACHER] Lấy danh sách tất cả ca thi do Teacher hiện tại quản lý.
-    /// Dùng cho dashboard Teacher – hiển thị trạng thái tất cả phòng thi.
-    /// </summary>
     [HttpGet("teacher/{teacherId:int}")]
     [ProducesResponseType(typeof(IEnumerable<ExamSessionSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -102,19 +86,12 @@ public class ExamSessionsController : ControllerBase
         var currentUserId = GetCurrentUserId();
         if (currentUserId is null)
             return Unauthorized(new { message = "Invalid token." });
-
-        // Teacher chỉ được xem danh sách của chính mình
         if (currentUserId.Value != teacherId)
             return Forbid();
 
         var sessions = await _sessionService.GetSessionsByTeacherAsync(teacherId);
         return Ok(sessions);
     }
-
-    /// <summary>
-    /// [TEACHER] Cập nhật trạng thái ca thi.
-    /// Luồng hợp lệ: NOT_STARTED → IN_PROGRESS → COMPLETED (hoặc CANCELLED từ bất kỳ bước nào).
-    /// </summary>
     [HttpPut("{sessionId:int}/status")]
     [ProducesResponseType(typeof(ExamSessionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -145,15 +122,12 @@ public class ExamSessionsController : ControllerBase
         {
             return Forbid();
         }
+        catch (QuestionBankConflictException ex) { return Conflict(new { message = ex.Message }); }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
-
-    /// <summary>
-    /// [TEACHER] Giám sát trực tiếp tiến độ sinh viên trong ca thi (Live Monitoring).
-    /// </summary>
     [HttpGet("{sessionId:int}/monitor")]
     [ProducesResponseType(typeof(SessionMonitorDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -178,8 +152,6 @@ public class ExamSessionsController : ControllerBase
             return Forbid();
         }
     }
-
-    // ─── Helper ───────────────────────────────────────────────────────────────
 
     private int? GetCurrentUserId()
     {

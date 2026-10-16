@@ -11,6 +11,12 @@ public class QuestionBankQuery
     public int Page { get; set; } = 1;
     [Range(1, 100)]
     public int PageSize { get; set; } = 20;
+    [Range(1, 3)]
+    public int? Level { get; set; }
+    [RegularExpression("^(createdAt|questionText|level|maxScore)$")]
+    public string SortBy { get; set; } = "createdAt";
+    [RegularExpression("^(asc|desc)$")]
+    public string SortDirection { get; set; } = "desc";
 }
 
 public class WriteQuestionRequest : IValidatableObject
