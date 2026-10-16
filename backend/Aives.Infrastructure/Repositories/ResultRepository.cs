@@ -1,5 +1,6 @@
 using Aives.Application.Exams.Interfaces;
 using Aives.Domain.Entities;
+using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -99,5 +100,34 @@ public class ResultRepository : IResultRepository
     public async Task SaveChangesAsync()
     {
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<Result>> GetPendingReviewResultsForTeacherAsync(int teacherId)
+    {
+        return await _db.Results
+            .Include(r => r.Session)
+                .ThenInclude(s => s.Exam)
+            .Include(r => r.Student)
+            .Include(r => r.ReviewedByNavigation)
+            .Include(r => r.Answers)
+                .ThenInclude(a => a.Question)
+            .Where(r => r.Status == SubmissionStatus.PENDING_REVIEW || r.Status == SubmissionStatus.REVIEWED)
+            .Where(r => r.Session.ScheduledBy == teacherId)
+            .OrderByDescending(r => r.SubmittedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Result>> GetStudentPublishedResultsAsync(int studentId)
+    {
+        return await _db.Results
+            .Include(r => r.Session)
+                .ThenInclude(s => s.Exam)
+            .Include(r => r.Student)
+            .Include(r => r.ReviewedByNavigation)
+            .Include(r => r.Answers)
+                .ThenInclude(a => a.Question)
+            .Where(r => r.StudentId == studentId && r.Status == SubmissionStatus.PUBLISHED)
+            .OrderByDescending(r => r.PublishedAt)
+            .ToListAsync();
     }
 }

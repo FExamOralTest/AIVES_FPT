@@ -13,4 +13,6 @@ public interface IResultRepository
     Task AddOrUpdateAnswerAsync(Answer answer);
     Task UpdateAsync(Result result);
     Task SaveChangesAsync();
+    Task<IEnumerable<Result>> GetPendingReviewResultsForTeacherAsync(int teacherId);
+    Task<IEnumerable<Result>> GetStudentPublishedResultsAsync(int studentId);
 }

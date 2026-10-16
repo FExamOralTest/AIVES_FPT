@@ -9,4 +9,6 @@ public interface IResultService
     Task<ResultForReviewDto> ReviewResultAsync(int resultId, ReviewResultRequest request, int teacherId);
     Task<ResultForReviewDto> PublishResultAsync(int resultId, int teacherId);
     Task<StudentResultDto> GetStudentResultAsync(int sessionId, int studentId);
+    Task<IEnumerable<ResultForReviewDto>> GetAllPendingReviewResultsAsync(int teacherId);
+    Task<IEnumerable<ResultForReviewDto>> GetStudentPublishedResultsAsync(int studentId);
 }
