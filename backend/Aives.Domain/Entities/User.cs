@@ -35,6 +35,8 @@ public partial class User
 
     public virtual ICollection<Result> ResultReviewedByNavigations { get; set; } = new List<Result>();
 
+    public virtual ICollection<Result> ResultPublishedByNavigations { get; set; } = new List<Result>();
+
     public virtual ICollection<Result> ResultStudents { get; set; } = new List<Result>();
 
     public virtual ICollection<SessionEnrollment> SessionEnrollments { get; set; } = new List<SessionEnrollment>();

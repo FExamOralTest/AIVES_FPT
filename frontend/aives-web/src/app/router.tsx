@@ -19,22 +19,23 @@ import NotFoundPage from './NotFoundPage'
 import FeaturePlaceholderPage from './pages/FeaturePlaceholderPage'
 import RoleHomePage from './pages/RoleHomePage'
 
-const ROLES: UserRole[] = ['ADMIN', 'TEACHER', 'STUDENT']
+const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'EXAMINER', 'STUDENT']
 
 // Features whose real page is built, keyed "ROLE/path"; every other feature renders its placeholder.
 const PAGES: Record<string, ComponentType> = {
   'ADMIN/users': UsersPage,
   'ADMIN/courses': AdminCoursesPage,
-  'TEACHER/courses': TeacherCoursesPage,
-  'TEACHER/questions': TeacherQuestionsPage,
-  'TEACHER/exams': ExamsPage,
-  'TEACHER/sessions': SessionsPage,
-  'TEACHER/results': TeacherResultsPage,
+  'STAFF/courses': TeacherCoursesPage,
+  'STAFF/questions': TeacherQuestionsPage,
+  'STAFF/exams': ExamsPage,
+  'STAFF/sessions': SessionsPage,
+  'EXAMINER/results': TeacherResultsPage,
   'STUDENT/enroll': EnrollPage,
   'STUDENT/sessions': StudentSessionsPage,
   'STUDENT/viva': VivaRoomPage,
   'STUDENT/results': StudentResultsPage,
 }
+
 
 export function AppRoutes() {
   return (

@@ -1,4 +1,6 @@
 using Aives.Application.Exams.DTOs;
+using Aives.Application.AI.DTOs;
+using System.Text.Json;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
@@ -34,6 +36,12 @@ public class ResultService : IResultService
         return results.Select(MapToReviewDto);
     }
 
+    public async Task<IEnumerable<ResultForReviewDto>> GetAllPendingReviewResultsAsync(int teacherId)
+    {
+        var results = await _resultRepository.GetPendingReviewResultsForTeacherAsync(teacherId);
+        return results.Select(MapToReviewDto);
+    }
+
     public async Task<ResultForReviewDto> GetResultForReviewAsync(int resultId, int teacherId)
     {
         var result = await _resultRepository.GetByIdWithDetailsAsync(resultId)
@@ -53,19 +61,31 @@ public class ResultService : IResultService
 
         await EnsureAccessAsync(teacherId, session?.ScheduledBy ?? -1);
 
-        if (request.FinalScore.HasValue) result.FinalScore = request.FinalScore.Value;
-        if (!string.IsNullOrWhiteSpace(request.FinalFeedback)) result.FinalFeedback = request.FinalFeedback;
+        // BR-10: Chỉ review được kết quả đang ở trạng thái PENDING_REVIEW hoặc REVIEWED
+        if (result.Status != SubmissionStatus.PENDING_REVIEW && result.Status != SubmissionStatus.REVIEWED)
+            throw new InvalidOperationException(
+                $"Cannot review result with status '{result.Status}'. Only PENDING_REVIEW or REVIEWED results can be reviewed.");
+
+        // BR-15: Không ghi đè ai_score/ai_feedback, chỉ cập nhật final_score và final_feedback
+        if (request.FinalScore.HasValue)
+            result.FinalScore = request.FinalScore.Value;
+        if (!string.IsNullOrWhiteSpace(request.FinalFeedback))
+            result.FinalFeedback = request.FinalFeedback;
+
         result.Status = SubmissionStatus.REVIEWED;
         result.ReviewedBy = teacherId;
         result.ReviewedAt = DateTime.UtcNow;
 
+        // BR-15: Cập nhật answers.final_score và answers.teacher_comment
         foreach (var ansReq in request.AnswerReviews)
         {
             var answer = result.Answers.FirstOrDefault(a => a.AnswerId == ansReq.AnswerId);
             if (answer != null)
             {
-                if (ansReq.FinalScore.HasValue) answer.FinalScore = ansReq.FinalScore.Value;
-                if (!string.IsNullOrWhiteSpace(ansReq.TeacherComment)) answer.TeacherComment = ansReq.TeacherComment;
+                if (ansReq.FinalScore.HasValue)
+                    answer.FinalScore = ansReq.FinalScore.Value;
+                if (!string.IsNullOrWhiteSpace(ansReq.TeacherComment))
+                    answer.TeacherComment = ansReq.TeacherComment;
             }
         }
 
@@ -82,15 +102,31 @@ public class ResultService : IResultService
 
         await EnsureAccessAsync(teacherId, session?.ScheduledBy ?? -1);
 
+        // BR-10: Không publish kết quả đã publish hoặc chưa review
+        if (result.Status == SubmissionStatus.PUBLISHED)
+            throw new InvalidOperationException("Result is already published.");
+
         if (result.Status != SubmissionStatus.REVIEWED && result.Status != SubmissionStatus.PENDING_REVIEW)
-            throw new InvalidOperationException("Result must be reviewed before publishing.");
+            throw new InvalidOperationException(
+                $"Cannot publish result with status '{result.Status}'. Result must be REVIEWED before publishing.");
+
+        // BR-10: Teacher approve và publish Final Result
+        // BR-11: Final Result được giao cho Student
+        if (!result.FinalScore.HasValue && !result.AiScore.HasValue)
+            throw new InvalidOperationException("A teacher score is required when AI evaluation is unavailable.");
 
         result.Status = SubmissionStatus.PUBLISHED;
         result.PublishedAt = DateTime.UtcNow;
-        result.ReviewedBy = teacherId;
-        result.ReviewedAt = result.ReviewedAt ?? DateTime.UtcNow;
+        result.PublishedBy = teacherId;
 
-        if (!result.FinalScore.HasValue) result.FinalScore = result.AiScore;
+        if (!result.ReviewedAt.HasValue)
+        {
+            result.ReviewedBy = teacherId;
+            result.ReviewedAt = DateTime.UtcNow;
+        }
+
+        if (!result.FinalScore.HasValue)
+            result.FinalScore = result.AiScore;
 
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
@@ -112,7 +148,7 @@ public class ResultService : IResultService
                 ExamTitle = result.Session?.Exam?.Title ?? "",
                 Status = result.Status?.ToString() ?? "",
                 IsPublished = false,
-                Message = "Kết quả bài thi đang được giảng viên chấm và duyệt. Vui lòng quay lại sau.",
+                Message = "Kết quả bài thi đang được khảo thí thẩm định và duyệt. Vui lòng quay lại sau.",
                 SubmittedAt = result.SubmittedAt
             };
         }
@@ -144,17 +180,21 @@ public class ResultService : IResultService
         };
     }
 
-    // ── Admin bypass: neu callerId == scheduledBy (Teacher) hoac ADMIN -> OK ──
+    public async Task<IEnumerable<ResultForReviewDto>> GetStudentPublishedResultsAsync(int studentId)
+    {
+        var results = await _resultRepository.GetStudentPublishedResultsAsync(studentId);
+        return results.Select(MapToReviewDto);
+    }
+
+    // ── BR-09 & BR-10: Chi EXAMINER hoac ADMIN moi co quyen review & publish ──
     private async Task EnsureAccessAsync(int callerId, int scheduledBy)
     {
-        if (callerId == scheduledBy) return;
-
         var caller = await _userRepository.GetByIdAsync(callerId)
             ?? throw new KeyNotFoundException($"User {callerId} not found.");
 
-        if (caller.Role == UserRole.ADMIN) return;
+        if (caller.Role == UserRole.ADMIN || caller.Role == UserRole.EXAMINER) return;
 
-        throw new UnauthorizedAccessException("Not your session.");
+        throw new UnauthorizedAccessException("Only examiners or admins can review and publish exam results.");
     }
 
     private static ResultForReviewDto MapToReviewDto(Result result) => new()
@@ -168,14 +208,20 @@ public class ResultService : IResultService
         ExamTitle = result.Session?.Exam?.Title ?? "",
         AiScore = result.AiScore,
         AiFeedback = result.AiFeedback,
+        AiAnalysis = result.AiAnalysis == null ? null : JsonSerializer.Deserialize<SessionAnalysisDto>(result.AiAnalysis),
+        AiEvaluationStatus = result.AiEvaluationStatus?.ToString(),
+        AiEvaluationError = result.AiEvaluationError,
         FinalScore = result.FinalScore,
         FinalFeedback = result.FinalFeedback,
         Status = result.Status?.ToString() ?? "",
         SubmittedAt = result.SubmittedAt,
         ReviewedAt = result.ReviewedAt,
+        PublishedAt = result.PublishedAt,
+        PublishedBy = result.PublishedBy,
         Answers = result.Answers.Select(a => new AnswerForReviewDto
         {
             AnswerId = a.AnswerId,
+            Status = a.Status.ToString(),
             QuestionId = a.QuestionId,
             QuestionText = a.Question?.QuestionText ?? "",
             StudentAnswer = a.StudentAnswer,
@@ -183,9 +229,11 @@ public class ResultService : IResultService
             AudioUrl = a.AudioUrl,
             AiScore = a.AiScore,
             AiFeedback = a.AiFeedback,
+            AiAnalysis = a.AiAnalysis == null ? null : JsonSerializer.Deserialize<StoredAnswerAnalysisDto>(a.AiAnalysis),
             FinalScore = a.FinalScore,
             TeacherComment = a.TeacherComment,
             IsFollowUp = a.IsFollowUp ?? false
         }).ToList()
     };
+
 }

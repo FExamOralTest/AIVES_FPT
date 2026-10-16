@@ -45,11 +45,11 @@ public class MarkdownDocumentService : IMarkdownDocumentService
         var uploader = await _userRepo.GetByIdAsync(req.UploadedBy)
             ?? throw new KeyNotFoundException("User not found.");
 
-        if (uploader.Role != UserRole.TEACHER && uploader.Role != UserRole.ADMIN)
-            throw new UnauthorizedAccessException("Only teachers or admins can upload documents.");
+        if (uploader.Role != UserRole.STAFF && uploader.Role != UserRole.ADMIN)
+            throw new UnauthorizedAccessException("Only academic staff or admins can upload documents.");
 
-        if (uploader.Role == UserRole.TEACHER && course.TeacherId != req.UploadedBy)
-            throw new UnauthorizedAccessException("Teacher is not assigned to this course.");
+        if (uploader.Role == UserRole.STAFF && course.TeacherId != req.UploadedBy)
+            throw new UnauthorizedAccessException("Staff is not assigned to this course.");
 
         if (await _docRepo.ExistsByTypeAsync(req.CourseId, req.DocType))
             throw new InvalidOperationException(

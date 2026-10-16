@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Aives.Application.DTOs;
 using Aives.Application.Exams.DTOs;
 using Aives.Application.Interfaces.Services;
@@ -15,7 +15,7 @@ namespace Aives.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/documents")]
-[Authorize(Roles = "TEACHER,ADMIN")]
+[Authorize(Roles = "STAFF,ADMIN")]
 public class TeacherDocumentController : ControllerBase
 {
     private readonly IMarkdownDocumentService _docService;

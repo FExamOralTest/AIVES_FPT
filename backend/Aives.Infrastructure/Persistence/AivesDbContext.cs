@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
@@ -43,7 +43,7 @@ public partial class AivesDbContext : DbContext
             .HasPostgresEnum("exam_status", new[] { "DRAFT", "SCHEDULED", "OPEN", "CLOSED", "CANCELLED" })
             .HasPostgresEnum("session_status", new[] { "NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED" })
             .HasPostgresEnum("submission_status", new[] { "PENDING_REVIEW", "SUBMITTED", "REVIEWED", "PUBLISHED", "CANCELLED" })
-            .HasPostgresEnum("user_role", new[] { "ADMIN", "TEACHER", "STUDENT" });
+            .HasPostgresEnum("user_role", new[] { "ADMIN", "STAFF", "EXAMINER", "STUDENT" });
 
         modelBuilder.Entity<Answer>(entity =>
         {
@@ -58,6 +58,11 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.AnswerId)
                 .UseIdentityAlwaysColumn()
                 .HasColumnName("answer_id");
+            entity.Property(e => e.Status)
+                .HasColumnName("status")
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValue(AnswerStatus.PROCESSING);
             entity.Property(e => e.AiFeedback).HasColumnName("ai_feedback");
             entity.Property(e => e.AiAnalysis).HasColumnName("ai_analysis").HasColumnType("jsonb");
             entity.Property(e => e.AiScore).HasColumnName("ai_score");
@@ -358,6 +363,7 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.FinalFeedback).HasColumnName("final_feedback");
             entity.Property(e => e.FinalScore).HasColumnName("final_score");
             entity.Property(e => e.PublishedAt).HasColumnName("published_at");
+            entity.Property(e => e.PublishedBy).HasColumnName("published_by");
             entity.Property(e => e.ReviewedAt).HasColumnName("reviewed_at");
             entity.Property(e => e.ReviewedBy).HasColumnName("reviewed_by");
             entity.Property(e => e.SessionId).HasColumnName("session_id");
@@ -371,6 +377,12 @@ public partial class AivesDbContext : DbContext
                 .HasForeignKey(d => d.ReviewedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("results_reviewed_by_fkey");
+
+            entity.HasOne(d => d.PublishedByNavigation).WithMany(p => p.ResultPublishedByNavigations)
+                .HasForeignKey(d => d.PublishedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("results_published_by_fkey");
+
 
             entity.HasOne(d => d.Session).WithMany(p => p.Results)
                 .HasForeignKey(d => d.SessionId)

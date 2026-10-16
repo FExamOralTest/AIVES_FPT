@@ -9,7 +9,7 @@ namespace Aives.Api.Controllers;
 
 [ApiController]
 [Route("api/courses/{courseId:int}/questions")]
-[Authorize(Roles = "TEACHER")]
+[Authorize(Roles = "STAFF,ADMIN")]
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType(StatusCodes.Status403Forbidden)]
 [ProducesResponseType(StatusCodes.Status404NotFound)]

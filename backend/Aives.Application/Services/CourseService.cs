@@ -55,8 +55,8 @@ public class CourseService : ICourseService
         {
             var teacher = await _userRepo.GetByIdAsync(req.TeacherId.Value)
                 ?? throw new KeyNotFoundException($"Teacher {req.TeacherId.Value} not found.");
-            if (teacher.Role != UserRole.TEACHER)
-                throw new InvalidOperationException($"User {req.TeacherId.Value} is not a teacher.");
+            if (teacher.Role != UserRole.STAFF)
+                throw new InvalidOperationException($"User {req.TeacherId.Value} is not academic staff.");
         }
 
         var course = new Course
@@ -103,8 +103,8 @@ public class CourseService : ICourseService
         var teacher = await _userRepo.GetByIdAsync(req.TeacherId)
             ?? throw new KeyNotFoundException($"User {req.TeacherId} not found.");
 
-        if (teacher.Role != UserRole.TEACHER)
-            throw new InvalidOperationException($"User {req.TeacherId} is not a teacher.");
+        if (teacher.Role != UserRole.STAFF)
+            throw new InvalidOperationException($"User {req.TeacherId} is not academic staff.");
 
         course.TeacherId = req.TeacherId;
         course.Teacher = null;

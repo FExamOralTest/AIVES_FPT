@@ -34,7 +34,7 @@ export default function AdminCoursesPage() {
     let active = true
     Promise.all([adminCoursesApi.list(), usersApi.list()]).then(([list, users]) => {
       if (!active) return
-      setCourses(list); setTeachers(users.filter((user) => user.role === 'TEACHER')); setLoading(false)
+      setCourses(list); setTeachers(users.filter((user) => user.role === 'STAFF')); setLoading(false)
     }).catch((err) => { if (active) { setError(toApiError(err).message); setLoading(false) } })
     return () => { active = false }
   }, [revision])
