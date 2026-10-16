@@ -31,7 +31,7 @@ public class ExamSessionService : IExamSessionService
                 throw new UnauthorizedAccessException(
                     "You do not have permission to create a session for this exam.");
 
-            if (exam.ExamQuestions.Count == 0)
+            if (exam.ExamQuestions is null || exam.ExamQuestions.Count == 0)
                 throw new InvalidOperationException("Add questions to the exam before creating a session.");
 
             if (request.StartTime >= request.EndTime)
