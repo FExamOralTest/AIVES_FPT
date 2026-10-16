@@ -1,0 +1,13 @@
+**/bin
+**/obj
+**/.env
+**/.env.*
+**/appsettings.*.json
+!**/appsettings.example.json
+**/wwwroot/uploads
+**/*.user
+**/*.suo
+.vs
+.vscode
+Aives.Tests
+**/*.md
