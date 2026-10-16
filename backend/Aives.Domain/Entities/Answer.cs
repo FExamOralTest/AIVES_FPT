@@ -1,11 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using Aives.Domain.Enums;
 
 namespace Aives.Domain.Entities;
 
 public partial class Answer
 {
     public int AnswerId { get; set; }
+
+    public AnswerStatus Status { get; set; } = AnswerStatus.PROCESSING;
 
     public int ResultId { get; set; }
 

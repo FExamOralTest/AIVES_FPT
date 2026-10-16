@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Aives.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +7,7 @@ namespace Aives.Api.Controllers;
 
 [ApiController]
 [Route("api/teacher/courses")]
-[Authorize(Roles = "TEACHER,ADMIN")]
+[Authorize(Roles = "STAFF,ADMIN")]
 public class TeacherCourseController : ControllerBase
 {
     private readonly ICourseService _courseService;

@@ -22,12 +22,15 @@ public class ResultForReviewDto
     public string Status { get; set; } = null!;
     public DateTime? SubmittedAt { get; set; }
     public DateTime? ReviewedAt { get; set; }
+    public DateTime? PublishedAt { get; set; }
+    public int? PublishedBy { get; set; }
     public List<AnswerForReviewDto> Answers { get; set; } = new();
 }
 
 public class AnswerForReviewDto
 {
     public int AnswerId { get; set; }
+    public string Status { get; set; } = "PROCESSING";
     public int QuestionId { get; set; }
     public string QuestionText { get; set; } = null!;
     public string? StudentAnswer { get; set; }
@@ -40,6 +43,7 @@ public class AnswerForReviewDto
     public string? TeacherComment { get; set; }
     public bool IsFollowUp { get; set; }
 }
+
 
 public class ReviewResultRequest
 {

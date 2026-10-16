@@ -51,8 +51,8 @@ export function UserFormDialog({ mode, currentUserId, onClose, onSaved }: UserFo
 type Field = 'fullName' | 'username' | 'email' | 'password' | 'role'
 type Values = Record<Exclude<Field, 'role'>, string> & { role: UserRole }
 
-// Teacher accounts are what admins create most; students can self-register.
-const ROLE_OPTIONS: UserRole[] = ['TEACHER', 'STUDENT', 'ADMIN']
+// Academic staff & examiner accounts are what admins create most; students can self-register.
+const ROLE_OPTIONS: UserRole[] = ['STAFF', 'EXAMINER', 'STUDENT', 'ADMIN']
 
 // Backend conflict messages → the field they belong to.
 const CONFLICT_FIELD: Record<string, Field> = {
@@ -73,8 +73,9 @@ function UserForm({ mode, isSelf, onSaved }: { mode: UserFormMode; isSelf: boole
     username: original?.username ?? '',
     email: original?.email ?? '',
     password: '',
-    role: original?.role ?? 'TEACHER',
+    role: original?.role ?? 'STAFF',
   })
+
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)

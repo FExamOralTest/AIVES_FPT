@@ -15,16 +15,18 @@ type Filter = 'ALL' | UserRole
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'ALL', label: 'Tất cả' },
-  { value: 'TEACHER', label: ROLE_LABEL.TEACHER },
+  { value: 'STAFF', label: ROLE_LABEL.STAFF },
+  { value: 'EXAMINER', label: ROLE_LABEL.EXAMINER },
   { value: 'STUDENT', label: ROLE_LABEL.STUDENT },
   { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
 ]
 
-const ROLE_ORDER: Record<UserRole, number> = { ADMIN: 0, TEACHER: 1, STUDENT: 2 }
+const ROLE_ORDER: Record<UserRole, number> = { ADMIN: 0, STAFF: 1, EXAMINER: 2, STUDENT: 3 }
 
 const ROLE_TONE: Record<UserRole, string> = {
   ADMIN: 'bg-brand-soft text-brand',
-  TEACHER: 'bg-success-soft text-success',
+  STAFF: 'bg-success-soft text-success',
+  EXAMINER: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
   STUDENT: 'bg-muted text-foreground',
 }
 
@@ -76,10 +78,11 @@ export default function UsersPage() {
   }, [attempt])
 
   const counts = useMemo(() => {
-    const c: Record<Filter, number> = { ALL: users.length, ADMIN: 0, TEACHER: 0, STUDENT: 0 }
+    const c: Record<Filter, number> = { ALL: users.length, ADMIN: 0, STAFF: 0, EXAMINER: 0, STUDENT: 0 }
     for (const u of users) c[u.role]++
     return c
   }, [users])
+
 
   const visible = useMemo(() => {
     const q = normalize(query)

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Aives.Api.Controllers;
 [ApiController]
 [Route("api/exam-sessions")]
-[Authorize(Roles = "TEACHER")]
+[Authorize(Roles = "STAFF,ADMIN")]
 public class ExamSessionsController : ControllerBase
 {
     private readonly IExamSessionService _sessionService;
