@@ -39,6 +39,19 @@ dataSourceBuilder.MapEnum<SubmissionStatus>( "submission_status", new NpgsqlUppe
 dataSourceBuilder.MapEnum<DocType>(          "doc_type",          new NpgsqlUpperCaseTranslator());
 var dataSource = dataSourceBuilder.Build();
 
+if (builder.Configuration.GetValue<bool>("Docker:InitializeDatabase"))
+{
+    var database = new NpgsqlConnectionStringBuilder(connectionString);
+    if (!builder.Environment.IsDevelopment() || database.Host != "postgres" || database.Database != "aives_dev")
+        throw new InvalidOperationException("Docker database initialization is restricted to the local development database.");
+
+    // Existing migrations require a pre-existing schema; bootstrap only the isolated Docker database.
+    var options = new DbContextOptionsBuilder<AivesDbContext>().UseNpgsql(dataSource).Options;
+    await using var db = new AivesDbContext(options);
+    await db.Database.EnsureCreatedAsync();
+    return;
+}
+
 builder.Services.AddDbContext<AivesDbContext>(options =>
     options.UseNpgsql(dataSource));
 
