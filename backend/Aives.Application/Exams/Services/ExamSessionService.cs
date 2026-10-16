@@ -29,12 +29,16 @@ public class ExamSessionService : IExamSessionService
     {
         // ── Business Rule Validations ─────────────────────────────────────────
 
-        var exam = await _examRepository.GetByIdAsync(request.ExamId)
+        var exam = await _examRepository.GetByIdWithQuestionsAsync(request.ExamId)
             ?? throw new KeyNotFoundException($"Exam with ID {request.ExamId} not found.");
 
         if (exam.CreatedBy != teacherId)
             throw new UnauthorizedAccessException(
                 "You do not have permission to create a session for this exam.");
+
+        if (exam.ExamQuestions == null || exam.ExamQuestions.Count == 0)
+            throw new InvalidOperationException(
+                "Đề thi chưa có câu hỏi nào. Vui lòng thêm câu hỏi vào đề thi trước khi tạo ca thi.");
 
         if (request.StartTime >= request.EndTime)
             throw new InvalidOperationException(
