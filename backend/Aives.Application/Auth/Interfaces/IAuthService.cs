@@ -12,7 +12,7 @@ public interface IAuthService
     /// <summary>Chỉ ADMIN — lấy toàn bộ danh sách user.</summary>
     Task<IEnumerable<UserDto>> GetAllUsersAsync();
 
-    /// <summary>Chỉ ADMIN — tạo user với role tuỳ chọn (ADMIN, TEACHER, STUDENT).</summary>
+    /// <summary>Chỉ ADMIN — tạo user với role tuỳ chọn (ADMIN, STAFF, EXAMINER, STUDENT).</summary>
     Task<UserDto> CreateUserWithRoleAsync(CreateUserWithRoleRequest request);
 
     /// <summary>Chỉ ADMIN — cập nhật thông tin user, bao gồm đổi role.</summary>

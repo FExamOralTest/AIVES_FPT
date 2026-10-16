@@ -105,7 +105,7 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Admin tạo user với role tuỳ chọn (ADMIN, TEACHER, STUDENT).
+    /// Admin tạo user với role tuỳ chọn (ADMIN, STAFF, EXAMINER, STUDENT).
     /// Chỉ user có role ADMIN mới được gọi endpoint này.
     /// </summary>
     [HttpPost("admin/create-user")]
