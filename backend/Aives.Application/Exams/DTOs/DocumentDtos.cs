@@ -11,12 +11,14 @@ public class UploadMarkdownRequest
     public IFormFile File { get; set; } = null!;
 
     [Required]
+    [EnumDataType(typeof(DocType))]
     public DocType DocType { get; set; }
 }
 
 public class UpdateMarkdownRequest
 {
     public IFormFile? File { get; set; }
+    [EnumDataType(typeof(DocType))]
     public DocType DocType { get; set; }
     public string? FileName { get; set; }
     public string? Content { get; set; }

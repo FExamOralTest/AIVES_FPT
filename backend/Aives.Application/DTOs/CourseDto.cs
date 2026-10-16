@@ -1,6 +1,6 @@
-namespace Aives.Application.DTOs;
+using System.ComponentModel.DataAnnotations;
 
-/// <summary>Dữ liệu trả về cho Course.</summary>
+namespace Aives.Application.DTOs;
 public record CourseDto(
     int     CourseId,
     string  CourseCode,
@@ -10,21 +10,16 @@ public record CourseDto(
     int?    CreatedBy,
     DateTime? CreatedAt
 );
-
-/// <summary>Admin tạo Course mới.</summary>
 public record CreateCourseRequest(
-    string CourseCode,
-    string CourseName,
+    [Required, MaxLength(20)] string CourseCode,
+    [Required, MaxLength(150)] string CourseName,
     int?   CreatedBy = null,
     int?   TeacherId = null
 );
-
-/// <summary>Admin cập nhật thông tin Course.</summary>
 public record UpdateCourseRequest(
-    string? CourseName
+    [Required, MaxLength(150)] string CourseName,
+    [MaxLength(20)] string? CourseCode = null
 );
-
-/// <summary>Admin phân công Teacher phụ trách Course.</summary>
 public record AssignTeacherRequest(
     int TeacherId
 );

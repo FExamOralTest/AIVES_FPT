@@ -1,4 +1,5 @@
 using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams.Exceptions;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
@@ -13,56 +14,60 @@ public class DocumentService : IDocumentService
     private readonly ICourseRepository _courseRepository;
     private readonly IQuestionBankRepository _questionRepository;
     private readonly IAIQuestionService _aiQuestionService;
+    private readonly IExamUnitOfWork _unitOfWork;
 
     public DocumentService(
         IMarkdownDocumentRepository docRepository,
         ICourseRepository courseRepository,
         IQuestionBankRepository questionRepository,
-        IAIQuestionService aiQuestionService)
+        IAIQuestionService aiQuestionService, IExamUnitOfWork unitOfWork)
     {
         _docRepository = docRepository;
         _courseRepository = courseRepository;
         _questionRepository = questionRepository;
         _aiQuestionService = aiQuestionService;
+        _unitOfWork = unitOfWork;
     }
 
-    public async Task<MarkdownDocumentDto> UploadMarkdownAsync(int courseId, UploadMarkdownRequest request, int teacherId)
-    {
-        var course = await _courseRepository.GetByIdAsync(courseId)
-            ?? throw new KeyNotFoundException("Course not found.");
-
-        if (course.TeacherId != teacherId)
-            throw new UnauthorizedAccessException("Not your course.");
-
-        if (!request.File.FileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Only .md files are allowed.");
-
-        using var reader = new StreamReader(request.File.OpenReadStream());
-        var content = await reader.ReadToEndAsync();
-
-        var doc = new MarkdownDocument
+    public Task<MarkdownDocumentDto> UploadMarkdownAsync(int courseId, UploadMarkdownRequest request, int teacherId)
+        => _unitOfWork.ExecuteAsync(async () =>
         {
-            CourseId = courseId,
-            UploadedBy = teacherId,
-            FileName = request.File.FileName,
-            DocType = request.DocType,
-            Content = content,
-            UploadedAt = DateTime.UtcNow
-        };
+            var course = await _courseRepository.GetByIdAsync(courseId)
+                ?? throw new KeyNotFoundException("Course not found.");
 
-        var created = await _docRepository.CreateAsync(doc);
-        await _docRepository.SaveChangesAsync();
+            if (course.TeacherId != teacherId)
+                throw new UnauthorizedAccessException("Not your course.");
 
-        return new MarkdownDocumentDto
-        {
-            DocumentId = created.DocumentId,
-            CourseId = created.CourseId,
-            FileName = created.FileName,
-            DocType = created.DocType.ToString(),
-            Content = created.Content,
-            UploadedAt = created.UploadedAt
-        };
-    }
+            if (!Enum.IsDefined(request.DocType))
+                throw new InvalidOperationException("Invalid document type.");
+            if (await _docRepository.ExistsByTypeAsync(courseId, request.DocType))
+                throw new QuestionBankConflictException("This course already has a document of this type. Replace the existing document instead.");
+            var content = await ReadFileAsync(request.File);
+            ValidateDocument(request.File.FileName, content, request.DocType);
+
+            var doc = new MarkdownDocument
+            {
+                CourseId = courseId,
+                UploadedBy = teacherId,
+                FileName = Path.GetFileName(request.File.FileName),
+                DocType = request.DocType,
+                Content = content,
+                UploadedAt = DateTime.UtcNow
+            };
+
+            var created = await _docRepository.CreateAsync(doc);
+            await _docRepository.SaveChangesAsync();
+
+            return new MarkdownDocumentDto
+            {
+                DocumentId = created.DocumentId,
+                CourseId = created.CourseId,
+                FileName = created.FileName,
+                DocType = created.DocType.ToString(),
+                Content = created.Content,
+                UploadedAt = created.UploadedAt
+            };
+        });
 
     public async Task<IEnumerable<MarkdownDocumentDto>> GetDocumentsByCourseAsync(int courseId, int teacherId)
     {
@@ -94,7 +99,7 @@ public class DocumentService : IDocumentService
             ?? throw new KeyNotFoundException("Document not found.");
 
         if (doc.CourseId != courseId)
-            throw new InvalidOperationException("Document does not belong to this course.");
+            throw new KeyNotFoundException("Document not found in this course.");
 
         return new MarkdownDocumentDto
         {
@@ -107,60 +112,46 @@ public class DocumentService : IDocumentService
         };
     }
 
-    public async Task<MarkdownDocumentDto> UpdateDocumentAsync(int courseId, int documentId, UpdateMarkdownRequest request, int teacherId)
-    {
-        var course = await _courseRepository.GetByIdAsync(courseId)
-            ?? throw new KeyNotFoundException("Course not found.");
-        if (course.TeacherId != teacherId)
-            throw new UnauthorizedAccessException("Not your course.");
-
-        var doc = await _docRepository.GetByIdAsync(documentId)
-            ?? throw new KeyNotFoundException("Document not found.");
-
-        if (doc.CourseId != courseId)
-            throw new InvalidOperationException("Document does not belong to this course.");
-
-        doc.DocType = request.DocType;
-
-        if (request.File != null && request.File.Length > 0)
+    public Task<MarkdownDocumentDto> UpdateDocumentAsync(int courseId, int documentId, UpdateMarkdownRequest request, int teacherId)
+        => _unitOfWork.ExecuteAsync(async () =>
         {
-            if (!request.File.FileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Only .md files are allowed.");
+            var course = await _courseRepository.GetByIdAsync(courseId)
+                ?? throw new KeyNotFoundException("Course not found.");
+            if (course.TeacherId != teacherId)
+                throw new UnauthorizedAccessException("Not your course.");
 
-            using var reader = new StreamReader(request.File.OpenReadStream());
-            doc.Content = await reader.ReadToEndAsync();
-            doc.FileName = Path.GetFileName(request.File.FileName);
-        }
-        else
-        {
-            if (!string.IsNullOrWhiteSpace(request.FileName))
+            var doc = await _docRepository.GetByIdAsync(documentId)
+                ?? throw new KeyNotFoundException("Document not found.");
+
+            if (doc.CourseId != courseId)
+                throw new KeyNotFoundException("Document not found in this course.");
+
+            if (!Enum.IsDefined(request.DocType))
+                throw new InvalidOperationException("Invalid document type.");
+            if (await _docRepository.ExistsByTypeAsync(courseId, request.DocType, documentId))
+                throw new QuestionBankConflictException("This course already has a document of this type.");
+            var fileName = request.File is not null ? request.File.FileName : request.FileName ?? doc.FileName;
+            var content = request.File is not null ? await ReadFileAsync(request.File) : request.Content ?? doc.Content;
+            ValidateDocument(fileName, content, request.DocType);
+            doc.DocType = request.DocType;
+            doc.FileName = fileName;
+            doc.Content = content;
+
+            doc.UploadedAt = DateTime.UtcNow;
+
+            var updated = await _docRepository.UpdateAsync(doc);
+            await _docRepository.SaveChangesAsync();
+
+            return new MarkdownDocumentDto
             {
-                var safeName = Path.GetFileName(request.FileName);
-                if (!safeName.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-                    safeName += ".md";
-                doc.FileName = safeName;
-            }
-            if (!string.IsNullOrWhiteSpace(request.Content))
-            {
-                doc.Content = request.Content;
-            }
-        }
-
-        doc.UploadedAt = DateTime.UtcNow;
-
-        var updated = await _docRepository.UpdateAsync(doc);
-        await _docRepository.SaveChangesAsync();
-
-        return new MarkdownDocumentDto
-        {
-            DocumentId = updated.DocumentId,
-            CourseId = updated.CourseId,
-            FileName = updated.FileName,
-            DocType = updated.DocType.ToString(),
-            Content = updated.Content,
-            UploadedAt = updated.UploadedAt
-        };
-    }
+                DocumentId = updated.DocumentId,
+                CourseId = updated.CourseId,
+                FileName = updated.FileName,
+                DocType = updated.DocType.ToString(),
+                Content = updated.Content,
+                UploadedAt = updated.UploadedAt
+            };
+        });
 
     public async Task DeleteDocumentAsync(int courseId, int documentId, int teacherId)
     {
@@ -173,10 +164,29 @@ public class DocumentService : IDocumentService
             ?? throw new KeyNotFoundException("Document not found.");
 
         if (doc.CourseId != courseId)
-            throw new InvalidOperationException("Document does not belong to this course.");
+            throw new KeyNotFoundException("Document not found in this course.");
 
         await _docRepository.DeleteAsync(documentId);
         await _docRepository.SaveChangesAsync();
+    }
+
+    private static async Task<string> ReadFileAsync(IFormFile file)
+    {
+        if (file.Length is <= 0 or > 5 * 1024 * 1024)
+            throw new InvalidOperationException("Upload a nonempty Markdown file of at most 5 MB.");
+        using var reader = new StreamReader(file.OpenReadStream());
+        return await reader.ReadToEndAsync();
+    }
+
+    private static void ValidateDocument(string fileName, string content, DocType docType)
+    {
+        if (!Enum.IsDefined(docType))
+            throw new InvalidOperationException("Invalid document type.");
+        if (string.IsNullOrWhiteSpace(fileName) || fileName.Length > 255 || fileName != Path.GetFileName(fileName)
+            || fileName.Contains('\\') || !fileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("A valid .md file name is required.");
+        if (string.IsNullOrWhiteSpace(content) || System.Text.Encoding.UTF8.GetByteCount(content) > 5 * 1024 * 1024)
+            throw new InvalidOperationException("Markdown content must be nonempty and at most 5 MB.");
     }
 
     public async Task<GenerateQuestionsResponse> GenerateQuestionsAsync(

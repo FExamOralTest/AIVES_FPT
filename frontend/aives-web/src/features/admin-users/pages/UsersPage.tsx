@@ -1,10 +1,13 @@
-import { CircleAlert, CircleCheck, Pencil, Plus, RotateCw, Search, Trash2, UserRound } from 'lucide-react'
+import { CircleAlert, CircleCheck, Eye, Pencil, Plus, RotateCw, Search, Trash2, UserRound } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ROLE_LABEL, useAuth } from '@/features/auth'
 import { toApiError } from '@/lib/http/apiError'
 import { cn } from '@/lib/utils'
 import { usersApi } from '../api/usersApi'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useApi } from '@/lib/http/useApi'
 import { UserFormDialog, type UserFormMode } from '../components/UserFormDialog'
 import type { User, UserRole } from '../types'
 
@@ -35,8 +38,25 @@ export default function UsersPage() {
   const [filter, setFilter] = useState<Filter>('ALL')
   const [dialog, setDialog] = useState<UserFormMode | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
-  // Bumped by "Thử lại" to refetch; load starts as 'loading' and retries reset it in the handler.
   const [attempt, setAttempt] = useState(0)
+  const [deleting, setDeleting] = useState<User | null>(null)
+  const [deletePending, setDeletePending] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [viewing, setViewing] = useState<User | null>(null)
+
+  async function handleDelete() {
+    if (!deleting || deletePending) return
+    setDeletePending(true)
+    setDeleteError(null)
+    try {
+      await usersApi.delete(deleting.userId)
+      setUsers((previous) => previous.filter((user) => user.userId !== deleting.userId))
+      setFlash(`Đã xóa tài khoản ${deleting.username}.`)
+      setDeleting(null)
+    } catch (err) { setDeleteError(toApiError(err).message) }
+    finally { setDeletePending(false) }
+  }
+
 
   useEffect(() => {
     let cancelled = false
@@ -89,8 +109,6 @@ export default function UsersPage() {
           Thêm người dùng
         </Button>
       </header>
-
-      {/* Polite live region: announces create/update results without stealing focus. */}
       <div role="status" aria-live="polite">
         {flash && (
           <p className="mt-6 flex items-center gap-2 rounded-[14px] bg-success-soft px-4 py-3 text-sm text-success">
@@ -167,7 +185,7 @@ export default function UsersPage() {
           <ul className="divide-y">
             <li
               aria-hidden="true"
-              className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_8rem_6.5rem] gap-4 bg-muted/60 px-5 py-2.5 text-xs font-medium text-muted-foreground uppercase md:grid"
+              className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_8rem_8rem] gap-4 bg-muted/60 px-5 py-2.5 text-xs font-medium text-muted-foreground uppercase md:grid"
             >
               <span>Người dùng</span>
               <span>Email</span>
@@ -179,6 +197,8 @@ export default function UsersPage() {
                 key={u.userId}
                 user={u}
                 isSelf={u.userId === me?.userId}
+                onView={() => setViewing(u)}
+                onDelete={() => { setDeleting(u); setDeleteError(null) }}
                 onEdit={() => {
                   setFlash(null)
                   setDialog({ type: 'edit', user: u })
@@ -189,9 +209,8 @@ export default function UsersPage() {
         )}
       </section>
 
-      <p className="mt-3 text-[13px] text-muted-foreground">
-        Xoá tài khoản đang hoàn thiện: chờ backend sửa lỗi API xoá người dùng.
-      </p>
+      <ConfirmDialog open={deleting !== null} title="Xóa người dùng?" description={`Xóa tài khoản ${deleting?.username ?? ''}? Tài khoản có dữ liệu liên quan sẽ được giữ lại.`} pending={deletePending} error={deleteError} onClose={() => setDeleting(null)} onConfirm={() => void handleDelete()} />
+      {viewing && <UserDetail user={viewing} onClose={() => setViewing(null)} />}
 
       <UserFormDialog
         mode={dialog}
@@ -203,9 +222,9 @@ export default function UsersPage() {
   )
 }
 
-function UserRow({ user, isSelf, onEdit }: { user: User; isSelf: boolean; onEdit: () => void }) {
+function UserRow({ user, isSelf, onEdit, onDelete, onView }: { user: User; isSelf: boolean; onEdit: () => void; onDelete: () => void; onView: () => void }) {
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_8rem_6.5rem]">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_8rem_8rem]">
       <div className="flex min-w-0 items-center gap-3">
         <span
           aria-hidden="true"
@@ -236,21 +255,33 @@ function UserRow({ user, isSelf, onEdit }: { user: User; isSelf: boolean; onEdit
       </span>
 
       <div className="col-span-2 row-start-3 flex justify-end gap-1 md:col-span-1 md:row-start-auto">
+        <Button variant="ghost" size="icon-sm" onClick={onView} aria-label={`Chi tiết ${user.fullName}`} title="Chi tiết"><Eye aria-hidden="true" /></Button>
         <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label={`Sửa ${user.fullName}`} title="Sửa">
           <Pencil aria-hidden="true" />
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
-          disabled
-          aria-label={`Xoá ${user.fullName} (đang hoàn thiện)`}
-          title="Xoá tài khoản: đang hoàn thiện"
+          disabled={isSelf}
+          onClick={onDelete}
+          aria-label={`Xoá ${user.fullName}`}
+          title={isSelf ? 'Không thể tự xóa tài khoản' : 'Xóa tài khoản'}
         >
           <Trash2 aria-hidden="true" />
         </Button>
       </div>
     </li>
   )
+}
+
+function UserDetail({ user, onClose }: { user: User; onClose: () => void }) {
+  const { state, reload } = useApi(() => usersApi.get(user.userId), user.userId)
+  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent>
+    <DialogHeader><DialogTitle>Chi tiết người dùng</DialogTitle><DialogDescription>Thông tin tài khoản hiện tại.</DialogDescription></DialogHeader>
+    {state.status === 'loading' ? <p>Đang tải…</p> : state.status === 'error' ? <p role="alert">{state.message} <Button onClick={reload}>Thử lại</Button></p> : <dl className="space-y-3 text-sm">
+      {[['Họ tên', state.data.fullName], ['Tên đăng nhập', state.data.username], ['Email', state.data.email ?? 'Chưa có'], ['Vai trò', ROLE_LABEL[state.data.role]]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="break-words font-medium">{value}</dd></div>)}
+    </dl>}
+  </DialogContent></Dialog>
 }
 
 function ListSkeleton() {
@@ -272,8 +303,6 @@ function initials(name: string) {
   const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0]?.slice(0, 2) ?? ''
   return letters.toUpperCase()
 }
-
-/** Lowercase and strip Vietnamese diacritics so "huyen" matches "Huyền". */
 function normalize(s: string) {
   return s
     .normalize('NFD')
