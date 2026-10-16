@@ -5,80 +5,72 @@ using Aives.Domain.Entities;
 using Aives.Domain.Enums;
 
 namespace Aives.Application.Exams.Services;
-
-/// <summary>
-/// Triển khai nghiệp vụ quản lý ExamSession (Ca thi / Phòng thi).
-/// Tự động sinh SessionCode bảo mật và kiểm tra phân quyền Teacher.
-/// </summary>
 public class ExamSessionService : IExamSessionService
 {
     private readonly IExamSessionRepository _sessionRepository;
     private readonly IExamRepository _examRepository;
+    private readonly IExamUnitOfWork _unitOfWork;
 
     public ExamSessionService(
         IExamSessionRepository sessionRepository,
-        IExamRepository examRepository)
+        IExamRepository examRepository, IExamUnitOfWork unitOfWork)
     {
         _sessionRepository = sessionRepository;
         _examRepository = examRepository;
+        _unitOfWork = unitOfWork;
     }
-
-    /// <inheritdoc/>
-    public async Task<ExamSessionDto> CreateSessionAsync(
+    public Task<ExamSessionDto> CreateSessionAsync(
         CreateExamSessionRequest request, int teacherId)
-    {
-        // ── Business Rule Validations ─────────────────────────────────────────
-
-        var exam = await _examRepository.GetByIdAsync(request.ExamId)
-            ?? throw new KeyNotFoundException($"Exam with ID {request.ExamId} not found.");
-
-        if (exam.CreatedBy != teacherId)
-            throw new UnauthorizedAccessException(
-                "You do not have permission to create a session for this exam.");
-
-        if (request.StartTime >= request.EndTime)
-            throw new InvalidOperationException(
-                "StartTime must be earlier than EndTime.");
-
-        if (request.StartTime < DateTime.UtcNow.AddMinutes(-5))
-            throw new InvalidOperationException(
-                "StartTime cannot be in the past.");
-
-        // ── Generate SessionCode (Enroll Code) ─────────────────────────────────
-        var sessionCode = await GenerateUniqueSessionCodeAsync();
-
-        var session = new ExamSession
+        => _unitOfWork.ExecuteAsync(async () =>
         {
-            ExamId = request.ExamId,
-            ScheduledBy = teacherId,
-            SessionName = request.SessionName,
-            Room = request.Room,
-            StartTime = request.StartTime,
-            EndTime = request.EndTime,
-            Status = SessionStatus.NOT_STARTED,
-            CreatedAt = DateTime.UtcNow,
-            SessionCode = sessionCode,
-            MaxCapacity = request.MaxCapacity ?? 50,
-            CurrentEnrollment = 0
-        };
 
-        var created = await _sessionRepository.CreateAsync(session);
-        await _sessionRepository.SaveChangesAsync();
+            var exam = await _examRepository.GetByIdWithQuestionsAsync(request.ExamId)
+                ?? throw new KeyNotFoundException($"Exam with ID {request.ExamId} not found.");
 
-        var fullSession = await _sessionRepository.GetByIdAsync(created.SessionId)
-            ?? throw new InvalidOperationException("Session was created but could not be retrieved.");
+            if (exam.CreatedBy != teacherId)
+                throw new UnauthorizedAccessException(
+                    "You do not have permission to create a session for this exam.");
 
-        return MapToSessionDto(fullSession, exam);
-    }
+            if (exam.ExamQuestions.Count == 0)
+                throw new InvalidOperationException("Add questions to the exam before creating a session.");
 
-    /// <inheritdoc/>
+            if (request.StartTime >= request.EndTime)
+                throw new InvalidOperationException(
+                    "StartTime must be earlier than EndTime.");
+
+            if (request.StartTime < DateTime.UtcNow.AddMinutes(-5))
+                throw new InvalidOperationException(
+                    "StartTime cannot be in the past.");
+            var sessionCode = await GenerateUniqueSessionCodeAsync();
+
+            var session = new ExamSession
+            {
+                ExamId = request.ExamId,
+                ScheduledBy = teacherId,
+                SessionName = request.SessionName,
+                Room = request.Room,
+                StartTime = request.StartTime,
+                EndTime = request.EndTime,
+                Status = SessionStatus.NOT_STARTED,
+                CreatedAt = DateTime.UtcNow,
+                SessionCode = sessionCode,
+                MaxCapacity = request.MaxCapacity ?? 50,
+                CurrentEnrollment = 0
+            };
+
+            var created = await _sessionRepository.CreateAsync(session);
+            await _sessionRepository.SaveChangesAsync();
+
+            var fullSession = await _sessionRepository.GetByIdAsync(created.SessionId)
+                ?? throw new InvalidOperationException("Session was created but could not be retrieved.");
+
+            return MapToSessionDto(fullSession, exam);
+        });
     public async Task<IEnumerable<ExamSessionSummaryDto>> GetSessionsByTeacherAsync(int teacherId)
     {
         var sessions = await _sessionRepository.GetByTeacherIdAsync(teacherId);
         return sessions.Select(MapToSessionSummaryDto);
     }
-
-    /// <inheritdoc/>
     public async Task<ExamSessionDto> GetSessionByIdAsync(int sessionId, int teacherId)
     {
         var session = await _sessionRepository.GetByIdAsync(sessionId)
@@ -90,8 +82,6 @@ public class ExamSessionService : IExamSessionService
 
         return MapToSessionDto(session, session.Exam);
     }
-
-    /// <inheritdoc/>
     public async Task<ExamSessionDto> UpdateSessionStatusAsync(
         int sessionId, UpdateSessionStatusRequest request, int teacherId)
     {
@@ -112,8 +102,6 @@ public class ExamSessionService : IExamSessionService
 
         return MapToSessionDto(updated, updated.Exam);
     }
-
-    // === P0: Student Enroll ===
     public async Task<EnrollSessionResponse> EnrollStudentAsync(EnrollSessionRequest request, int studentId)
     {
         var session = await _sessionRepository.GetBySessionCodeAsync(request.SessionCode)
@@ -162,8 +150,6 @@ public class ExamSessionService : IExamSessionService
     {
         return _sessionRepository.GetStudentEnrollmentsAsync(studentId, cancellationToken);
     }
-
-    // === P0: Teacher gets enrollments ===
     public async Task<IEnumerable<SessionEnrollmentDto>> GetSessionEnrollmentsAsync(int sessionId, int teacherId)
     {
         var session = await _sessionRepository.GetByIdWithEnrollmentsAsync(sessionId)
@@ -186,8 +172,6 @@ public class ExamSessionService : IExamSessionService
             TotalQuestions = e.Session?.Exam?.MaxQuestions ?? 0
         }).ToList();
     }
-
-    // === P2: Live Monitor ===
     public async Task<SessionMonitorDto> GetSessionMonitorAsync(int sessionId, int teacherId)
     {
         var session = await _sessionRepository.GetByIdWithEnrollmentsAsync(sessionId)
@@ -232,8 +216,6 @@ public class ExamSessionService : IExamSessionService
         };
     }
 
-    // ─── Private Helpers ──────────────────────────────────────────────────────
-
     private async Task<string> GenerateUniqueSessionCodeAsync()
     {
         const int maxAttempts = 10;
@@ -273,8 +255,6 @@ public class ExamSessionService : IExamSessionService
                 $"Allowed transitions: [{string.Join(", ", allowed)}].");
         }
     }
-
-    // ─── Mappers ──────────────────────────────────────────────────────────────
 
     private static ExamSessionDto MapToSessionDto(ExamSession session, Domain.Entities.Exam? exam)
     {

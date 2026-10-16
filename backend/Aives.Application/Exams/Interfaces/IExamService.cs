@@ -8,5 +8,7 @@ public interface IExamService
     Task<ExamDto> GetExamByIdAsync(int examId, int teacherId);
     Task<IEnumerable<ExamDto>> GetExamsByTeacherAsync(int teacherId);
     Task<SuggestedQuestionsDto> GetSuggestedQuestionsAsync(SuggestQuestionsRequest request, int teacherId);
+    Task<ExamDto> UpdateExamAsync(int examId, UpdateExamRequest request, int teacherId);
+    Task DeleteExamAsync(int examId, int teacherId);
     Task<ExamDto> UpdateExamQuestionsAsync(int examId, List<ExamQuestionItem> questions, int teacherId);
 }

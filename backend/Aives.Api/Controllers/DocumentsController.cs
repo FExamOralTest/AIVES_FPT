@@ -6,10 +6,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Aives.Api.Controllers;
-
-/// <summary>
-/// Teacher quản lý tài liệu .md và sinh ngân hàng câu hỏi bằng AI.
-/// </summary>
 [ApiController]
 [Route("api/courses/{courseId:int}/documents")]
 [Authorize(Roles = "TEACHER")]
@@ -21,11 +17,8 @@ public class DocumentsController : ControllerBase
     {
         _docService = docService;
     }
-
-    /// <summary>
-    /// [TEACHER] Upload file .md (Content hoặc Learning Outcomes).
-    /// </summary>
     [HttpPost]
+    [RequestSizeLimit(6 * 1024 * 1024)]
     [ProducesResponseType(typeof(MarkdownDocumentDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -43,12 +36,9 @@ public class DocumentsController : ControllerBase
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (QuestionBankConflictException ex) { return Conflict(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
-
-    /// <summary>
-    /// [TEACHER] Lấy danh sách file .md đã upload của môn học.
-    /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<MarkdownDocumentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -62,10 +52,6 @@ public class DocumentsController : ControllerBase
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (UnauthorizedAccessException) { return Forbid(); }
     }
-
-    /// <summary>
-    /// [TEACHER] Xem chi tiết nội dung file .md.
-    /// </summary>
     [HttpGet("{documentId:int}")]
     [ProducesResponseType(typeof(MarkdownDocumentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -79,13 +65,11 @@ public class DocumentsController : ControllerBase
         try { return Ok(await _docService.GetDocumentByIdAsync(courseId, documentId, teacherId.Value)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (QuestionBankConflictException ex) { return Conflict(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
-
-    /// <summary>
-    /// [TEACHER] Cập nhật loại tài liệu hoặc thay thế file .md.
-    /// </summary>
     [HttpPut("{documentId:int}")]
+    [RequestSizeLimit(6 * 1024 * 1024)]
     [ProducesResponseType(typeof(MarkdownDocumentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -103,12 +87,9 @@ public class DocumentsController : ControllerBase
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (QuestionBankConflictException ex) { return Conflict(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
-
-    /// <summary>
-    /// [TEACHER] Xóa tài liệu .md khỏi môn học.
-    /// </summary>
     [HttpDelete("{documentId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -126,12 +107,9 @@ public class DocumentsController : ControllerBase
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (QuestionBankConflictException ex) { return Conflict(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
-
-    /// <summary>
-    /// [TEACHER] Gọi AI sinh câu hỏi từ tài liệu .md đã upload.
-    /// </summary>
     [HttpPost("generate-questions")]
     [ProducesResponseType(typeof(GenerateQuestionsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -154,6 +132,7 @@ public class DocumentsController : ControllerBase
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (QuestionBankConflictException ex) { return Conflict(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 

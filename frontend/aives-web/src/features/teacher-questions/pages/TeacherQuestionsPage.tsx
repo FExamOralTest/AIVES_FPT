@@ -1,318 +1,143 @@
-import {
-  AlertCircle,
-  ArrowRight,
-  BookOpen,
-  CheckCircle2,
-  Filter,
-  Layers,
-  LibraryBig,
-  RefreshCw,
-  Sparkles,
-} from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { toApiError } from '@/lib/http/apiError'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { teacherCoursesApi } from '@/features/teacher-courses/api/teacherCoursesApi'
 import type { TeacherCourse } from '@/features/teacher-courses/types'
+import { toApiError } from '@/lib/http/apiError'
 import { teacherQuestionsApi } from '../api/teacherQuestionsApi'
-import type { QuestionItemDto } from '../types'
+import { QuestionFormDialog } from '../components/QuestionFormDialog'
+import type { QuestionItemDto, QuestionPage, QuestionQuery } from '../types'
 
-const LEVEL_LABELS: Record<number, { label: string; variant: 'secondary' | 'default' | 'destructive' }> = {
-  1: { label: 'Cơ bản', variant: 'secondary' },
-  2: { label: 'Trung bình', variant: 'default' },
-  3: { label: 'Nâng cao', variant: 'destructive' },
-}
+const control = 'rounded-xl border bg-background px-3 py-2 text-sm'
+const emptyPage: QuestionPage = { items: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 }
+const levels = ['Cơ bản', 'Trung bình', 'Nâng cao']
 
 export default function TeacherQuestionsPage() {
-  const [searchParams] = useSearchParams()
-  const initialCourseId = searchParams.get('courseId')
-
+  const [params] = useSearchParams()
+  const requestedCourse = Number(params.get('courseId'))
   const [courses, setCourses] = useState<TeacherCourse[]>([])
-  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(
-    initialCourseId ? Number(initialCourseId) : null,
-  )
-  const [questions, setQuestions] = useState<QuestionItemDto[]>([])
-  const [filterLevel, setFilterLevel] = useState<number | 'ALL'>('ALL')
-
-  // Generate form state
+  const [courseId, setCourseId] = useState(0)
+  const [query, setQuery] = useState<QuestionQuery>({ page: 1, pageSize: 10, sortBy: 'createdAt', sortDirection: 'desc' })
+  const [search, setSearch] = useState('')
+  const [data, setData] = useState<QuestionPage>(emptyPage)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
+  const [revision, setRevision] = useState(0)
+  const [dialog, setDialog] = useState<{ questionId?: number; readOnly: boolean } | null>(null)
+  const [deleting, setDeleting] = useState<QuestionItemDto | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletePending, setDeletePending] = useState(false)
   const [generateCount, setGenerateCount] = useState(10)
   const [focusTopics, setFocusTopics] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
-    async function init() {
-      try {
-        const list = await teacherCoursesApi.listMine()
-        setCourses(list)
-        if (list.length > 0 && !selectedCourseId) {
-          setSelectedCourseId(list[0].courseId)
-        }
-      } catch (err) {
-        const apiErr = toApiError(err)
-        setErrorMessage(apiErr.message)
+    let active = true
+    teacherCoursesApi.listMine().then((list) => {
+      if (!active) return
+      setCourses(list)
+      setCourseId(list.find((course) => course.courseId === requestedCourse)?.courseId ?? list[0]?.courseId ?? 0)
+      if (!list.length) setLoading(false)
+    }).catch((err) => { if (active) { setError(toApiError(err).message); setLoading(false) } })
+    return () => { active = false }
+  }, [requestedCourse])
+
+  useEffect(() => {
+    if (!courseId) return
+    let active = true
+    teacherQuestionsApi.getQuestions(courseId, query).then((page) => {
+      if (!active) return
+      if ((query.page ?? 1) > Math.max(1, page.totalPages)) {
+        setQuery((previous) => ({ ...previous, page: Math.max(1, page.totalPages) }))
+        return
       }
-    }
-    init()
-  }, [])
+      setData(page)
+      setLoading(false)
+    }).catch((err) => { if (active) { setError(toApiError(err).message); setLoading(false) } })
+    return () => { active = false }
+  }, [courseId, query, revision])
 
-  useEffect(() => {
-    if (selectedCourseId) {
-      loadQuestions(selectedCourseId)
-    }
-  }, [selectedCourseId])
-
-  async function loadQuestions(courseId: number) {
-    setIsLoadingQuestions(true)
-    setErrorMessage(null)
-    try {
-      const data = await teacherQuestionsApi.getQuestions(courseId)
-      setQuestions(data.items)
-    } catch {
-      // If none yet or error, keep empty
-      setQuestions([])
-    } finally {
-      setIsLoadingQuestions(false)
-    }
+  function refresh() { setError(null); setLoading(true); setRevision((value) => value + 1) }
+  function changeQuery(changes: QuestionQuery) {
+    setError(null); setLoading(true); setQuery((previous) => ({ ...previous, page: 1, ...changes }))
   }
 
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedCourseId) return
-
-    setIsGenerating(true)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-
+  async function remove() {
+    if (!deleting || deletePending) return
+    setDeletePending(true); setDeleteError(null)
     try {
-      const res = await teacherQuestionsApi.generateQuestions(selectedCourseId, {
-        questionCount: generateCount,
-        focusTopics: focusTopics.trim(),
-      })
-
-      await loadQuestions(selectedCourseId)
-      setSuccessMessage(`Đã sinh thành công ${res.generatedCount ?? res.questions.length} câu hỏi mới từ tài liệu Markdown!`)
-    } catch (err) {
-      const apiErr = toApiError(err)
-      setErrorMessage(apiErr.message)
-    } finally {
-      setIsGenerating(false)
-    }
+      await teacherQuestionsApi.delete(courseId, deleting.questionId)
+      setDeleting(null); setFlash('Đã xóa câu hỏi.'); refresh()
+    } catch (err) { setDeleteError(toApiError(err).message) }
+    finally { setDeletePending(false) }
   }
 
-  const filteredQuestions = questions.filter((q) =>
-    filterLevel === 'ALL' ? true : q.level === filterLevel,
-  )
+  async function generate(event: FormEvent) {
+    event.preventDefault()
+    if (!courseId || generating) return
+    setGenerating(true); setError(null); setFlash(null)
+    try {
+      const result = await teacherQuestionsApi.generateQuestions(courseId, { questionCount: generateCount, focusTopics: focusTopics.trim() })
+      setFlash(`Đã sinh ${result.generatedCount ?? result.questions.length} câu hỏi.`)
+      changeQuery({ page: 1 }); refresh()
+    } catch (err) { setError(toApiError(err).message) }
+    finally { setGenerating(false) }
+  }
 
   return (
-    <div className="mx-auto max-w-5xl py-6">
-      <header className="mb-8">
-        <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">
-          Ngân hàng câu hỏi
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Sử dụng trí tuệ nhân tạo (AI) để tự động sinh ngân hàng câu hỏi đa cấp độ từ tài liệu Markdown môn học.
-        </p>
-
-        {/* Course Selector */}
-        {courses.length > 0 && (
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Môn học:
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {courses.map((c) => (
-                <button
-                  key={c.courseId}
-                  type="button"
-                  onClick={() => setSelectedCourseId(c.courseId)}
-                  className={`rounded-xl px-4 py-2 text-xs font-medium transition-colors border ${
-                    selectedCourseId === c.courseId
-                      ? 'border-brand bg-brand text-white shadow-sm'
-                      : 'border-input bg-card text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {c.courseCode} — {c.courseName}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+    <div className="mx-auto max-w-5xl space-y-6 py-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div><h1 className="font-heading text-3xl font-medium">Ngân hàng câu hỏi</h1><p className="mt-2 text-muted-foreground">Quản lý câu hỏi, đáp án mẫu, chuẩn đầu ra và rubric.</p></div>
+        <Button disabled={!courseId || loading || generating} onClick={() => setDialog({ readOnly: false })}>Thêm câu hỏi</Button>
       </header>
-
-      {errorMessage && (
-        <Alert variant="destructive" className="mb-6 rounded-2xl">
-          <AlertCircle className="size-4" />
-          <AlertDescription>{errorMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {successMessage && (
-        <Alert className="mb-6 rounded-2xl border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
-          <CheckCircle2 className="size-4 text-emerald-600" />
-          <AlertDescription className="font-medium">{successMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* AI Question Generation Panel */}
-      <section className="mb-8 overflow-hidden rounded-3xl border bg-gradient-to-br from-brand-soft/30 via-background to-card p-6 shadow-sm sm:p-8">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-2xl bg-brand text-white shadow-md">
-            <Sparkles className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-heading text-lg font-semibold text-foreground">
-              Sinh câu hỏi tự động với AI
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              AI sẽ phân tích tài liệu bài giảng và chuẩn đầu ra để tạo các câu hỏi chất lượng cao kèm thang điểm.
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={handleGenerate} className="mt-6 grid gap-4 sm:grid-cols-[10rem_1fr_auto] items-end">
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Số lượng câu
-            </label>
-            <input
-              type="number"
-              min="5"
-              max="50"
-              value={generateCount}
-              onChange={(e) => setGenerateCount(parseInt(e.target.value) || 10)}
-              className="h-11 w-full rounded-xl border border-input bg-background px-3 font-semibold text-sm outline-none focus:border-brand"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Chủ đề trọng tâm (tùy chọn)
-            </label>
-            <input
-              type="text"
-              value={focusTopics}
-              onChange={(e) => setFocusTopics(e.target.value)}
-              placeholder="Ví dụ: Đa hình, Tính kế thừa, Clean Architecture..."
-              className="h-11 w-full rounded-xl border border-input bg-background px-4 text-sm outline-none focus:border-brand"
-            />
-          </div>
-
-          <Button
-            type="submit"
-            disabled={isGenerating || !selectedCourseId}
-            className="h-11 gap-2 rounded-xl px-6 bg-brand hover:bg-brand-hover shadow-sm"
-          >
-            {isGenerating ? (
-              <>
-                <RefreshCw className="size-4 animate-spin" />
-                AI đang sinh…
-              </>
-            ) : (
-              <>
-                <Sparkles className="size-4" />
-                Bắt đầu sinh câu hỏi
-              </>
-            )}
-          </Button>
+      <label className="block text-sm">Môn học
+        <select className={`${control} ml-3 max-w-full`} value={courseId} disabled={generating} onChange={(event) => { setCourseId(Number(event.target.value)); setData(emptyPage); changeQuery({ page: 1 }); setFlash(null) }}>
+          {!courses.length && <option value={0}>Chưa có môn học được phân công</option>}
+          {courses.map((course) => <option key={course.courseId} value={course.courseId}>{course.courseCode} — {course.courseName}</option>)}
+        </select>
+      </label>
+      {error && <p role="alert" className="rounded-xl bg-destructive/10 p-4 text-sm text-destructive">{error} <Button variant="ghost" onClick={refresh}>Thử lại</Button></p>}
+      {flash && <p role="status" className="rounded-xl bg-success-soft p-4 text-sm text-success">{flash}</p>}
+      <section className="rounded-2xl border p-5">
+        <h2 className="font-heading font-medium">Sinh câu hỏi với AI</h2>
+        <form onSubmit={generate} className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="text-sm">Số câu<input aria-label="Số câu cần sinh" type="number" required min={5} max={200} className={`${control} mt-1 block w-24`} value={generateCount} onChange={(event) => setGenerateCount(Number(event.target.value))} /></label>
+          <label className="flex-1 text-sm">Chủ đề trọng tâm<input className={`${control} mt-1 block w-full`} maxLength={1000} value={focusTopics} onChange={(event) => setFocusTopics(event.target.value)} /></label>
+          <Button disabled={generating || !courseId}>{generating ? 'AI đang sinh…' : 'Sinh câu hỏi'}</Button>
         </form>
       </section>
-
-      {/* Filter and Questions List */}
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <LibraryBig className="size-5 text-brand" />
-            <h2 className="font-heading text-lg font-medium">
-              Danh sách câu hỏi ({questions.length})
-            </h2>
-          </div>
-
-          {/* Level Filter */}
-          <div className="flex items-center gap-1.5">
-            <Filter className="size-4 text-muted-foreground mr-1" />
-            {(['ALL', 1, 2, 3] as const).map((lvl) => (
-              <button
-                key={lvl}
-                type="button"
-                onClick={() => setFilterLevel(lvl)}
-                className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                  filterLevel === lvl
-                    ? 'bg-foreground text-background font-semibold'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
-              >
-                {lvl === 'ALL' ? 'Tất cả' : LEVEL_LABELS[lvl].label}
-              </button>
-            ))}
-          </div>
+      <section className="space-y-4" aria-label="Danh sách câu hỏi" aria-busy={loading}>
+        <form onSubmit={(event) => { event.preventDefault(); changeQuery({ search: search.trim() }) }} className="flex flex-wrap items-end gap-3">
+          <label className="flex-1 text-sm">Tìm câu hỏi<input type="search" maxLength={1000} className={`${control} mt-1 block w-full`} value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+          <Button variant="outline" disabled={!courseId}>Tìm kiếm</Button>
+          <label className="text-sm">Độ khó<select className={`${control} mt-1 block`} value={query.level ?? ''} onChange={(event) => changeQuery({ level: event.target.value ? Number(event.target.value) : undefined })}><option value="">Tất cả</option>{levels.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}</select></label>
+          <label className="text-sm">Sắp xếp<select className={`${control} mt-1 block`} value={query.sortBy} onChange={(event) => changeQuery({ sortBy: event.target.value as QuestionQuery['sortBy'] })}><option value="createdAt">Ngày tạo</option><option value="questionText">Nội dung</option><option value="level">Độ khó</option><option value="maxScore">Điểm tối đa</option></select></label>
+          <label className="text-sm">Thứ tự<select className={`${control} mt-1 block`} value={query.sortDirection} onChange={(event) => changeQuery({ sortDirection: event.target.value as 'asc' | 'desc' })}><option value="desc">Giảm dần</option><option value="asc">Tăng dần</option></select></label>
+        </form>
+        <p className="text-sm text-muted-foreground">{data.totalCount} câu hỏi</p>
+        {loading ? <p role="status">Đang tải câu hỏi…</p> : error ? null : !data.items.length ? <p className="rounded-xl border border-dashed p-8 text-center">Không có câu hỏi phù hợp.</p> : data.items.map((question) => (
+          <article key={question.questionId} className="space-y-3 rounded-2xl border p-5">
+            <p className="font-medium">{question.questionText}</p>
+            <p className="text-sm text-muted-foreground">{question.topic ? `${question.topic} · ` : ''}{levels[question.level - 1]} · {question.maxScore} điểm</p>
+            {question.isInUse && <p className="text-xs text-muted-foreground">Đã được sử dụng. Tạo câu mới để thay đổi nội dung.</p>}
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setDialog({ questionId: question.questionId, readOnly: true })}>Chi tiết</Button>
+              <Button size="sm" variant="outline" disabled={question.isInUse} onClick={() => setDialog({ questionId: question.questionId, readOnly: false })}>Sửa</Button>
+              <Button size="sm" variant="ghost" disabled={question.isInUse} onClick={() => { setDeleting(question); setDeleteError(null) }}>Xóa</Button>
+            </div>
+          </article>
+        ))}
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="outline" disabled={loading || (query.page ?? 1) <= 1} onClick={() => changeQuery({ page: (query.page ?? 1) - 1 })}>Trang trước</Button>
+          <span className="text-sm">Trang {query.page ?? 1}/{Math.max(1, data.totalPages)}</span>
+          <Button variant="outline" disabled={loading || (query.page ?? 1) >= data.totalPages} onClick={() => changeQuery({ page: (query.page ?? 1) + 1 })}>Trang sau</Button>
         </div>
-
-        {isLoadingQuestions ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">Đang tải câu hỏi…</div>
-        ) : filteredQuestions.length === 0 ? (
-          <div className="rounded-3xl border border-dashed p-12 text-center text-muted-foreground">
-            <BookOpen className="mx-auto size-10 opacity-40 mb-3" />
-            <p>Chưa có câu hỏi nào trong ngân hàng của môn này.</p>
-            <p className="mt-1 text-xs">Hãy sử dụng bảng điều khiển phía trên để AI sinh câu hỏi.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredQuestions.map((q, idx) => {
-              const meta = LEVEL_LABELS[q.level] ?? { label: `Level ${q.level}`, variant: 'default' }
-              return (
-                <article
-                  key={q.questionId || idx}
-                  className="flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-sm transition-all hover:border-brand/40 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex-1 space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-brand">
-                        #{idx + 1}
-                      </span>
-                      <Badge variant={meta.variant} className="text-xs">
-                        <Layers className="size-3 mr-1" />
-                        {meta.label}
-                      </Badge>
-                      {q.isFollowUpAllowed && (
-                        <span className="text-[11px] text-muted-foreground font-medium">
-                          • Hỗ trợ follow-up
-                        </span>
-                      )}
-                    </div>
-                    <p className="font-heading text-sm font-medium text-foreground">
-                      {q.questionText}
-                    </p>
-                  </div>
-
-                  <div className="shrink-0 text-right sm:pl-4">
-                    <span className="font-mono text-xs font-semibold text-muted-foreground">
-                      Điểm tối đa: {q.maxScore != null ? q.maxScore : '1.0'}đ
-                    </span>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Quick link to Exams */}
-        {questions.length > 0 && (
-          <div className="mt-8 flex justify-end">
-            <Button asChild className="gap-2 rounded-xl">
-              <Link to="/teacher/exams">
-                Tạo đề thi từ ngân hàng câu hỏi
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-          </div>
-        )}
       </section>
+      <Button asChild variant="outline"><Link to="/teacher/exams">Quản lý đề thi</Link></Button>
+      {dialog && <QuestionFormDialog key={`${courseId}/${dialog.questionId ?? 'new'}/${dialog.readOnly}`} courseId={courseId} {...dialog} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); setFlash('Đã lưu câu hỏi.'); refresh() }} />}
+      <ConfirmDialog open={deleting !== null} title="Xóa câu hỏi?" description={deleting?.questionText ?? ''} pending={deletePending} error={deleteError} onClose={() => setDeleting(null)} onConfirm={() => void remove()} />
     </div>
   )
 }

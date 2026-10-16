@@ -12,7 +12,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -29,79 +29,82 @@ export default function TeacherCoursesPage() {
   const [isLoadingCourses, setIsLoadingCourses] = useState(true)
   const [isLoadingDocs, setIsLoadingDocs] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
-  // Upload modal state
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   const [uploadType, setUploadType] = useState<DocType>('CONTENT')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
-
-  // Edit modal state
   const [editingDoc, setEditingDoc] = useState<CourseDocument | null>(null)
   const [editType, setEditType] = useState<DocType>('CONTENT')
   const [editFileName, setEditFileName] = useState('')
   const [editFile, setEditFile] = useState<File | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
-
-  // Delete modal state
   const [deletingDoc, setDeletingDoc] = useState<CourseDocument | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-
-  // Preview modal state
   const [previewDoc, setPreviewDoc] = useState<CourseDocument | null>(null)
   const [previewContent, setPreviewContent] = useState<string>('')
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const previewRequest = useRef(0)
+  const documentsRequest = useRef(0)
 
   useEffect(() => {
-    loadCourses()
+    let active = true
+    teacherCoursesApi.listMine().then(async (list) => {
+      if (!active) return
+      setCourses(list)
+      setIsLoadingCourses(false)
+      if (!list.length) return
+      setSelectedCourse(list[0])
+      const requestId = ++documentsRequest.current
+      setIsLoadingDocs(true)
+      try {
+        const docs = await teacherCoursesApi.getDocuments(list[0].courseId)
+        if (active && requestId === documentsRequest.current) setDocuments(docs)
+      } catch (err) {
+        if (active && requestId === documentsRequest.current) setErrorMessage(toApiError(err).message)
+      } finally {
+        if (active && requestId === documentsRequest.current) setIsLoadingDocs(false)
+      }
+    }).catch((err) => {
+      if (active) { setErrorMessage(toApiError(err).message); setIsLoadingCourses(false) }
+    })
+    return () => { active = false }
   }, [])
 
-  async function loadCourses() {
-    setIsLoadingCourses(true)
-    setErrorMessage(null)
-    try {
-      const data = await teacherCoursesApi.listMine()
-      setCourses(data)
-      if (data.length > 0) {
-        handleSelectCourse(data[0])
-      }
-    } catch (err) {
-      const apiErr = toApiError(err)
-      setErrorMessage(apiErr.message)
-    } finally {
-      setIsLoadingCourses(false)
-    }
-  }
-
   async function handleSelectCourse(course: TeacherCourse) {
+    const requestId = ++documentsRequest.current
+    setDocuments([])
     setSelectedCourse(course)
     setIsLoadingDocs(true)
     setErrorMessage(null)
     try {
       const docs = await teacherCoursesApi.getDocuments(course.courseId)
-      setDocuments(docs)
+      if (requestId === documentsRequest.current) setDocuments(docs)
     } catch (err) {
+      if (requestId !== documentsRequest.current) return
       const apiErr = toApiError(err)
       setErrorMessage(apiErr.message)
       setDocuments([])
     } finally {
-      setIsLoadingDocs(false)
+      if (requestId === documentsRequest.current) setIsLoadingDocs(false)
     }
   }
 
   async function refreshDocuments(courseId: number) {
+    const requestId = ++documentsRequest.current
     setIsLoadingDocs(true)
     try {
       const docs = await teacherCoursesApi.getDocuments(courseId)
-      setDocuments(docs)
+      if (requestId === documentsRequest.current) setDocuments(docs)
     } catch (err) {
+      if (requestId !== documentsRequest.current) return
       const apiErr = toApiError(err)
       setErrorMessage(apiErr.message)
     } finally {
-      setIsLoadingDocs(false)
+      if (requestId === documentsRequest.current) setIsLoadingDocs(false)
     }
   }
 
@@ -192,35 +195,34 @@ export default function TeacherCoursesPage() {
   }
 
   async function openPreviewModal(doc: CourseDocument) {
+    const requestId = ++previewRequest.current
     setPreviewDoc(doc)
-    setPreviewContent(doc.content || '')
+    setPreviewContent('')
+    setPreviewError(null)
     setIsLoadingPreview(true)
-
-    if (selectedCourse) {
-      try {
-        const detail = await teacherCoursesApi.getDocument(selectedCourse.courseId, doc.documentId)
-        setPreviewContent(detail.content || '')
-      } catch {
-        // Fallback to existing content if available
-      } finally {
-        setIsLoadingPreview(false)
-      }
-    } else {
-      setIsLoadingPreview(false)
+    try {
+      const detail = await teacherCoursesApi.getDocument(doc.courseId, doc.documentId)
+      if (requestId === previewRequest.current) setPreviewContent(detail.content ?? '')
+    } catch (err) {
+      if (requestId === previewRequest.current) setPreviewError(toApiError(err).message)
+    } finally {
+      if (requestId === previewRequest.current) setIsLoadingPreview(false)
     }
   }
 
-  function handleDownload(doc: CourseDocument) {
-    const text = previewContent || doc.content || ''
-    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = doc.fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+  async function handleDownload(doc: CourseDocument) {
+    try {
+      const detail = await teacherCoursesApi.getDocument(doc.courseId, doc.documentId)
+      const blob = new Blob([detail.content ?? ''], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = detail.fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) { setErrorMessage(toApiError(err).message) }
   }
 
   const contentCount = documents.filter((d) => d.docType === 'CONTENT').length
@@ -257,7 +259,6 @@ export default function TeacherCoursesPage() {
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
-          {/* Courses List Sidebar */}
           <aside className="space-y-2">
             <h2 className="font-heading text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
               Môn học của bạn ({courses.length})
@@ -287,8 +288,6 @@ export default function TeacherCoursesPage() {
               })}
             </div>
           </aside>
-
-          {/* Main Content: Course Documents */}
           {selectedCourse && (
             <main className="space-y-6">
               <div className="overflow-hidden rounded-3xl border bg-card p-6 shadow-sm sm:p-8">
@@ -309,8 +308,6 @@ export default function TeacherCoursesPage() {
                     </Button>
                   </div>
                 </div>
-
-                {/* Document Readiness Indicators */}
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div
                     className={`rounded-2xl border p-4 transition-colors ${
@@ -376,8 +373,6 @@ export default function TeacherCoursesPage() {
                     </p>
                   </div>
                 </div>
-
-                {/* Validation Note if counts != 1 */}
                 {documents.length > 0 && (!isReadyForAi) && (
                   <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-800 dark:text-amber-300">
                     <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
@@ -391,8 +386,6 @@ export default function TeacherCoursesPage() {
                     </div>
                   </div>
                 )}
-
-                {/* Uploaded Documents List */}
                 <div className="mt-8 space-y-3">
                   <h3 className="font-heading text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                     Các tài liệu đã tải lên ({documents.length})
@@ -468,8 +461,6 @@ export default function TeacherCoursesPage() {
                     </div>
                   )}
                 </div>
-
-                {/* AI Question Generation Link Banner */}
                 {isReadyForAi && (
                   <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-brand/20 bg-brand-soft/30 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -491,8 +482,6 @@ export default function TeacherCoursesPage() {
           )}
         </div>
       )}
-
-      {/* Upload Modal */}
       {isUploadOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-lg rounded-3xl border bg-card p-6 shadow-2xl sm:p-8">
@@ -547,7 +536,7 @@ export default function TeacherCoursesPage() {
                 </label>
                 <input
                   type="file"
-                  accept=".md,.markdown"
+                  accept=".md"
                   onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                   className="w-full text-sm file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand file:text-white hover:file:bg-brand-hover cursor-pointer"
                 />
@@ -566,8 +555,6 @@ export default function TeacherCoursesPage() {
           </div>
         </div>
       )}
-
-      {/* Edit Modal */}
       {editingDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-lg rounded-3xl border bg-card p-6 shadow-2xl sm:p-8">
@@ -641,7 +628,7 @@ export default function TeacherCoursesPage() {
                 </p>
                 <input
                   type="file"
-                  accept=".md,.markdown"
+                  accept=".md"
                   onChange={(e) => setEditFile(e.target.files?.[0] ?? null)}
                   className="w-full text-sm file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-muted hover:file:bg-muted/80 cursor-pointer"
                 />
@@ -659,8 +646,6 @@ export default function TeacherCoursesPage() {
           </div>
         </div>
       )}
-
-      {/* Delete Confirmation Modal */}
       {deletingDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-md rounded-3xl border bg-card p-6 shadow-2xl sm:p-8">
@@ -720,8 +705,6 @@ export default function TeacherCoursesPage() {
           </div>
         </div>
       )}
-
-      {/* Preview Modal */}
       {previewDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-3xl border bg-card p-6 shadow-2xl sm:p-8">
@@ -741,13 +724,14 @@ export default function TeacherCoursesPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleDownload(previewDoc)}
+                  disabled={isLoadingPreview || previewError !== null}
+                  onClick={() => void handleDownload(previewDoc)}
                   className="gap-1.5 rounded-xl text-xs"
                 >
                   <Download className="size-3.5" />
                   Tải về
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => setPreviewDoc(null)} className="rounded-full">
+                <Button variant="ghost" size="icon" onClick={() => { previewRequest.current++; setPreviewDoc(null) }} className="rounded-full">
                   <X className="size-5" />
                 </Button>
               </div>
@@ -756,7 +740,7 @@ export default function TeacherCoursesPage() {
             <div className="mt-4 flex-1 overflow-auto rounded-2xl border bg-muted/30 p-4 font-mono text-xs text-foreground leading-relaxed whitespace-pre-wrap select-text max-h-[50vh]">
               {isLoadingPreview ? (
                 <div className="py-12 text-center text-muted-foreground font-sans text-sm">Đang tải nội dung…</div>
-              ) : previewContent ? (
+              ) : previewError ? <p role="alert" className="text-destructive">{previewError}</p> : previewContent ? (
                 previewContent
               ) : (
                 <div className="py-12 text-center text-muted-foreground font-sans text-sm">Tài liệu không có nội dung văn bản.</div>
@@ -764,7 +748,7 @@ export default function TeacherCoursesPage() {
             </div>
 
             <div className="mt-4 flex justify-end border-t pt-4">
-              <Button onClick={() => setPreviewDoc(null)}>Đóng</Button>
+              <Button onClick={() => { previewRequest.current++; setPreviewDoc(null) }}>Đóng</Button>
             </div>
           </div>
         </div>

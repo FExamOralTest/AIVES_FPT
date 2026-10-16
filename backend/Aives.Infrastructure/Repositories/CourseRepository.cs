@@ -60,9 +60,16 @@ public class CourseRepository : ICourseRepository
 
     public async Task DeleteAsync(int courseId)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var course = await _db.Courses.FindAsync(courseId)
             ?? throw new KeyNotFoundException($"Course {courseId} not found.");
+        if (await _db.Exams.AnyAsync(e => e.CourseId == courseId)
+            || await _db.MarkdownDocuments.AnyAsync(d => d.CourseId == courseId)
+            || await _db.QuestionBanks.AnyAsync(q => q.CourseId == courseId)
+            || await _db.Enrollments.AnyAsync(e => e.CourseId == courseId))
+            throw new InvalidOperationException("This course has documents, questions, exams or enrollments and cannot be deleted.");
         _db.Courses.Remove(course);
         await _db.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 }

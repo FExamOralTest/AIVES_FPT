@@ -1,4 +1,4 @@
-﻿using Aives.Application.Exams.Interfaces;
+using Aives.Application.Exams.Interfaces;
 using Aives.Domain.Entities;
 using Aives.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -24,8 +24,19 @@ public class QuestionBankRepository : IQuestionBankRepository
                 || q.Topic != null && q.Topic.ToLower().Contains(search));
         }
 
+        if (query.Level.HasValue)
+            filtered = filtered.Where(q => q.Level == query.Level.Value);
+
+        var descending = query.SortDirection == "desc";
+        var ordered = query.SortBy switch
+        {
+            "questionText" => descending ? filtered.OrderByDescending(q => q.QuestionText) : filtered.OrderBy(q => q.QuestionText),
+            "level" => descending ? filtered.OrderByDescending(q => q.Level) : filtered.OrderBy(q => q.Level),
+            "maxScore" => descending ? filtered.OrderByDescending(q => q.MaxScore) : filtered.OrderBy(q => q.MaxScore),
+            _ => descending ? filtered.OrderByDescending(q => q.CreatedAt) : filtered.OrderBy(q => q.CreatedAt)
+        };
         var total = await filtered.CountAsync();
-        var items = await filtered.OrderByDescending(q => q.CreatedAt).ThenByDescending(q => q.QuestionId)
+        var items = await ordered.ThenByDescending(q => q.QuestionId)
             .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
             .Select(q => new QuestionBankDto
             {
@@ -124,7 +135,6 @@ public class QuestionBankRepository : IQuestionBankRepository
         try
         {
             await _db.QuestionBanks.AddRangeAsync(batch, cancellationToken);
-            // A single SaveChanges commits the entire batch in EF Core's transaction.
             await _db.SaveChangesAsync(cancellationToken);
         }
         catch

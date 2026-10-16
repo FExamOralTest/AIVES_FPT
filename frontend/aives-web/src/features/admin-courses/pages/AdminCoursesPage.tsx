@@ -1,364 +1,125 @@
-import {
-  AlertCircle,
-  BookOpen,
-  CheckCircle2,
-  Plus,
-  Trash2,
-  UserCheck,
-  X,
-} from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/features/auth'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { usersApi } from '@/features/admin-users/api/usersApi'
 import type { User } from '@/features/admin-users/types'
 import { toApiError } from '@/lib/http/apiError'
 import { adminCoursesApi } from '../api/adminCoursesApi'
 import type { AdminCourse } from '../types'
 
+const inputClass = 'mt-1 block w-full rounded-xl border bg-background px-3 py-2 text-sm'
+type Mode = 'create' | 'edit' | 'view' | 'assign'
+
 export default function AdminCoursesPage() {
-  const { user: me } = useAuth()
   const [courses, setCourses] = useState<AdminCourse[]>([])
   const [teachers, setTeachers] = useState<User[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-
-  // Create course modal state
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [courseCode, setCourseCode] = useState('')
-  const [courseName, setCourseName] = useState('')
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string>('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  // Assign teacher modal state
-  const [assigningCourse, setAssigningCourse] = useState<AdminCourse | null>(null)
-  const [assignTeacherId, setAssignTeacherId] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
+  const [revision, setRevision] = useState(0)
+  const [mode, setMode] = useState<Mode | null>(null)
+  const [course, setCourse] = useState<AdminCourse | null>(null)
+  const [code, setCode] = useState('')
+  const [name, setName] = useState('')
+  const [teacherId, setTeacherId] = useState('')
+  const [detailFailed, setDetailFailed] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<AdminCourse | null>(null)
+  const requestId = useRef(0)
 
   useEffect(() => {
-    loadData()
-  }, [])
+    let active = true
+    Promise.all([adminCoursesApi.list(), usersApi.list()]).then(([list, users]) => {
+      if (!active) return
+      setCourses(list); setTeachers(users.filter((user) => user.role === 'TEACHER')); setLoading(false)
+    }).catch((err) => { if (active) { setError(toApiError(err).message); setLoading(false) } })
+    return () => { active = false }
+  }, [revision])
 
-  async function loadData() {
-    setIsLoading(true)
-    setErrorMessage(null)
+  function close() { if (!pending) { requestId.current++; setMode(null) } }
+
+  async function open(nextMode: Mode, summary: AdminCourse | null = null) {
+    const currentRequest = ++requestId.current
+    setMode(nextMode); setCourse(summary); setCode(summary?.courseCode ?? ''); setName(summary?.courseName ?? '')
+    setTeacherId(summary?.teacherId?.toString() ?? ''); setDetailFailed(false); setFormError(null); setDetailLoading(summary !== null)
+    if (!summary) return
     try {
-      const [coursesData, usersData] = await Promise.all([
-        adminCoursesApi.list(),
-        usersApi.list(),
-      ])
-      setCourses(coursesData)
-      setTeachers(usersData.filter((u) => u.role === 'TEACHER'))
-    } catch (err) {
-      const apiErr = toApiError(err)
-      setErrorMessage(apiErr.message)
-    } finally {
-      setIsLoading(false)
-    }
+      const detail = await adminCoursesApi.get(summary.courseId)
+      if (currentRequest !== requestId.current) return
+      setCourse(detail); setCode(detail.courseCode); setName(detail.courseName); setTeacherId(detail.teacherId?.toString() ?? '')
+    } catch (err) { if (currentRequest === requestId.current) { setFormError(toApiError(err).message); setDetailFailed(true) } }
+    finally { if (currentRequest === requestId.current) setDetailLoading(false) }
   }
 
-  async function handleCreateSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!courseCode.trim() || !courseName.trim()) return
-
-    setIsSubmitting(true)
-    setErrorMessage(null)
-
+  async function save(event: FormEvent) {
+    event.preventDefault()
+    if (pending || detailLoading || detailFailed) return
+    if (mode !== 'assign' && (!code.trim() || !name.trim())) { setFormError('Nhập mã và tên môn học.'); return }
+    setPending(true); setFormError(null)
     try {
-      const newCourse = await adminCoursesApi.create({
-        courseCode: courseCode.trim().toUpperCase(),
-        courseName: courseName.trim(),
-        teacherId: selectedTeacherId ? parseInt(selectedTeacherId, 10) : null,
-        createdBy: me?.userId,
-      })
-      setCourses((prev) => [newCourse, ...prev])
-      setIsCreateOpen(false)
-      setCourseCode('')
-      setCourseName('')
-      setSelectedTeacherId('')
-      setSuccessMessage(`Đã tạo môn học "${newCourse.courseName}" thành công!`)
-    } catch (err) {
-      const apiErr = toApiError(err)
-      setErrorMessage(apiErr.message)
-    } finally {
-      setIsSubmitting(false)
-    }
+      let saved: AdminCourse
+      if (mode === 'create') saved = await adminCoursesApi.create({ courseCode: code.trim().toUpperCase(), courseName: name.trim(), teacherId: teacherId ? Number(teacherId) : null })
+      else if (mode === 'assign' && course) saved = await adminCoursesApi.assignTeacher(course.courseId, Number(teacherId))
+      else if (course) saved = await adminCoursesApi.update(course.courseId, { courseCode: code.trim().toUpperCase(), courseName: name.trim() })
+      else return
+      setCourses((list) => mode === 'create' ? [saved, ...list] : list.map((item) => item.courseId === saved.courseId ? saved : item))
+      setMode(null); setFlash('Đã lưu môn học.'); setError(null)
+    } catch (err) { setFormError(toApiError(err).message) }
+    finally { setPending(false) }
   }
 
-  async function handleAssignSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!assigningCourse || !assignTeacherId) return
-
-    setIsSubmitting(true)
-    setErrorMessage(null)
-
+  async function remove() {
+    if (!deleting || pending) return
+    setPending(true); setFormError(null)
     try {
-      const teacherIdNum = parseInt(assignTeacherId, 10)
-      const updated = await adminCoursesApi.assignTeacher(
-        assigningCourse.courseId,
-        teacherIdNum,
-      )
-      const chosenTeacher = teachers.find((t) => t.userId === teacherIdNum)
-      const mergedUpdated: AdminCourse = {
-        ...updated,
-        teacherId: teacherIdNum,
-        teacherFullName: chosenTeacher?.fullName || updated.teacherFullName,
-      }
-      setCourses((prev) =>
-        prev.map((c) => (c.courseId === assigningCourse.courseId ? mergedUpdated : c)),
-      )
-      setAssigningCourse(null)
-      setAssignTeacherId('')
-      setSuccessMessage('Đã cập nhật phân công giảng viên thành công!')
-    } catch (err) {
-      const apiErr = toApiError(err)
-      setErrorMessage(apiErr.message)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  async function handleDeleteCourse(courseId: number, courseName: string) {
-    if (!confirm(`Bạn có chắc chắn muốn xóa môn học "${courseName}"?`)) return
-
-    try {
-      await adminCoursesApi.delete(courseId)
-      setCourses((prev) => prev.filter((c) => c.courseId !== courseId))
-      setSuccessMessage(`Đã xóa môn học "${courseName}".`)
-    } catch (err) {
-      const apiErr = toApiError(err)
-      setErrorMessage(apiErr.message)
-    }
+      await adminCoursesApi.delete(deleting.courseId)
+      setCourses((list) => list.filter((item) => item.courseId !== deleting.courseId))
+      setDeleting(null); setFlash('Đã xóa môn học.'); setError(null)
+    } catch (err) { setFormError(toApiError(err).message) }
+    finally { setPending(false) }
   }
 
   return (
-    <div className="mx-auto max-w-5xl py-6">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">
-            Quản lý Môn học
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Danh sách tất cả các môn học trong hệ thống và phân công giảng viên phụ trách.
-          </p>
-        </div>
-
-        <Button onClick={() => setIsCreateOpen(true)} className="gap-2 rounded-xl">
-          <Plus className="size-4" />
-          Thêm môn học mới
-        </Button>
+    <div className="mx-auto max-w-5xl space-y-6 py-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div><h1 className="font-heading text-3xl font-medium">Quản lý môn học</h1><p className="mt-2 text-muted-foreground">Tạo môn học, cập nhật thông tin và phân công giảng viên.</p></div>
+        <Button onClick={() => void open('create')}>Thêm môn học</Button>
       </header>
-
-      {errorMessage && (
-        <Alert variant="destructive" className="mb-6 rounded-2xl">
-          <AlertCircle className="size-4" />
-          <AlertDescription>{errorMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {successMessage && (
-        <Alert className="mb-6 rounded-2xl border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
-          <CheckCircle2 className="size-4 text-emerald-600" />
-          <AlertDescription className="font-medium">{successMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Courses Table */}
-      {isLoading ? (
-        <div className="py-12 text-center text-muted-foreground">Đang tải danh sách môn học…</div>
-      ) : courses.length === 0 ? (
-        <div className="rounded-3xl border border-dashed p-12 text-center text-muted-foreground">
-          <BookOpen className="mx-auto size-12 opacity-40 mb-3" />
-          <p>Chưa có môn học nào trong hệ thống.</p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-3xl border bg-card shadow-sm">
-          <div className="divide-y divide-border">
-            {courses.map((course) => (
-              <div
-                key={course.courseId}
-                className="flex flex-col gap-4 p-5 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:justify-between sm:p-6"
-              >
-                <div className="space-y-1">
-                  <span className="font-mono text-xs font-semibold text-brand">
-                    {course.courseCode}
-                  </span>
-                  <h3 className="font-heading text-base font-semibold text-foreground">
-                    {course.courseName}
-                  </h3>
-                  {(() => {
-                    const teacherDisplayName =
-                      course.teacherFullName ||
-                      course.teacherName ||
-                      teachers.find((t) => t.userId === course.teacherId)?.fullName ||
-                      teachers.find((t) => t.userId === course.teacherId)?.username
-
-                    return (
-                      <div className="flex items-center gap-2 pt-1">
-                        <span className="text-xs text-muted-foreground">Giảng viên phụ trách:</span>
-                        {teacherDisplayName ? (
-                          <Badge variant="secondary" className="text-xs font-medium">
-                            {teacherDisplayName}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs italic text-amber-600 dark:text-amber-400">
-                            Chưa phân công
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })()}
-                </div>
-
-                <div className="flex items-center gap-2 sm:justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setAssigningCourse(course)
-                      setAssignTeacherId(course.teacherId?.toString() ?? '')
-                    }}
-                    className="gap-1.5 rounded-xl text-xs"
-                  >
-                    <UserCheck className="size-3.5" />
-                    Phân công GV
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteCourse(course.courseId, course.courseName)}
-                    className="rounded-xl text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+      {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="outline" onClick={() => { setLoading(true); setError(null); setRevision((value) => value + 1) }}>Thử lại</Button></p>}
+      {flash && <p role="status" className="rounded-xl bg-success-soft p-4 text-success">{flash}</p>}
+      {loading ? <p role="status">Đang tải môn học…</p> : !courses.length ? <p className="rounded-2xl border border-dashed p-8 text-center">Chưa có môn học.</p> : courses.map((item) => (
+        <article key={item.courseId} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5">
+          <div><p className="font-mono text-sm text-brand">{item.courseCode}</p><h2 className="font-medium">{item.courseName}</h2><p className="mt-1 text-sm text-muted-foreground">{item.teacherFullName ?? item.teacherName ?? 'Chưa phân công giảng viên'}</p></div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => void open('view', item)}>Chi tiết</Button>
+            <Button size="sm" variant="outline" onClick={() => void open('edit', item)}>Sửa</Button>
+            <Button size="sm" variant="outline" onClick={() => void open('assign', item)}>Phân công GV</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setDeleting(item); setFormError(null) }}>Xóa</Button>
           </div>
-        </div>
-      )}
-
-      {/* Create Course Modal */}
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-3xl border bg-card p-6 shadow-2xl sm:p-8">
-            <header className="flex items-center justify-between border-b pb-4">
-              <h2 className="font-heading text-lg font-medium">Thêm môn học mới</h2>
-              <Button variant="ghost" size="icon" onClick={() => setIsCreateOpen(false)} className="rounded-full">
-                <X className="size-5" />
-              </Button>
-            </header>
-
-            <form onSubmit={handleCreateSubmit} className="mt-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Mã môn học (Course Code)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={courseCode}
-                  onChange={(e) => setCourseCode(e.target.value)}
-                  placeholder="Ví dụ: SE201, CS101..."
-                  className="h-11 w-full rounded-xl border border-input bg-background px-4 font-mono text-sm uppercase outline-none focus:border-brand"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Tên môn học (Course Name)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  placeholder="Ví dụ: Kỹ nghệ phần mềm"
-                  className="h-11 w-full rounded-xl border border-input bg-background px-4 text-sm outline-none focus:border-brand"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Giảng viên phụ trách (tùy chọn)
-                </label>
-                <select
-                  value={selectedTeacherId}
-                  onChange={(e) => setSelectedTeacherId(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-brand"
-                >
-                  <option value="">-- Chưa phân công --</option>
-                  {teachers.map((t) => (
-                    <option key={t.userId} value={t.userId.toString()}>
-                      {t.fullName} ({t.username})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-3 border-t pt-5">
-                <Button variant="ghost" type="button" onClick={() => setIsCreateOpen(false)}>
-                  Hủy
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Đang tạo…' : 'Tạo môn học'}
-                </Button>
-              </div>
+        </article>
+      ))}
+      <Dialog open={mode !== null} onOpenChange={(value) => !value && close()}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{mode === 'create' ? 'Thêm môn học' : mode === 'edit' ? 'Sửa môn học' : mode === 'assign' ? 'Phân công giảng viên' : 'Chi tiết môn học'}</DialogTitle><DialogDescription>{course?.courseName ?? 'Nhập thông tin môn học mới.'}</DialogDescription></DialogHeader>
+          {detailLoading ? <p>Đang tải chi tiết…</p> : (
+            <form onSubmit={save} className="space-y-4">
+              {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
+              {mode === 'view' ? <dl className="space-y-3 text-sm">{[['Mã môn', code], ['Tên môn', name], ['Giảng viên', course?.teacherFullName ?? course?.teacherName ?? 'Chưa phân công'], ['ID', String(course?.courseId ?? '')]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="break-words font-medium">{value}</dd></div>)}</dl> : <fieldset disabled={pending || detailFailed} className="space-y-4">
+                {mode !== 'assign' && <>
+                  <label className="block text-sm">Mã môn học<input required maxLength={20} className={inputClass} value={code} onChange={(event) => setCode(event.target.value)} /></label>
+                  <label className="block text-sm">Tên môn học<input required maxLength={150} className={inputClass} value={name} onChange={(event) => setName(event.target.value)} /></label>
+                </>}
+                {(mode === 'create' || mode === 'assign') && <label className="block text-sm">Giảng viên<select required={mode === 'assign'} className={inputClass} value={teacherId} onChange={(event) => setTeacherId(event.target.value)}><option value="">{mode === 'create' ? 'Phân công sau' : 'Chọn giảng viên'}</option>{teachers.map((teacher) => <option key={teacher.userId} value={teacher.userId}>{teacher.fullName}</option>)}</select></label>}
+              </fieldset>}
+              <DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={close}>Đóng</Button>{mode !== 'view' && <Button disabled={pending || detailFailed}>{pending ? 'Đang lưu…' : 'Lưu'}</Button>}</DialogFooter>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Assign Teacher Modal */}
-      {assigningCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-3xl border bg-card p-6 shadow-2xl sm:p-8">
-            <header className="flex items-center justify-between border-b pb-4">
-              <h2 className="font-heading text-lg font-medium">Phân công giảng viên</h2>
-              <Button variant="ghost" size="icon" onClick={() => setAssigningCourse(null)} className="rounded-full">
-                <X className="size-5" />
-              </Button>
-            </header>
-
-            <form onSubmit={handleAssignSubmit} className="mt-6 space-y-4">
-              <p className="text-sm font-medium text-foreground">
-                Môn học: <span className="font-semibold text-brand">{assigningCourse.courseCode} — {assigningCourse.courseName}</span>
-              </p>
-
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Chọn giảng viên
-                </label>
-                <select
-                  required
-                  value={assignTeacherId}
-                  onChange={(e) => setAssignTeacherId(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-brand"
-                >
-                  <option value="">-- Chọn một giảng viên --</option>
-                  {teachers.map((t) => (
-                    <option key={t.userId} value={t.userId.toString()}>
-                      {t.fullName} ({t.username})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-3 border-t pt-5">
-                <Button variant="ghost" type="button" onClick={() => setAssigningCourse(null)}>
-                  Hủy
-                </Button>
-                <Button type="submit" disabled={isSubmitting || !assignTeacherId}>
-                  {isSubmitting ? 'Đang lưu…' : 'Cập nhật phân công'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog open={deleting !== null} title="Xóa môn học?" description={`Xóa ${deleting?.courseName ?? ''}? Môn đã có dữ liệu liên quan sẽ được giữ lại.`} pending={pending} error={formError} onClose={() => setDeleting(null)} onConfirm={() => void remove()} />
     </div>
   )
 }

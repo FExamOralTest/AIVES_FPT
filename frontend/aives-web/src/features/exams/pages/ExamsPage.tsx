@@ -17,12 +17,6 @@ export default function ExamsPage() {
   const [flash, setFlash] = useState<string | null>(null)
 
   const exams = useMemo(() => (state.status === 'ready' ? state.data : []), [state])
-  const knownCourses = useMemo(() => {
-    const byId = new Map<number, string | null>()
-    for (const e of exams) if (!byId.has(e.courseId)) byId.set(e.courseId, e.courseName)
-    return [...byId].map(([courseId, courseName]) => ({ courseId, courseName }))
-  }, [exams])
-
   function handleCreated(exam: Exam) {
     update((list) => [exam, ...list])
     setCreating(false)
@@ -104,11 +98,10 @@ export default function ExamsPage() {
 
       <CreateExamDialog
         open={creating}
-        knownCourses={knownCourses}
         onClose={() => setCreating(false)}
         onCreated={handleCreated}
       />
-      <ExamDetailDialog exam={viewing} onClose={() => setViewing(null)} />
+      <ExamDetailDialog exam={viewing} onClose={() => setViewing(null)} onChanged={(saved) => update((list) => list.map((item) => item.examId === saved.examId ? saved : item))} onDeleted={(examId) => { update((list) => list.filter((item) => item.examId !== examId)); setViewing(null); setFlash('Đã xóa đề thi nháp.') }} />
     </>
   )
 }
