@@ -1,0 +1,24 @@
+@startuml C0_System_Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title C0 - System Context Diagram for AIVES (Updated)
+
+Person(student, "Student", "Takes viva exam & views official published results")
+Person(staff, "Academic Staff", "Manages courses, question banks, exams & proctors sessions")
+Person(examiner, "Examiner (Khảo thí)", "Reviews AI grading, audits audio recordings & publishes final results")
+Person(admin, "Admin", "Manages system users, course assignments & configurations")
+
+System(aives, "AIVES Platform", "AI-powered viva examination & assessment governance system")
+
+System_Ext(r2, "Cloudflare R2", "S3-compatible object storage for secure student audio recordings")
+System_Ext(ai_brain, "AI LLM Provider", "Gemini / OpenAI for rubric-based scoring & follow-up questions")
+
+Rel(student, aives, "Submits voice answers & checks published grades")
+Rel(staff, aives, "Designs exams & monitors live sessions")
+Rel(examiner, aives, "Audits transcripts, listens to audios & approves/publishes results")
+Rel(admin, aives, "Manages system roles & policies")
+
+Rel(aives, r2, "Stores & streams encrypted audio recordings")
+Rel(aives, ai_brain, "Evaluates transcripts against rubric standards")
+
+@enduml
