@@ -117,6 +117,7 @@ public class ResultService : IResultService
 
         result.Status = SubmissionStatus.PUBLISHED;
         result.PublishedAt = DateTime.UtcNow;
+        result.PublishedBy = teacherId;
 
         if (!result.ReviewedAt.HasValue)
         {
@@ -147,7 +148,7 @@ public class ResultService : IResultService
                 ExamTitle = result.Session?.Exam?.Title ?? "",
                 Status = result.Status?.ToString() ?? "",
                 IsPublished = false,
-                Message = "Kết quả bài thi đang được giảng viên chấm và duyệt. Vui lòng quay lại sau.",
+                Message = "Kết quả bài thi đang được khảo thí thẩm định và duyệt. Vui lòng quay lại sau.",
                 SubmittedAt = result.SubmittedAt
             };
         }
@@ -185,17 +186,15 @@ public class ResultService : IResultService
         return results.Select(MapToReviewDto);
     }
 
-    // ── Admin bypass: neu callerId == scheduledBy (Teacher) hoac ADMIN -> OK ──
+    // ── BR-09 & BR-10: Chi EXAMINER hoac ADMIN moi co quyen review & publish ──
     private async Task EnsureAccessAsync(int callerId, int scheduledBy)
     {
-        if (callerId == scheduledBy) return;
-
         var caller = await _userRepository.GetByIdAsync(callerId)
             ?? throw new KeyNotFoundException($"User {callerId} not found.");
 
-        if (caller.Role == UserRole.ADMIN) return;
+        if (caller.Role == UserRole.ADMIN || caller.Role == UserRole.EXAMINER) return;
 
-        throw new UnauthorizedAccessException("Not your session.");
+        throw new UnauthorizedAccessException("Only examiners or admins can review and publish exam results.");
     }
 
     private static ResultForReviewDto MapToReviewDto(Result result) => new()
@@ -217,9 +216,12 @@ public class ResultService : IResultService
         Status        = result.Status?.ToString() ?? "",
         SubmittedAt   = result.SubmittedAt,
         ReviewedAt    = result.ReviewedAt,
+        PublishedAt   = result.PublishedAt,
+        PublishedBy   = result.PublishedBy,
         Answers       = result.Answers.Select(a => new AnswerForReviewDto
         {
             AnswerId       = a.AnswerId,
+            Status         = a.Status.ToString(),
             QuestionId     = a.QuestionId,
             QuestionText   = a.Question?.QuestionText ?? "",
             StudentAnswer  = a.StudentAnswer,
@@ -233,4 +235,5 @@ public class ResultService : IResultService
             IsFollowUp     = a.IsFollowUp ?? false
         }).ToList()
     };
+
 }

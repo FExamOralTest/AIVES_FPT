@@ -25,7 +25,7 @@ namespace Aives.Infrastructure.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "exam_status", new[] { "DRAFT", "SCHEDULED", "OPEN", "CLOSED", "CANCELLED" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "session_status", new[] { "NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "submission_status", new[] { "PENDING_REVIEW", "SUBMITTED", "REVIEWED", "PUBLISHED", "CANCELLED" });
-            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "user_role", new[] { "ADMIN", "TEACHER", "STUDENT" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "user_role", new[] { "ADMIN", "STAFF", "EXAMINER", "STUDENT" });
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Aives.Domain.Entities.Answer", b =>
@@ -74,6 +74,14 @@ namespace Aives.Infrastructure.Migrations
                     b.Property<int>("ResultId")
                         .HasColumnType("integer")
                         .HasColumnName("result_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("PROCESSING")
+                        .HasColumnName("status");
 
                     b.Property<string>("StudentAnswer")
                         .HasColumnType("text")
@@ -543,6 +551,10 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("published_at");
 
+                    b.Property<int?>("PublishedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("published_by");
+
                     b.Property<DateTime?>("ReviewedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("reviewed_at");
@@ -571,6 +583,8 @@ namespace Aives.Infrastructure.Migrations
 
                     b.HasKey("ResultId")
                         .HasName("results_pkey");
+
+                    b.HasIndex("PublishedBy");
 
                     b.HasIndex("ReviewedBy");
 
@@ -869,6 +883,12 @@ namespace Aives.Infrastructure.Migrations
 
             modelBuilder.Entity("Aives.Domain.Entities.Result", b =>
                 {
+                    b.HasOne("Aives.Domain.Entities.User", "PublishedByNavigation")
+                        .WithMany("ResultPublishedByNavigations")
+                        .HasForeignKey("PublishedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("results_published_by_fkey");
+
                     b.HasOne("Aives.Domain.Entities.User", "ReviewedByNavigation")
                         .WithMany("ResultReviewedByNavigations")
                         .HasForeignKey("ReviewedBy")
@@ -888,6 +908,8 @@ namespace Aives.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("results_student_id_fkey");
+
+                    b.Navigation("PublishedByNavigation");
 
                     b.Navigation("ReviewedByNavigation");
 
@@ -974,6 +996,8 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("Exams");
 
                     b.Navigation("MarkdownDocuments");
+
+                    b.Navigation("ResultPublishedByNavigations");
 
                     b.Navigation("ResultReviewedByNavigations");
 

@@ -36,10 +36,15 @@ public partial class Result
     public DateTime? ReviewedAt { get; set; }
 
     public DateTime? PublishedAt { get; set; }
+ 
+    public int? PublishedBy { get; set; }
 
     public virtual ICollection<Answer> Answers { get; set; } = new List<Answer>();
 
     public virtual User? ReviewedByNavigation { get; set; }
+
+    public virtual User? PublishedByNavigation { get; set; }
+
 
     public virtual ExamSession Session { get; set; } = null!;
 

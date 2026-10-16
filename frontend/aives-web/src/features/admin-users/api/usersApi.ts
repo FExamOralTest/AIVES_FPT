@@ -1,6 +1,7 @@
 import { http } from '@/lib/http/client'
 import type { CreateUserInput, UpdateUserInput, User, UserRole } from '../types'
-const ROLE_CODE: Record<UserRole, number> = { ADMIN: 0, STUDENT: 1, TEACHER: 2 }
+const ROLE_CODE: Record<UserRole, number> = { ADMIN: 0, STUDENT: 1, STAFF: 2, EXAMINER: 3 }
+
 
 export const usersApi = {
   async list(): Promise<User[]> {

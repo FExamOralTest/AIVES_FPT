@@ -26,7 +26,7 @@ public class AdminUserController : ControllerBase
     public async Task<IActionResult> GetByRole(string role)
     {
         if (!Enum.TryParse<UserRole>(role.ToUpper(), out var parsed))
-            return BadRequest($"Invalid role '{role}'. Valid values: ADMIN, TEACHER, STUDENT.");
+            return BadRequest($"Invalid role '{role}'. Valid values: ADMIN, STAFF, EXAMINER, STUDENT.");
 
         var users = await _userService.GetByRoleAsync(parsed);
         return Ok(users);

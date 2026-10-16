@@ -7,17 +7,17 @@ using Microsoft.AspNetCore.Mvc;
 namespace Aives.Api.Controllers;
 
 /// <summary>
-/// Teacher Review & Publish Final Results.
+/// Examiner Review & Publish Final Results.
 /// BR-08: AI tạo Result ở trạng thái PENDING_REVIEW.
-/// BR-09: Result được gửi cho Teacher review.
-/// BR-10: Teacher approve và publish Final Result.
+/// BR-09: Result được gửi cho Examiner review.
+/// BR-10: Examiner approve và publish Final Result.
 /// BR-11: Final Result được giao cho Student.
 /// BR-13: Xác thực JWT và phân quyền theo role.
 /// BR-15: Lưu câu hỏi, câu trả lời, transcript, điểm và feedback để đối soát.
 /// </summary>
 [ApiController]
 [Route("api/results")]
-[Authorize(Roles = "TEACHER,ADMIN")]
+[Authorize(Roles = "EXAMINER,ADMIN")]
 public class ResultsController : ControllerBase
 {
     private readonly IResultService _resultService;

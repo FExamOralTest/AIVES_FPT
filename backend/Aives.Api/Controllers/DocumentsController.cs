@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Aives.Api.Controllers;
 [ApiController]
 [Route("api/courses/{courseId:int}/documents")]
-[Authorize(Roles = "TEACHER")]
+[Authorize(Roles = "STAFF,ADMIN")]
 public class DocumentsController : ControllerBase
 {
     private readonly IDocumentService _docService;

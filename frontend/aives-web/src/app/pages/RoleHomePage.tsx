@@ -6,9 +6,11 @@ import { StatusBadge } from '../layout/StatusBadge'
 
 const ROLE_INTRO: Record<UserRole, string> = {
   ADMIN: 'Tạo và quản lý môn học, phân quyền tài khoản trong hệ thống.',
-  TEACHER: 'Tạo kỳ thi, lên lịch buổi vấn đáp, duyệt và công bố kết quả AI chấm.',
+  STAFF: 'Quản lý học liệu môn học, ngân hàng câu hỏi, tạo đề và giám sát ca thi.',
+  EXAMINER: 'Thẩm định điểm số, nghe lại ghi âm giọng nói của sinh viên, duyệt và công bố bảng điểm chính thức.',
   STUDENT: 'Nhập mã tham gia để vào buổi vấn đáp và xem kết quả đã được công bố.',
 }
+
 
 export default function RoleHomePage({ role }: { role: UserRole }) {
   const { user } = useAuth()
