@@ -141,6 +141,7 @@ builder.Services.AddScoped<IQuestionBankService, QuestionBankService>();
 builder.Services.AddScoped<IExamUnitOfWork, ExamUnitOfWork>();
 builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
+builder.Services.AddScoped<IStaffService, StaffService>();
 
 builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
 builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository, Aives.Infrastructure.Repositories.UserRepository>();
