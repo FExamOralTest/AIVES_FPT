@@ -309,6 +309,13 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.SampleAnswer).HasColumnName("sample_answer");
             entity.Property(e => e.LearningOutcome).HasMaxLength(2000).HasColumnName("learning_outcome");
             entity.Property(e => e.Level).HasColumnName("level");
+            entity.Property(e => e.ExpectedKeywords).HasColumnName("expected_keywords");
+            entity.Property(e => e.ApprovalStatus).HasConversion<string>()
+                .HasDefaultValue(QuestionApprovalStatus.PENDING_REVIEW)
+                .HasColumnName("approval_status");
+            entity.Property(e => e.ReviewedBy).HasColumnName("reviewed_by");
+            entity.Property(e => e.ReviewedAt).HasColumnName("reviewed_at");
+            entity.Property(e => e.RejectionReason).HasMaxLength(2000).HasColumnName("rejection_reason");
 
             entity.HasOne(d => d.Course).WithMany(p => p.QuestionBanks)
                 .HasForeignKey(d => d.CourseId)

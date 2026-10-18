@@ -387,7 +387,8 @@ public class VivaSessionService : IVivaSessionService
                         CriterionId = c.CriterionId.ToString(CultureInfo.InvariantCulture),
                         Description = c.Description,
                         MaxScore = (float)c.MaxScore
-                    }).ToList() ?? new()
+                    }).ToList() ?? new(),
+                    ExpectedKeywords = a.Question?.ExpectedKeywords ?? new()
                 }).ToList()
             };
 

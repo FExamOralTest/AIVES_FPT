@@ -59,6 +59,7 @@ class GeneratedQuestion(BaseModel):
     max_score: float = Field(gt=0, le=100, allow_inf_nan=False, strict=True)
     level: int = Field(ge=1, le=3, strict=True)
     is_follow_up_allowed: bool = Field(strict=True)
+    expected_keywords: list[Text] = Field(default_factory=list, max_length=50)
 
     @model_validator(mode="after")
     def validate_rubric(self) -> "GeneratedQuestion":

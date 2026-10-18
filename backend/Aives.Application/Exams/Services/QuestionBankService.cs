@@ -4,6 +4,7 @@ using Aives.Application.Exams.Exceptions;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Domain.Entities;
+using Aives.Domain.Enums;
 
 namespace Aives.Application.Exams.Services;
 
@@ -60,6 +61,38 @@ public class QuestionBankService(
             return true;
         });
 
+    public Task<QuestionBankDto> ApproveQuestionAsync(int courseId, int questionId, int staffId)
+        => unitOfWork.ExecuteAsync(async () =>
+        {
+            await EnsureAssignedAsync(courseId, staffId);
+            var question = await GetForCourseAsync(courseId, questionId);
+            if (question.ApprovalStatus != QuestionApprovalStatus.PENDING_REVIEW)
+                throw new QuestionBankConflictException("Only pending questions can be approved.");
+            question.ApprovalStatus = QuestionApprovalStatus.APPROVED;
+            question.ReviewedBy = staffId;
+            question.ReviewedAt = DateTime.UtcNow;
+            question.RejectionReason = null;
+            await questions.SaveChangesAsync();
+            return ToDto(question, await questions.IsInUseAsync(questionId));
+        });
+
+    public Task<QuestionBankDto> RejectQuestionAsync(int courseId, int questionId, string reason, int staffId)
+        => unitOfWork.ExecuteAsync(async () =>
+        {
+            await EnsureAssignedAsync(courseId, staffId);
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("A rejection reason is required.");
+            var question = await GetForCourseAsync(courseId, questionId);
+            if (question.ApprovalStatus != QuestionApprovalStatus.PENDING_REVIEW)
+                throw new QuestionBankConflictException("Only pending questions can be rejected.");
+            question.ApprovalStatus = QuestionApprovalStatus.REJECTED;
+            question.ReviewedBy = staffId;
+            question.ReviewedAt = DateTime.UtcNow;
+            question.RejectionReason = reason.Trim();
+            await questions.SaveChangesAsync();
+            return ToDto(question, await questions.IsInUseAsync(questionId));
+        });
+
     private async Task EnsureAssignedAsync(int courseId, int teacherId)
     {
         var course = await courses.GetByIdAsync(courseId)
@@ -109,6 +142,13 @@ public class QuestionBankService(
         question.Level = request.Level;
         question.MaxScore = request.MaxScore;
         question.IsFollowUpAllowed = request.IsFollowUpAllowed;
+        question.ExpectedKeywords = (request.ExpectedKeywords ?? [])
+            .Where(k => !string.IsNullOrWhiteSpace(k))
+            .Select(k => k.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(50).ToList();
+        question.ApprovalStatus = QuestionApprovalStatus.PENDING_REVIEW;
+        question.ReviewedBy = null;
+        question.ReviewedAt = null;
+        question.RejectionReason = null;
     }
 
     public static QuestionBankDto ToDto(QuestionBank question, bool isInUse) => new()
@@ -128,6 +168,11 @@ public class QuestionBankService(
         Level = question.Level,
         MaxScore = question.MaxScore ?? 1,
         IsFollowUpAllowed = question.IsFollowUpAllowed ?? true,
+        ExpectedKeywords = question.ExpectedKeywords,
+        ApprovalStatus = question.ApprovalStatus,
+        ReviewedBy = question.ReviewedBy,
+        ReviewedAt = question.ReviewedAt,
+        RejectionReason = question.RejectionReason,
         CreatedAt = question.CreatedAt,
         IsInUse = isInUse
     };
