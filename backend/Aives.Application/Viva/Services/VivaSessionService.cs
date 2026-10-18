@@ -1,6 +1,7 @@
 using Aives.Application.AI.DTOs;
 using Aives.Application.AI.Interfaces;
 using Aives.Application.Interfaces.Repositories;
+using Aives.Application.Interfaces.Services;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Viva.DTOs;
 using Aives.Application.Viva.Interfaces;
@@ -20,6 +21,7 @@ public class VivaSessionService : IVivaSessionService
     private readonly IResultRepository _resultRepository;
     private readonly IAiServiceClient _aiServiceClient;
     private readonly IMarkdownDocumentRepository _documentRepository;
+    private readonly IStorageService _storageService;
     private readonly ILogger<VivaSessionService> _logger;
 
     public VivaSessionService(
@@ -29,6 +31,7 @@ public class VivaSessionService : IVivaSessionService
         IResultRepository resultRepository,
         IAiServiceClient aiServiceClient,
         IMarkdownDocumentRepository documentRepository,
+        IStorageService storageService,
         ILogger<VivaSessionService> logger)
     {
         _sessionRepository = sessionRepository;
@@ -37,6 +40,7 @@ public class VivaSessionService : IVivaSessionService
         _resultRepository = resultRepository;
         _aiServiceClient = aiServiceClient;
         _documentRepository = documentRepository;
+        _storageService = storageService;
         _logger = logger;
     }
 
@@ -190,25 +194,27 @@ public class VivaSessionService : IVivaSessionService
         // 1. Process voice audio if submitted
         if (request.AudioFile != null && request.AudioFile.Length > 0)
         {
-            var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "audio");
-            if (!Directory.Exists(uploadsDir))
-            {
-                Directory.CreateDirectory(uploadsDir);
-            }
-
             var extension = Path.GetExtension(request.AudioFile.FileName);
-            if (string.IsNullOrWhiteSpace(extension)) extension = ".wav";
-            var fileName = $"{sessionId}_{studentId}_{request.QuestionId}_{DateTime.UtcNow.Ticks}{extension}";
-            var filePath = Path.Combine(uploadsDir, fileName);
+            if (string.IsNullOrWhiteSpace(extension)) extension = ".webm";
+            var objectKey = $"exams/{session.ExamId}/sessions/{sessionId}/students/{studentId}/q_{request.QuestionId}_{DateTime.UtcNow.Ticks}{extension}";
 
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await request.AudioFile.CopyToAsync(stream);
-            }
-            audioUrl = $"/uploads/audio/{fileName}";
+            using var memoryStream = new MemoryStream();
+            await request.AudioFile.CopyToAsync(memoryStream);
 
-            using var audioReadStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            var sttResponse = await _aiServiceClient.TranscribeAudioAsync(audioReadStream, fileName, sessionId.ToString());
+            // Upload audio to Cloudflare R2 / Object Storage (falls back to local disk if unconfigured)
+            memoryStream.Position = 0;
+            audioUrl = await _storageService.UploadAudioAsync(
+                objectKey,
+                memoryStream,
+                request.AudioFile.ContentType ?? "audio/webm");
+
+            // Transcribe audio using AI Service
+            memoryStream.Position = 0;
+            var sttResponse = await _aiServiceClient.TranscribeAudioAsync(
+                memoryStream,
+                Path.GetFileName(objectKey),
+                sessionId.ToString());
+
             if (sttResponse.Success && !string.IsNullOrWhiteSpace(sttResponse.Transcript))
             {
                 transcript = sttResponse.Transcript;
@@ -250,6 +256,7 @@ public class VivaSessionService : IVivaSessionService
             StudentAnswer = studentAnswerText,
             Transcript = transcript,
             AudioUrl = audioUrl,
+            Status = !string.IsNullOrWhiteSpace(transcript) ? AnswerStatus.EVALUATED : AnswerStatus.PROCESSING,
             IsFollowUp = request.IsFollowUp,
             AnsweredAt = DateTime.UtcNow
         };

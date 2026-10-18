@@ -23,6 +23,7 @@ using Aives.Application.Exams.Services;
 using Aives.Application.Viva.Interfaces;
 using Aives.Application.Viva.Services;
 using Aives.Infrastructure.AI;
+using Aives.Infrastructure.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
@@ -140,6 +141,7 @@ builder.Services.AddScoped<IQuestionBankService, QuestionBankService>();
 builder.Services.AddScoped<IExamUnitOfWork, ExamUnitOfWork>();
 builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
+builder.Services.AddScoped<IStaffService, StaffService>();
 
 builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentRepository>();
 builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository, Aives.Infrastructure.Repositories.UserRepository>();
@@ -152,6 +154,10 @@ builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
 builder.Services.AddScoped<IVivaSessionService, VivaSessionService>();
+
+// Cloudflare R2 Object Storage (S3-Compatible)
+builder.Services.Configure<CloudflareR2Options>(builder.Configuration.GetSection(CloudflareR2Options.SectionName));
+builder.Services.AddSingleton<IStorageService, CloudflareR2StorageService>();
 builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");

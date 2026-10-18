@@ -114,9 +114,71 @@ public class ExamSessionRepository : IExamSessionRepository
         await _db.SaveChangesAsync();
     }
 
+    public async Task AddEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments)
+    {
+        _db.SessionEnrollments.AddRange(enrollments);
+        // Caller (StaffService) sẽ SaveChangesAsync trong cùng transaction.
+        await Task.CompletedTask;
+    }
+
+    public async Task RemoveEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments)
+    {
+        _db.SessionEnrollments.RemoveRange(enrollments);
+        // Caller (StaffService) sẽ SaveChangesAsync trong cùng transaction.
+        await Task.CompletedTask;
+    }
+
+    public async Task<IReadOnlySet<int>> GetEnrolledStudentIdsAsync(int sessionId)
+    {
+        var ids = await _db.SessionEnrollments
+            .AsNoTracking()
+            .Where(se => se.SessionId == sessionId)
+            .Select(se => se.StudentId)
+            .ToListAsync();
+        return ids.ToHashSet();
+    }
+
+    public async Task<IReadOnlyList<SessionEnrollment>> GetEnrollmentsByStudentIdsAsync(
+        int sessionId, IEnumerable<int> studentIds)
+    {
+        var idList = studentIds.Distinct().ToList();
+        if (idList.Count == 0) return Array.Empty<SessionEnrollment>();
+
+        return await _db.SessionEnrollments
+            .Where(se => se.SessionId == sessionId && idList.Contains(se.StudentId))
+            .ToListAsync();
+    }
+
+    public async Task RemoveEnrollmentAsync(SessionEnrollment enrollment)
+    {
+        _db.SessionEnrollments.Remove(enrollment);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<ExamSession>> GetAllAsync(SessionStatus? status)
+    {
+        var query = _db.ExamSessions
+            .Include(s => s.Exam)
+            .Include(s => s.SessionEnrollments)
+            .AsQueryable();
+
+        if (status.HasValue)
+            query = query.Where(s => s.Status == status.Value);
+
+        return await query
+            .OrderByDescending(s => s.StartTime)
+            .ToListAsync();
+    }
+
     public async Task UpdateAsync(ExamSession session)
     {
         _db.ExamSessions.Update(session);
+    }
+
+    public async Task RemoveAsync(ExamSession session)
+    {
+        _db.ExamSessions.Remove(session);
+        await _db.SaveChangesAsync();
     }
 
     public async Task<bool> SessionCodeExistsAsync(string sessionCode)

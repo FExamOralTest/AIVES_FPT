@@ -26,10 +26,24 @@ public interface IExamSessionRepository
     Task<SessionEnrollment?> GetEnrollmentAsync(int sessionId, int studentId);
 
     Task AddEnrollmentAsync(SessionEnrollment enrollment);
+    Task AddEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments);
+    Task RemoveEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments);
+    Task RemoveEnrollmentAsync(SessionEnrollment enrollment);
+
+    /// <summary>Lấy tất cả enrollment hiện có của 1 session (để check trùng khi bulk insert).</summary>
+    Task<IReadOnlySet<int>> GetEnrolledStudentIdsAsync(int sessionId);
+
+    /// <summary>Lấy các enrollment theo danh sách studentId (để bulk remove).</summary>
+    Task<IReadOnlyList<SessionEnrollment>> GetEnrollmentsByStudentIdsAsync(int sessionId, IEnumerable<int> studentIds);
 
     Task UpdateAsync(ExamSession session);
 
     Task<bool> SessionCodeExistsAsync(string sessionCode);
 
     Task SaveChangesAsync();
+
+    Task RemoveAsync(ExamSession session);
+
+    // === STAFF: list all sessions with optional filters ===
+    Task<IEnumerable<ExamSession>> GetAllAsync(SessionStatus? status);
 }

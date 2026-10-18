@@ -3,6 +3,7 @@ using Aives.Application.AI.DTOs;
 using System.Text.Json;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
+using Aives.Application.Interfaces.Services;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -14,15 +15,18 @@ public class ResultService : IResultService
     private readonly IResultRepository _resultRepository;
     private readonly IExamSessionRepository _sessionRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IStorageService _storageService;
 
     public ResultService(
         IResultRepository resultRepository,
         IExamSessionRepository sessionRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IStorageService storageService)
     {
         _resultRepository = resultRepository;
         _sessionRepository = sessionRepository;
         _userRepository = userRepository;
+        _storageService = storageService;
     }
 
     public async Task<IEnumerable<ResultForReviewDto>> GetResultsForReviewAsync(int sessionId, int teacherId)
@@ -172,7 +176,7 @@ public class ResultService : IResultService
                 QuestionText = a.Question?.QuestionText ?? "",
                 StudentAnswer = a.StudentAnswer,
                 Transcript = a.Transcript,
-                AudioUrl = a.AudioUrl,
+                AudioUrl = _storageService.ResolvePlaybackUrl(a.AudioUrl),
                 FinalScore = a.FinalScore ?? a.AiScore,
                 TeacherComment = a.TeacherComment ?? a.AiFeedback,
                 IsFollowUp = a.IsFollowUp ?? false
@@ -197,7 +201,7 @@ public class ResultService : IResultService
         throw new UnauthorizedAccessException("Only examiners or admins can review and publish exam results.");
     }
 
-    private static ResultForReviewDto MapToReviewDto(Result result) => new()
+    private ResultForReviewDto MapToReviewDto(Result result) => new()
     {
         ResultId = result.ResultId,
         SessionId = result.SessionId,
@@ -226,7 +230,7 @@ public class ResultService : IResultService
             QuestionText = a.Question?.QuestionText ?? "",
             StudentAnswer = a.StudentAnswer,
             Transcript = a.Transcript,
-            AudioUrl = a.AudioUrl,
+            AudioUrl = _storageService.ResolvePlaybackUrl(a.AudioUrl),
             AiScore = a.AiScore,
             AiFeedback = a.AiFeedback,
             AiAnalysis = a.AiAnalysis == null ? null : JsonSerializer.Deserialize<StoredAnswerAnalysisDto>(a.AiAnalysis),
