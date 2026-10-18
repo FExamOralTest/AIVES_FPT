@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sơ đồ C0 C1 - AIVES</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        h1 { color: #2c3e50; text-align: center; }
+        h2 { color: #34495e; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .explain {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background: #3498db; color: white; }
+        .user-box {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎓 Sơ đồ C0 và C1 - AIVES</h1>
+    <p style="text-align:center;color:#7f8c8d;">Hệ thống thi Viva có AI hỗ trợ</p>
+
+    <!-- C0 Diagram -->
+    <div class="section">
+        <h2>📊 C0 - Sơ đồ tổng quan</h2>
+        <p><strong>Câu hỏi:</strong> Ai sử dụng hệ thống này?</p>
+
+        <div class="mermaid">
+        graph TD
+            subgraph "🌍 Bên ngoài hệ thống"
+                G["👨‍🏫 Giảng viên"]
+                S["🎓 Sinh viên"]
+                AD["⚙️ Quản trị viên"]
+            end
+
+            subgraph "💻 HỆ THỐNG AIVES"
+                SYS[AIVES Platform]
+            end
+
+            G -->|Tạo đề thi, chấm điểm| SYS
+            S -->|Thi Viva, xem kết quả| SYS
+            AD -->|Quản lý người dùng| SYS
+        </div>
+
+        <div class="explain">
+            <strong>🔍 Giải thích:</strong><br>
+            • <strong>Giảng viên:</strong> Tạo đề thi, theo dõi buổi thi, chấm điểm<br>
+            • <strong>Sinh viên:</strong> Làm bài thi Viva, xem kết quả<br>
+            • <strong>Quản trị viên:</strong> Quản lý tài khoản, khóa học
+        </div>
+    </div>
+
+    <!-- C1 Diagram -->
+    <div class="section">
+        <h2>🏗️ C1 - Sơ đồ thành phần</h2>
+        <p><strong>Câu hỏi:</strong> Hệ thống được xây dựng từ những gì?</p>
+
+        <div class="mermaid">
+        graph LR
+            subgraph "👥 Người dùng"
+                direction TB
+                G["👨‍🏫 Giảng viên"]
+                S["🎓 Sinh viên"]
+                AD["⚙️ Quản trị"]
+            end
+
+            subgraph "💻 AIVES System"
+                FE["🌐 Web<br/>Giao diện"]
+                API["⚡ API Server<br/>Xử lý"]
+                DB["💾 Database<br/>Lưu dữ liệu"]
+                AI["🤖 AI Service<br/>Chấm thi tự động"]
+            end
+
+            G --> FE
+            S --> FE
+            AD --> FE
+
+            FE -->|1. Gọi API| API
+            API -->|2. Lưu/Lấy dữ liệu| DB
+            API -->|3. Gửi bài chấm| AI
+            AI -->|4. Trả kết quả| API
+        </div>
+
+        <div class="explain">
+            <strong>🔍 Giải thích từng thành phần:</strong>
+            <table>
+                <tr>
+                    <th>Thành phần</th>
+                    <th>Chức năng</th>
+                </tr>
+                <tr>
+                    <td><strong>🌐 Web (Giao diện)</strong></td>
+                    <td>Màn hình để người dùng thao tác</td>
+                </tr>
+                <tr>
+                    <td><strong>⚡ API Server</strong></td>
+                    <td>Xử lý logic, điều hướng yêu cầu</td>
+                </tr>
+                <tr>
+                    <td><strong>💾 Database</strong></td>
+                    <td>Lưu trữ thông tin (người dùng, điểm thi...)</td>
+                </tr>
+                <tr>
+                    <td><strong>🤖 AI Service</strong></td>
+                    <td>Tự động chấm điểm bài thi</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="explain">
+            <strong>📝 Luồng hoạt động đơn giản:</strong><br>
+            1️⃣ Người dùng thao tác trên Web<br>
+            2️⃣ Web gửi yêu cầu đến API Server<br>
+            3️⃣ API Server lưu/lấy dữ liệu từ Database<br>
+            4️⃣ Khi cần chấm điểm → gửi cho AI → trả kết quả
+        </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="section">
+        <h2>📋 Tóm tắt</h2>
+        <table>
+            <tr>
+                <th>Sơ đồ</th>
+                <th>Câu hỏi trả lời</th>
+                <th>Độ chi tiết</th>
+            </tr>
+            <tr>
+                <td><strong>C0</strong></td>
+                <td>Ai sử dụng hệ thống?</td>
+                <td>Thấp - Chỉ người dùng</td>
+            </tr>
+            <tr>
+                <td><strong>C1</strong></td>
+                <td>Hệ thống gồm những gì?</td>
+                <td>Trung bình - Thành phần chính</td>
+            </tr>
+        </table>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

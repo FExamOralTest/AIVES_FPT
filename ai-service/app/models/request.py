@@ -168,6 +168,7 @@ class QuestionAnswerPair(BaseModel):
         max_length=20,
         description="Approved rubric. Required for content analysis.",
     )
+    expected_keywords: List[NonEmptyText] = Field(default_factory=list, max_length=50)
 
     @model_validator(mode="after")
     def validate_analysis_context(self) -> "QuestionAnswerPair":

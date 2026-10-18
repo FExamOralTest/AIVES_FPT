@@ -187,6 +187,9 @@ public class QuestionAnswerPairDto
 
     [JsonPropertyName("rubric")]
     public List<AnswerRubricCriterionDto> Rubric { get; set; } = new();
+
+    [JsonPropertyName("expected_keywords")]
+    public List<string> ExpectedKeywords { get; set; } = new();
 }
 
 public class AnswerRubricCriterionDto

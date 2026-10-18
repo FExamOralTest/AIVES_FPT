@@ -58,7 +58,6 @@ public class ResultRepository : IResultRepository
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
                 .ThenInclude(a => a.Question)
-                    .ThenInclude(q => q.Rubric)
             .FirstOrDefaultAsync(r => r.SessionId == sessionId && r.StudentId == studentId);
     }
 
@@ -83,12 +82,23 @@ public class ResultRepository : IResultRepository
             if (!string.IsNullOrEmpty(answer.AudioUrl))
                 existing.AudioUrl = answer.AudioUrl;
             existing.IsFollowUp = answer.IsFollowUp;
-            existing.AiScore = answer.AiScore;
-            existing.AiFeedback = answer.AiFeedback;
-            existing.AiAnalysis = answer.AiAnalysis;
+            if (answer.AiScore.HasValue)
+                existing.AiScore = answer.AiScore;
+            if (!string.IsNullOrEmpty(answer.AiFeedback))
+                existing.AiFeedback = answer.AiFeedback;
             existing.AnsweredAt = answer.AnsweredAt ?? DateTime.UtcNow;
             _db.Answers.Update(existing);
         }
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(Result result)
+    {
+        _db.Results.Update(result);
+    }
+
+    public async Task SaveChangesAsync()
+    {
         await _db.SaveChangesAsync();
     }
 
@@ -101,8 +111,8 @@ public class ResultRepository : IResultRepository
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
                 .ThenInclude(a => a.Question)
+            .Where(r => r.Status == SubmissionStatus.PENDING_REVIEW || r.Status == SubmissionStatus.REVIEWED)
             .Where(r => r.Session.ScheduledBy == teacherId)
-            .Where(r => r.Status == SubmissionStatus.PENDING_REVIEW)
             .OrderByDescending(r => r.SubmittedAt)
             .ToListAsync();
     }
@@ -116,19 +126,8 @@ public class ResultRepository : IResultRepository
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
                 .ThenInclude(a => a.Question)
-            .Where(r => r.StudentId == studentId)
-            .Where(r => r.Status == SubmissionStatus.PUBLISHED)
+            .Where(r => r.StudentId == studentId && r.Status == SubmissionStatus.PUBLISHED)
             .OrderByDescending(r => r.PublishedAt)
             .ToListAsync();
-    }
-
-    public async Task UpdateAsync(Result result)
-    {
-        _db.Results.Update(result);
-    }
-
-    public async Task SaveChangesAsync()
-    {
-        await _db.SaveChangesAsync();
     }
 }

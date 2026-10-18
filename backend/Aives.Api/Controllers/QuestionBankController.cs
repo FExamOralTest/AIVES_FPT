@@ -52,6 +52,14 @@ public class QuestionBankController(IQuestionBankService service) : ControllerBa
             return NoContent();
         });
 
+    [HttpPost("{questionId:int}/approve")]
+    public Task<IActionResult> ApproveQuestion(int courseId, int questionId)
+        => ExecuteAsync(async staffId => Ok(await service.ApproveQuestionAsync(courseId, questionId, staffId)));
+
+    [HttpPost("{questionId:int}/reject")]
+    public Task<IActionResult> RejectQuestion(int courseId, int questionId, [FromBody] RejectQuestionRequest request)
+        => ExecuteAsync(async staffId => Ok(await service.RejectQuestionAsync(courseId, questionId, request.Reason, staffId)));
+
     private async Task<IActionResult> ExecuteAsync(Func<int, Task<IActionResult>> action)
     {
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var teacherId))

@@ -10,6 +10,7 @@ Chấm điểm và đánh giá câu trả lời của sinh viên dựa trên n�
 - Câu hỏi: "{question_text}"
 - Câu trả lời của sinh viên: "{student_answer}"
 - Điểm tối đa: {max_score}
+- Các ý chính mong đợi (chỉ dùng như gợi ý ngữ nghĩa, không chấm theo khớp từ tuyệt đối): {expected_keywords}
 
 ## Tiêu chí chấm điểm
 1. **Độ chính xác** (40%): Câu trả lời có đúng về mặt kiến thức không?

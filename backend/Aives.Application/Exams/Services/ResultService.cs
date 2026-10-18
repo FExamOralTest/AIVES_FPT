@@ -12,21 +12,21 @@ namespace Aives.Application.Exams.Services;
 
 public class ResultService : IResultService
 {
-    private readonly IResultRepository      _resultRepository;
+    private readonly IResultRepository _resultRepository;
     private readonly IExamSessionRepository _sessionRepository;
-    private readonly IUserRepository        _userRepository;
-    private readonly IStorageService        _storageService;
+    private readonly IUserRepository _userRepository;
+    private readonly IStorageService _storageService;
 
     public ResultService(
-        IResultRepository      resultRepository,
+        IResultRepository resultRepository,
         IExamSessionRepository sessionRepository,
-        IUserRepository        userRepository,
-        IStorageService        storageService)
+        IUserRepository userRepository,
+        IStorageService storageService)
     {
-        _resultRepository  = resultRepository;
+        _resultRepository = resultRepository;
         _sessionRepository = sessionRepository;
-        _userRepository    = userRepository;
-        _storageService    = storageService;
+        _userRepository = userRepository;
+        _storageService = storageService;
     }
 
     public async Task<IEnumerable<ResultForReviewDto>> GetResultsForReviewAsync(int sessionId, int teacherId)
@@ -203,40 +203,40 @@ public class ResultService : IResultService
 
     private ResultForReviewDto MapToReviewDto(Result result) => new()
     {
-        ResultId      = result.ResultId,
-        SessionId     = result.SessionId,
-        StudentId     = result.StudentId,
-        StudentName   = result.Student?.FullName ?? "",
-        StudentEmail  = result.Student?.Email ?? "",
-        SessionName   = result.Session?.SessionName ?? "",
-        ExamTitle     = result.Session?.Exam?.Title ?? "",
-        AiScore       = result.AiScore,
-        AiFeedback    = result.AiFeedback,
-        AiAnalysis    = result.AiAnalysis == null ? null : JsonSerializer.Deserialize<SessionAnalysisDto>(result.AiAnalysis),
+        ResultId = result.ResultId,
+        SessionId = result.SessionId,
+        StudentId = result.StudentId,
+        StudentName = result.Student?.FullName ?? "",
+        StudentEmail = result.Student?.Email ?? "",
+        SessionName = result.Session?.SessionName ?? "",
+        ExamTitle = result.Session?.Exam?.Title ?? "",
+        AiScore = result.AiScore,
+        AiFeedback = result.AiFeedback,
+        AiAnalysis = result.AiAnalysis == null ? null : JsonSerializer.Deserialize<SessionAnalysisDto>(result.AiAnalysis),
         AiEvaluationStatus = result.AiEvaluationStatus?.ToString(),
         AiEvaluationError = result.AiEvaluationError,
-        FinalScore    = result.FinalScore,
+        FinalScore = result.FinalScore,
         FinalFeedback = result.FinalFeedback,
-        Status        = result.Status?.ToString() ?? "",
-        SubmittedAt   = result.SubmittedAt,
-        ReviewedAt    = result.ReviewedAt,
-        PublishedAt   = result.PublishedAt,
-        PublishedBy   = result.PublishedBy,
-        Answers       = result.Answers.Select(a => new AnswerForReviewDto
+        Status = result.Status?.ToString() ?? "",
+        SubmittedAt = result.SubmittedAt,
+        ReviewedAt = result.ReviewedAt,
+        PublishedAt = result.PublishedAt,
+        PublishedBy = result.PublishedBy,
+        Answers = result.Answers.Select(a => new AnswerForReviewDto
         {
-            AnswerId       = a.AnswerId,
-            Status         = a.Status.ToString(),
-            QuestionId     = a.QuestionId,
-            QuestionText   = a.Question?.QuestionText ?? "",
-            StudentAnswer  = a.StudentAnswer,
-            Transcript     = a.Transcript,
-            AudioUrl       = _storageService.ResolvePlaybackUrl(a.AudioUrl),
-            AiScore        = a.AiScore,
-            AiFeedback     = a.AiFeedback,
-            AiAnalysis     = a.AiAnalysis == null ? null : JsonSerializer.Deserialize<StoredAnswerAnalysisDto>(a.AiAnalysis),
-            FinalScore     = a.FinalScore,
+            AnswerId = a.AnswerId,
+            Status = a.Status.ToString(),
+            QuestionId = a.QuestionId,
+            QuestionText = a.Question?.QuestionText ?? "",
+            StudentAnswer = a.StudentAnswer,
+            Transcript = a.Transcript,
+            AudioUrl = _storageService.ResolvePlaybackUrl(a.AudioUrl),
+            AiScore = a.AiScore,
+            AiFeedback = a.AiFeedback,
+            AiAnalysis = a.AiAnalysis == null ? null : JsonSerializer.Deserialize<StoredAnswerAnalysisDto>(a.AiAnalysis),
+            FinalScore = a.FinalScore,
             TeacherComment = a.TeacherComment,
-            IsFollowUp     = a.IsFollowUp ?? false
+            IsFollowUp = a.IsFollowUp ?? false
         }).ToList()
     };
 
