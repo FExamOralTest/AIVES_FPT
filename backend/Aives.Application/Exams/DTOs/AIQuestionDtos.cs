@@ -57,6 +57,9 @@ public class AIQuestionDto
 
     [JsonRequired, JsonPropertyName("is_follow_up_allowed")]
     public bool IsFollowUpAllowed { get; set; }
+
+    [JsonPropertyName("expected_keywords")]
+    public List<string> ExpectedKeywords { get; set; } = new();
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

@@ -37,6 +37,8 @@ public class ExamService(
             if (selected.Any(q => string.IsNullOrWhiteSpace(q.QuestionText) || q.Level is < 1 or > 3
                 || !float.IsFinite(q.MaxScore ?? 1) || (q.MaxScore ?? 1) < 0.01f || (q.MaxScore ?? 1) > 100))
                 throw new ArgumentException("The selected question bank contains invalid questions.");
+            if (selected.Any(q => q.ApprovalStatus != QuestionApprovalStatus.APPROVED))
+                throw new QuestionBankConflictException("Only approved questions can be added to an exam.");
 
             var exam = new Exam
             {
@@ -161,6 +163,8 @@ public class ExamService(
         if (selected.Any(q => string.IsNullOrWhiteSpace(q.QuestionText) || q.Level is < 1 or > 3
             || !QuestionRubricValidator.IsValidMaxScore(q.MaxScore ?? 1)))
             throw new ArgumentException("The selected question bank contains invalid questions.");
+        if (selected.Any(q => q.ApprovalStatus != QuestionApprovalStatus.APPROVED))
+            throw new QuestionBankConflictException("Only approved questions can be added to an exam.");
     }
 
     private Task ReplaceQuestionsAsync(int examId, List<ExamQuestionItem> items)

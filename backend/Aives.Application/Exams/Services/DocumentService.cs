@@ -244,6 +244,7 @@ public class DocumentService : IDocumentService
             MaxScore = q.MaxScore,
             Level = q.Level,
             IsFollowUpAllowed = q.IsFollowUpAllowed,
+            ExpectedKeywords = q.ExpectedKeywords,
             CreatedAt = DateTime.UtcNow
         }).ToList();
 

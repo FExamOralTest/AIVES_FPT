@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Aives.Application.Exams.Services;
+using Aives.Domain.Enums;
 
 namespace Aives.Application.Exams.DTOs;
 
@@ -17,6 +18,7 @@ public class QuestionBankQuery
     public string SortBy { get; set; } = "createdAt";
     [RegularExpression("^(asc|desc)$")]
     public string SortDirection { get; set; } = "desc";
+    public QuestionApprovalStatus? Status { get; set; }
 }
 
 public class WriteQuestionRequest : IValidatableObject
@@ -36,6 +38,7 @@ public class WriteQuestionRequest : IValidatableObject
     [Range(typeof(float), "0.01", "100")]
     public float MaxScore { get; set; } = 1;
     public bool IsFollowUpAllowed { get; set; } = true;
+    public List<string>? ExpectedKeywords { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         => QuestionRubricValidator.GetErrors(SampleAnswer, LearningOutcome, Rubric, MaxScore);
@@ -44,4 +47,10 @@ public class WriteQuestionRequest : IValidatableObject
 public record QuestionBankPageDto(List<QuestionBankDto> Items, int TotalCount, int Page, int PageSize)
 {
     public int TotalPages => (int)(((long)TotalCount + PageSize - 1) / PageSize);
+}
+
+public class RejectQuestionRequest
+{
+    [Required, MaxLength(2000)]
+    public string Reason { get; set; } = null!;
 }

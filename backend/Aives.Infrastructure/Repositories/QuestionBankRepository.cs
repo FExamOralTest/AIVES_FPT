@@ -17,6 +17,8 @@ public class QuestionBankRepository : IQuestionBankRepository
     public async Task<QuestionBankPageDto> GetPageAsync(int courseId, QuestionBankQuery query)
     {
         var filtered = _db.QuestionBanks.AsNoTracking().Where(q => q.CourseId == courseId);
+        if (query.Status.HasValue)
+            filtered = filtered.Where(q => q.ApprovalStatus == query.Status.Value);
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var search = query.Search.Trim().ToLowerInvariant();
@@ -56,14 +58,20 @@ public class QuestionBankRepository : IQuestionBankRepository
                 MaxScore = q.MaxScore ?? 1,
                 IsFollowUpAllowed = q.IsFollowUpAllowed ?? true,
                 CreatedAt = q.CreatedAt,
-                IsInUse = q.ExamQuestions.Any() || q.Answers.Any()
+                IsInUse = q.ExamQuestions.Any() || q.Answers.Any(),
+                ExpectedKeywords = q.ExpectedKeywords,
+                ApprovalStatus = q.ApprovalStatus,
+                ReviewedBy = q.ReviewedBy,
+                ReviewedAt = q.ReviewedAt,
+                RejectionReason = q.RejectionReason
             }).ToListAsync();
         return new QuestionBankPageDto(items, total, query.Page, query.PageSize);
     }
 
     public async Task<List<QuestionBank>> GetSuggestionsAsync(int courseId, string? focusTopic, int maxCount)
     {
-        var query = _db.QuestionBanks.AsNoTracking().Where(q => q.CourseId == courseId);
+        var query = _db.QuestionBanks.AsNoTracking()
+            .Where(q => q.CourseId == courseId && q.ApprovalStatus == Aives.Domain.Enums.QuestionApprovalStatus.APPROVED);
         var keywords = focusTopic?.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(k => k.ToLowerInvariant()).Distinct().ToList() ?? [];
 
@@ -123,7 +131,8 @@ public class QuestionBankRepository : IQuestionBankRepository
     {
         if (count <= 0) return [];
         return await _db.QuestionBanks.AsNoTracking()
-            .Where(q => q.CourseId == courseId && q.Level == level)
+            .Where(q => q.CourseId == courseId && q.Level == level
+                && q.ApprovalStatus == Aives.Domain.Enums.QuestionApprovalStatus.APPROVED)
             .OrderBy(_ => EF.Functions.Random())
             .Take(count)
             .ToListAsync();

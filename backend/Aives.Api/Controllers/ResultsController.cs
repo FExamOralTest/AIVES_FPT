@@ -28,7 +28,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Lấy tất cả kết quả PENDING_REVIEW của tất cả sessions do Teacher quản lý.
+    /// [EXAMINER] Lấy tất cả kết quả PENDING_REVIEW của tất cả sessions do Examiner quản lý.
     /// </summary>
     [HttpGet("pending")]
     [ProducesResponseType(typeof(IEnumerable<ResultForReviewDto>), StatusCodes.Status200OK)]
@@ -44,7 +44,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Lấy danh sách kết quả của một Exam Session.
+    /// [EXAMINER] Lấy danh sách kết quả của một Exam Session.
     /// </summary>
     [HttpGet("session/{sessionId:int}")]
     [ProducesResponseType(typeof(IEnumerable<ResultForReviewDto>), StatusCodes.Status200OK)]
@@ -72,7 +72,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Lấy chi tiết kết quả để review.
+    /// [EXAMINER] Lấy chi tiết kết quả để review.
     /// Bao gồm transcript, audio URL, AI score, AI feedback.
     /// BR-15: Lưu đầy đủ dữ liệu để đối soát.
     /// </summary>
@@ -102,7 +102,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Review và lưu điểm cuối cùng, feedback; cập nhật status = REVIEWED.
+    /// [EXAMINER] Review và lưu điểm cuối cùng, feedback; cập nhật status = REVIEWED.
     /// BR-10: Teacher approve.
     /// BR-15: Cập nhật answers.final_score và answers.teacher_comment; không ghi đè ai_score/ai_feedback.
     /// </summary>
@@ -140,7 +140,7 @@ public class ResultsController : ControllerBase
     }
 
     /// <summary>
-    /// [TEACHER] Publish kết quả đã approve (REVIEWED) → PUBLISHED.
+    /// [EXAMINER] Publish kết quả đã approve (REVIEWED) → PUBLISHED.
     /// BR-10: Teacher publish Final Result.
     /// BR-11: Final Result được giao cho Student.
     /// BR-15: Timestamp publish theo UTC.

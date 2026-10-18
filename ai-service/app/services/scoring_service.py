@@ -81,6 +81,7 @@ class ScoringService:
         system_prompt = system_prompt.replace("{document_context}", document_context)
         system_prompt = system_prompt.replace("{question_text}", qa.question_text)
         system_prompt = system_prompt.replace("{student_answer}", qa.student_answer)
+        system_prompt = system_prompt.replace("{expected_keywords}", ", ".join(qa.expected_keywords))
         system_prompt = system_prompt.replace("{max_score}", str(request.max_score))
 
         user_message = json.dumps(

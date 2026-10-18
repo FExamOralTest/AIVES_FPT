@@ -75,4 +75,9 @@ public class QuestionBankDto
     public float MaxScore { get; set; }
     public int Level { get; set; }
     public bool IsFollowUpAllowed { get; set; }
+    public List<string> ExpectedKeywords { get; set; } = new();
+    public QuestionApprovalStatus ApprovalStatus { get; set; }
+    public int? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? RejectionReason { get; set; }
 }
