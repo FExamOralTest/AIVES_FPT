@@ -114,18 +114,17 @@ public class ExamSessionRepository : IExamSessionRepository
         await _db.SaveChangesAsync();
     }
 
-    public async Task AddEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments)
+    public async Task AddEnrollmentsRangeAsync(IEnumerable<SessionEnrollment> enrollments)
     {
         _db.SessionEnrollments.AddRange(enrollments);
-        // Caller (StaffService) sẽ SaveChangesAsync trong cùng transaction.
-        await Task.CompletedTask;
+        // Caller sẽ SaveChangesAsync trong cùng transaction (ExamUnitOfWork).
+        await _db.SaveChangesAsync();
     }
 
-    public async Task RemoveEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments)
+    public async Task RemoveEnrollmentAsync(SessionEnrollment enrollment)
     {
-        _db.SessionEnrollments.RemoveRange(enrollments);
-        // Caller (StaffService) sẽ SaveChangesAsync trong cùng transaction.
-        await Task.CompletedTask;
+        _db.SessionEnrollments.Remove(enrollment);
+        await _db.SaveChangesAsync();
     }
 
     public async Task<IReadOnlySet<int>> GetEnrolledStudentIdsAsync(int sessionId)
@@ -138,20 +137,33 @@ public class ExamSessionRepository : IExamSessionRepository
         return ids.ToHashSet();
     }
 
-    public async Task<IReadOnlyList<SessionEnrollment>> GetEnrollmentsByStudentIdsAsync(
-        int sessionId, IEnumerable<int> studentIds)
+    public async Task<IReadOnlyList<User>> GetUsersByIdsAsync(IEnumerable<int> ids)
     {
-        var idList = studentIds.Distinct().ToList();
-        if (idList.Count == 0) return Array.Empty<SessionEnrollment>();
-
-        return await _db.SessionEnrollments
-            .Where(se => se.SessionId == sessionId && idList.Contains(se.StudentId))
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0) return Array.Empty<User>();
+        return await _db.Users
+            .Where(u => idList.Contains(u.UserId))
             .ToListAsync();
     }
 
-    public async Task RemoveEnrollmentAsync(SessionEnrollment enrollment)
+    public async Task UpdateAsync(ExamSession session)
     {
-        _db.SessionEnrollments.Remove(enrollment);
+        _db.ExamSessions.Update(session);
+    }
+
+    public async Task<bool> SessionCodeExistsAsync(string sessionCode)
+    {
+        return await _db.ExamSessions.AnyAsync(s => s.SessionCode == sessionCode);
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task RemoveAsync(ExamSession session)
+    {
+        _db.ExamSessions.Remove(session);
         await _db.SaveChangesAsync();
     }
 
@@ -168,26 +180,5 @@ public class ExamSessionRepository : IExamSessionRepository
         return await query
             .OrderByDescending(s => s.StartTime)
             .ToListAsync();
-    }
-
-    public async Task UpdateAsync(ExamSession session)
-    {
-        _db.ExamSessions.Update(session);
-    }
-
-    public async Task RemoveAsync(ExamSession session)
-    {
-        _db.ExamSessions.Remove(session);
-        await _db.SaveChangesAsync();
-    }
-
-    public async Task<bool> SessionCodeExistsAsync(string sessionCode)
-    {
-        return await _db.ExamSessions.AnyAsync(s => s.SessionCode == sessionCode);
-    }
-
-    public async Task SaveChangesAsync()
-    {
-        await _db.SaveChangesAsync();
     }
 }

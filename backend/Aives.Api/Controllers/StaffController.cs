@@ -27,9 +27,9 @@ public class StaffController : ControllerBase
     private int? CallerId =>
         int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
     //  SESSIONS / ROOMS
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
 
     /// <summary>Danh sách ca thi (lọc theo Status, ví dụ ?status=NOT_STARTED).</summary>
     [HttpGet("sessions")]
@@ -83,11 +83,11 @@ public class StaffController : ControllerBase
         return NoContent();
     });
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
     //  CLASS / TEACHER ASSIGNMENT
     //  - Tạm ẩn GET /api/staff/classes: chưa có bảng `classes` riêng,
     //    staff dùng GET /api/courses (đã có sẵn). Sẽ bật lại sau khi update DB.
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
 
     // [ApiExplorerSettings(IgnoreApi = true)]
     // [HttpGet("classes")]
@@ -106,26 +106,27 @@ public class StaffController : ControllerBase
             return Ok(await _staff.AssignTeacherToClassAsync(courseId, request, id));
         });
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
     //  ENROLLMENTS / MONITOR
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
 
-    /// <summary>Thêm một hoặc nhiều sinh viên vào ca thi (bulk insert, 1 transaction).</summary>
+    /// <summary>
+    /// Bulk thêm nhiều sinh viên vào ca thi (≤ 500/lần).
+    /// Response chi tiết từng studentId: added / already_enrolled / not_student / not_found.
+    /// </summary>
     [HttpPost("sessions/{sessionId:int}/enrollments")]
-    [ProducesResponseType(typeof(StaffBulkEnrollmentResult), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(StaffBulkEnrollResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> AddEnrollment(int sessionId, [FromBody] StaffAddEnrollmentRequest request)
+    public Task<IActionResult> AddEnrollments(int sessionId, [FromBody] StaffAddEnrollmentsRequest request)
         => ExecuteAsync(async () =>
         {
             var id = CallerId ?? throw new UnauthorizedAccessException();
-            var result = await _staff.AddStudentsToSessionAsync(sessionId, request, id);
-            return StatusCode(StatusCodes.Status201Created, result);
+            return Ok(await _staff.AddStudentsToSessionAsync(sessionId, request, id));
         });
 
-    /// <summary>Xoá 1 sinh viên khỏi ca thi (chỉ khi ca chưa IN_PROGRESS).</summary>
+    /// <summary>Xoá sinh viên khỏi ca thi (chỉ khi ca chưa IN_PROGRESS).</summary>
     [HttpDelete("sessions/{sessionId:int}/enrollments/{studentId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -133,23 +134,9 @@ public class StaffController : ControllerBase
     public Task<IActionResult> RemoveEnrollment(int sessionId, int studentId) => ExecuteAsync(async () =>
     {
         var id = CallerId ?? throw new UnauthorizedAccessException();
-        await _staff.RemoveStudentsFromSessionAsync(sessionId,
-            new StaffRemoveEnrollmentRequest { StudentIds = new() { studentId } }, id);
+        await _staff.RemoveStudentFromSessionAsync(sessionId, studentId, id);
         return NoContent();
     });
-
-    /// <summary>Xoá nhiều sinh viên khỏi ca thi cùng lúc (bulk, 1 transaction).</summary>
-    [HttpPost("sessions/{sessionId:int}/enrollments/remove")]
-    [ProducesResponseType(typeof(StaffBulkRemoveResult), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> BulkRemoveEnrollment(int sessionId, [FromBody] StaffRemoveEnrollmentRequest request)
-        => ExecuteAsync(async () =>
-        {
-            var id = CallerId ?? throw new UnauthorizedAccessException();
-            return Ok(await _staff.RemoveStudentsFromSessionAsync(sessionId, request, id));
-        });
 
     /// <summary>Theo dõi tiến độ ca thi (danh sách SV, số câu đã trả lời, % hoàn thành).</summary>
     [HttpGet("sessions/{sessionId:int}/monitor")]
@@ -161,9 +148,9 @@ public class StaffController : ControllerBase
         return Ok(await _staff.GetSessionMonitorAsync(sessionId, id));
     });
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
     //  Error mapping — đồng nhất với các controller khác
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
 
     private async Task<IActionResult> ExecuteAsync(Func<Task<IActionResult>> action)
     {

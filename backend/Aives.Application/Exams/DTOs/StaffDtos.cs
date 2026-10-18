@@ -3,23 +3,27 @@ using Aives.Domain.Enums;
 
 namespace Aives.Application.Exams.DTOs;
 
-// ═══════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────
 //  STAFF — Quản lý phòng thi & lịch thu xếp lớp / ca thi
-// ═══════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────
 //
 // TODO (future): khi bổ sung bảng `rooms` riêng (RoomId, Name, Capacity, Location, IsActive)
 // thì chuyển ExamSession.Room (string) thành ExamSession.RoomId (FK int) và CRUD Room
 // qua StaffController. Hiện tại chỉ quản lý phòng thi thông qua trường `Room` (string)
 // trên ExamSession — đủ dùng cho MVP.
 //
+// TODO (future): khi bổ sung bảng `classes` riêng (ClassId, Name, CourseId, Semester, ...)
+// thì bật lại GetAllClassesAsync trỏ vào bảng mới. Hiện tại staff dùng
+// GET /api/courses có sẵn nên tạm ẩn.
+//
 // Staff được phép:
 //   1. CRUD ca thi (ExamSession) — phòng, lịch, capacity, status
 //   2. Xếp lớp / phân công giảng viên cho Course
 //   3. Chọn đề thi random (xài ké POST /api/documents/generate-exam)
-//   4. Quản lý sinh viên đăng ký vào ca (thêm/xoá/sửa enrollment)
+//   4. Quản lý sinh viên đăng ký vào ca (thêm nhiều SV một lần / xoá)
 //   5. Xem monitor tiến độ ca thi (xài ké GET /api/exam-sessions/{id}/monitor)
 // Admin bypass mọi ownership check.
-// ═══════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────
 
 /// <summary>Staff tạo ca thi (không cần là người tạo Exam).</summary>
 public class StaffCreateSessionRequest
@@ -69,46 +73,31 @@ public class StaffAssignTeacherRequest
     public int TeacherId { get; set; }
 }
 
-/// <summary>Staff thêm một hoặc nhiều sinh viên vào ca thi (bulk insert trong 1 transaction).</summary>
-public class StaffAddEnrollmentRequest
+/// <summary>Staff thêm nhiều sinh viên vào ca thi (1 transaction).</summary>
+public class StaffAddEnrollmentsRequest
 {
-    /// <summary>Danh sách sinh viên cần thêm. Tối đa 500 / request.</summary>
+    /// <summary>Danh sách studentId cần thêm (≤ 500/lần để tránh quá tải request).</summary>
     [Required, MinLength(1)]
-    public List<int> StudentIds { get; set; } = new();
+    [MaxLength(500)]
+    public int[] StudentIds { get; set; } = Array.Empty<int>();
 }
 
-/// <summary>Kết quả trả về khi thêm nhiều sinh viên vào ca thi.</summary>
-public class StaffBulkEnrollmentResult
+/// <summary>Kết quả bulk enroll — chi tiết từng studentId (added / skipped).</summary>
+public class StaffBulkEnrollResponse
 {
-    /// <summary>Danh sách enrollment đã tạo thành công.</summary>
-    public List<SessionEnrollmentDto> Added { get; set; } = new();
-
-    /// <summary>StudentId bị trùng (đã có enrollment).</summary>
-    public List<int> AlreadyEnrolled { get; set; } = new();
-
-    /// <summary>StudentId không tồn tại.</summary>
-    public List<int> NotFound { get; set; } = new();
-
-    /// <summary>StudentId không thuộc ca thi (không cùng course/exam).</summary>
-    public List<int> Ineligible { get; set; } = new();
+    public int SessionId { get; set; }
+    public int AddedCount { get; set; }
+    public int SkippedCount { get; set; }
+    public int CurrentEnrollment { get; set; }
+    public List<StaffEnrollResult> Results { get; set; } = new();
 }
 
-/// <summary>Staff xoá nhiều sinh viên khỏi ca thi (bulk, 1 transaction).</summary>
-public class StaffRemoveEnrollmentRequest
+public class StaffEnrollResult
 {
-    /// <summary>Danh sách student cần xoá. Tối đa 500 / request.</summary>
-    [Required, MinLength(1)]
-    public List<int> StudentIds { get; set; } = new();
-}
-
-/// <summary>Kết quả trả về khi xoá nhiều enrollment.</summary>
-public class StaffBulkRemoveResult
-{
-    /// <summary>StudentId đã xoá enrollment thành công.</summary>
-    public List<int> Removed { get; set; } = new();
-
-    /// <summary>StudentId không có enrollment trong ca này.</summary>
-    public List<int> NotEnrolled { get; set; } = new();
+    public int StudentId { get; set; }
+    public string Status { get; set; } = "added";   // "added" | "already_enrolled" | "not_student" | "not_found"
+    public int? SessionEnrollmentId { get; set; }
+    public string? Reason { get; set; }
 }
 
 /// <summary>Lọc danh sách ca thi theo trạng thái.</summary>

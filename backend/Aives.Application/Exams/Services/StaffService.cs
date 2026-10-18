@@ -11,9 +11,10 @@ namespace Aives.Application.Exams.Services;
 
 /// <summary>
 /// Nghiệp vụ Staff: quản lý phòng thi, lịch thu xếp ca, xếp lớp / phân công giảng viên,
-/// quản lý enrollment và theo dõi tiến độ ca thi.
+/// quản lý enrollment (bulk) và theo dõi tiến độ ca thi.
 /// Admin vẫn dùng được (bypass ownership check).
 /// TODO: khi có bảng `rooms` riêng → chuyển ExamSession.Room (string) thành FK int.
+/// TODO: khi có bảng `classes` riêng → bật lại GetAllClassesAsync.
 /// </summary>
 public class StaffService : IStaffService
 {
@@ -37,9 +38,9 @@ public class StaffService : IStaffService
         _userRepository = userRepository;
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
     //  SESSIONS / ROOMS
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
 
     public async Task<IEnumerable<ExamSessionSummaryDto>> GetAllSessionsAsync(StaffSessionQuery query)
     {
@@ -156,9 +157,9 @@ public class StaffService : IStaffService
         await _sessionRepository.RemoveAsync(session);
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
     //  CLASS / TEACHER ASSIGNMENT
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
 
     public async Task<CourseDto> AssignTeacherToClassAsync(
         int courseId, StaffAssignTeacherRequest request, int staffId)
@@ -172,136 +173,149 @@ public class StaffService : IStaffService
         return await _courseService.AssignTeacherAsync(courseId, new AssignTeacherRequest(request.TeacherId));
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
     //  ENROLLMENTS / MONITOR
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
 
-    public Task<StaffBulkEnrollmentResult> AddStudentsToSessionAsync(
-        int sessionId, StaffAddEnrollmentRequest request, int staffId)
+    /// <summary>
+    /// Bulk add nhiều sinh viên vào ca — 1 transaction.
+    /// Khác với teacher-driven `EnrollStudentAsync` (1 SV / lần): staff cần nhập nguyên lớp.
+    /// Mỗi studentId được đánh dấu 1 trong 4 trạng thái: added / already_enrolled / not_student / not_found.
+    /// Trả về StaffBulkEnrollResponse để FE biết chính xác SV nào được thêm, SV nào bị skip.
+    /// </summary>
+    public Task<StaffBulkEnrollResponse> AddStudentsToSessionAsync(
+        int sessionId, StaffAddEnrollmentsRequest request, int staffId)
         => _unitOfWork.ExecuteAsync(async () =>
         {
-            var session = await _sessionRepository.GetByIdWithEnrollmentsAsync(sessionId)
+            var session = await _sessionRepository.GetByIdAsync(sessionId)
                 ?? throw new KeyNotFoundException($"Session {sessionId} not found.");
 
             if (session.Status == SessionStatus.COMPLETED || session.Status == SessionStatus.CANCELLED)
                 throw new InvalidOperationException("Session is no longer open for enrollment.");
 
-            // Chuẩn hoá + de-dup input ngay từ client side.
-            var requestedIds = (request.StudentIds ?? new List<int>())
+            // Dedup + bỏ id ≤ 0 (input có thể bị rác)
+            var distinctIds = request.StudentIds
                 .Where(id => id > 0)
                 .Distinct()
                 .ToList();
-            if (requestedIds.Count == 0)
-                throw new ArgumentException("StudentIds is empty.");
-            if (requestedIds.Count > 500)
-                throw new ArgumentException("Cannot enroll more than 500 students in a single request.");
+            if (distinctIds.Count == 0)
+                throw new ArgumentException("StudentIds is empty or invalid.");
 
-            // Lấy user có role STUDENT trong 1 query (tránh N+1).
-            var students = (await _userRepository.GetByRoleAsync(UserRole.STUDENT))
-                .Where(u => requestedIds.Contains(u.UserId))
-                .ToDictionary(u => u.UserId);
+            // 1. Check capacity trước khi làm gì (UX: fail-fast)
+            var existingIds = await _sessionRepository.GetEnrolledStudentIdsAsync(sessionId);
+            var toAddCount = distinctIds.Count(id => !existingIds.Contains(id));
+            if (session.CurrentEnrollment + toAddCount > session.MaxCapacity)
+                throw new InvalidOperationException(
+                    $"Adding {toAddCount} new student(s) would exceed MaxCapacity ({session.MaxCapacity}). " +
+                    $"Current: {session.CurrentEnrollment}.");
 
-            // Lấy enrollment hiện có trong 1 query.
-            var existing = await _sessionRepository.GetEnrolledStudentIdsAsync(sessionId);
+            // 2. Bulk lookup user
+            var users = await _sessionRepository.GetUsersByIdsAsync(distinctIds);
+            var usersById = users.ToDictionary(u => u.UserId);
 
-            var result = new StaffBulkEnrollmentResult();
-            var now = DateTime.UtcNow;
+            // 3. Build enrollments + results
+            var results = new List<StaffEnrollResult>(distinctIds.Count);
             var newEnrollments = new List<SessionEnrollment>();
 
-            foreach (var id in requestedIds)
+            foreach (var studentId in distinctIds)
             {
-                if (!students.TryGetValue(id, out var student))
+                if (existingIds.Contains(studentId))
                 {
-                    result.NotFound.Add(id);
-                    continue;
-                }
-                if (existing.Contains(id))
-                {
-                    result.AlreadyEnrolled.Add(id);
+                    results.Add(new StaffEnrollResult
+                    {
+                        StudentId = studentId,
+                        Status = "already_enrolled",
+                        Reason = "Student is already enrolled in this session."
+                    });
                     continue;
                 }
 
-                newEnrollments.Add(new SessionEnrollment
+                if (!usersById.TryGetValue(studentId, out var user))
+                {
+                    results.Add(new StaffEnrollResult
+                    {
+                        StudentId = studentId,
+                        Status = "not_found",
+                        Reason = "User does not exist."
+                    });
+                    continue;
+                }
+
+                if (user.Role != UserRole.STUDENT)
+                {
+                    results.Add(new StaffEnrollResult
+                    {
+                        StudentId = studentId,
+                        Status = "not_student",
+                        Reason = $"User has role '{user.Role}', not STUDENT."
+                    });
+                    continue;
+                }
+
+                var enrollment = new SessionEnrollment
                 {
                     SessionId = sessionId,
-                    StudentId = id,
+                    StudentId = studentId,
                     Status = SessionStatus.NOT_STARTED,
-                    EnrolledAt = now
-                });
-
-                result.Added.Add(new SessionEnrollmentDto
+                    EnrolledAt = DateTime.UtcNow
+                };
+                newEnrollments.Add(enrollment);
+                results.Add(new StaffEnrollResult
                 {
-                    SessionId = sessionId,
-                    StudentId = student.UserId,
-                    StudentName = student.FullName,
-                    StudentEmail = student.Email ?? string.Empty,
-                    Status = SessionStatus.NOT_STARTED.ToString(),
-                    EnrolledAt = now,
-                    CurrentQuestionIndex = 0,
-                    TotalQuestions = session.Exam?.MaxQuestions ?? 0
+                    StudentId = studentId,
+                    Status = "added",
+                    SessionEnrollmentId = null  // sẽ fill sau khi SaveChanges
                 });
             }
 
-            // Kiểm tra capacity SAU khi loại bỏ trùng / not-found.
-            if (session.CurrentEnrollment + newEnrollments.Count > session.MaxCapacity)
-                throw new InvalidOperationException(
-                    $"Adding {newEnrollments.Count} students would exceed MaxCapacity " +
-                    $"({session.CurrentEnrollment}/{session.MaxCapacity}).");
-
-            if (newEnrollments.Count == 0)
-                return result; // tất cả đều trùng hoặc không tồn tại
-
-            await _sessionRepository.AddEnrollmentsAsync(newEnrollments);
-            session.CurrentEnrollment += newEnrollments.Count;
-            await _sessionRepository.UpdateAsync(session);
-            await _sessionRepository.SaveChangesAsync();
-
-            return result;
-        });
-
-    public Task<StaffBulkRemoveResult> RemoveStudentsFromSessionAsync(
-        int sessionId, StaffRemoveEnrollmentRequest request, int staffId)
-        => _unitOfWork.ExecuteAsync(async () =>
-        {
-            var session = await _sessionRepository.GetByIdWithEnrollmentsAsync(sessionId)
-                ?? throw new KeyNotFoundException($"Session {sessionId} not found.");
-
-            if (session.Status == SessionStatus.IN_PROGRESS)
-                throw new InvalidOperationException(
-                    "Cannot remove students from a session that is in progress.");
-            if (session.Status == SessionStatus.COMPLETED)
-                throw new InvalidOperationException(
-                    "Cannot remove students from a completed session.");
-
-            var requestedIds = (request.StudentIds ?? new List<int>())
-                .Where(id => id > 0)
-                .Distinct()
-                .ToList();
-            if (requestedIds.Count == 0)
-                throw new ArgumentException("StudentIds is empty.");
-            if (requestedIds.Count > 500)
-                throw new ArgumentException("Cannot remove more than 500 students in a single request.");
-
-            // Lấy enrollment tương ứng trong 1 query.
-            var enrollments = await _sessionRepository.GetEnrollmentsByStudentIdsAsync(sessionId, requestedIds);
-            var foundIds = enrollments.Select(e => e.StudentId).ToHashSet();
-
-            var result = new StaffBulkRemoveResult
+            // 4. SaveChanges một lần
+            if (newEnrollments.Count > 0)
             {
-                Removed = enrollments.Select(e => e.StudentId).ToList(),
-                NotEnrolled = requestedIds.Where(id => !foundIds.Contains(id)).ToList()
+                await _sessionRepository.AddEnrollmentsRangeAsync(newEnrollments);
+
+                // EF Core sẽ gán Id sau SaveChanges; map lại vào results
+                var addedByStudentId = newEnrollments
+                    .Where(e => e.SessionEnrollmentId > 0)
+                    .ToDictionary(e => e.StudentId, e => e.SessionEnrollmentId);
+                foreach (var r in results.Where(r => r.Status == "added"))
+                {
+                    r.SessionEnrollmentId = addedByStudentId.GetValueOrDefault(r.StudentId);
+                }
+
+                session.CurrentEnrollment += newEnrollments.Count;
+                await _sessionRepository.UpdateAsync(session);
+            }
+
+            return new StaffBulkEnrollResponse
+            {
+                SessionId = sessionId,
+                AddedCount = newEnrollments.Count,
+                SkippedCount = results.Count(r => r.Status != "added"),
+                CurrentEnrollment = session.CurrentEnrollment,
+                Results = results
             };
-
-            if (enrollments.Count == 0)
-                return result; // không có gì để xoá
-
-            await _sessionRepository.RemoveEnrollmentsAsync(enrollments);
-            session.CurrentEnrollment = Math.Max(0, session.CurrentEnrollment - enrollments.Count);
-            await _sessionRepository.UpdateAsync(session);
-            await _sessionRepository.SaveChangesAsync();
-
-            return result;
         });
+
+    public async Task RemoveStudentFromSessionAsync(int sessionId, int studentId, int staffId)
+    {
+        var session = await _sessionRepository.GetByIdWithEnrollmentsAsync(sessionId)
+            ?? throw new KeyNotFoundException($"Session {sessionId} not found.");
+
+        if (session.Status == SessionStatus.IN_PROGRESS)
+            throw new InvalidOperationException(
+                "Cannot remove a student from a session that is in progress.");
+
+        var enrollment = await _sessionRepository.GetEnrollmentAsync(sessionId, studentId)
+            ?? throw new KeyNotFoundException(
+                $"Student {studentId} is not enrolled in session {sessionId}.");
+
+        var toRemove = new[] { enrollment };
+        foreach (var e in toRemove)
+            await _sessionRepository.RemoveEnrollmentAsync(e);
+        if (session.CurrentEnrollment > 0) session.CurrentEnrollment--;
+        await _sessionRepository.UpdateAsync(session);
+        await _sessionRepository.SaveChangesAsync();
+    }
 
     public async Task<SessionMonitorDto> GetSessionMonitorAsync(int sessionId, int staffId)
     {
@@ -344,9 +358,9 @@ public class StaffService : IStaffService
         };
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
     //  Helpers
-    // ═══════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════
 
     private async Task<string> GenerateUniqueSessionCodeAsync()
     {
