@@ -183,6 +183,22 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                         Câu hỏi phụ
                       </Badge>
                     )}
+                    {answer.status && (
+                      <Badge
+                        variant={answer.status === 'ERROR' ? 'destructive' : 'secondary'}
+                        className={`text-[10px] uppercase font-bold ${
+                          answer.status === 'EVALUATED'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            : ''
+                        }`}
+                      >
+                        {answer.status === 'EVALUATED'
+                          ? 'Đã chấm AI'
+                          : answer.status === 'ERROR'
+                          ? 'Lỗi xử lý'
+                          : 'Đang xử lý'}
+                      </Badge>
+                    )}
                   </span>
 
                   {answer.aiScore != null && (
@@ -196,6 +212,31 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                 <p className="font-heading text-sm font-medium text-foreground">
                   {answer.questionText}
                 </p>
+
+                {/* Error Banner & Retry Button if ERROR */}
+                {answer.status === 'ERROR' && (
+                  <div className="flex items-center justify-between rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
+                    <div>
+                      <p className="font-semibold">Xảy ra lỗi khi phân tích câu trả lời:</p>
+                      <p className="opacity-90">{answer.errorMessage || 'Không thể nhận diện giọng nói hoặc phân tích câu trả lời.'}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-destructive/40 text-destructive hover:bg-destructive hover:text-white shrink-0 text-xs h-8"
+                      onClick={async () => {
+                        try {
+                          await teacherResultsApi.retryAnswer(answer.answerId, 'Examiner requested retry')
+                          alert(`Đã gửi yêu cầu xử lý lại câu ${index + 1}. Vui lòng làm mới trang sau vài giây.`)
+                        } catch (e) {
+                          alert('Không thể thử lại: ' + (e as Error).message)
+                        }
+                      }}
+                    >
+                      Thử chấm lại
+                    </Button>
+                  </div>
+                )}
 
                 {/* Student Answer & Audio Player */}
                 <div className="rounded-xl bg-muted/60 p-4 text-xs space-y-2">
