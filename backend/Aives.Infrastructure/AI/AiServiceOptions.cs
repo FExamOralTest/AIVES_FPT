@@ -28,6 +28,12 @@ public class AiServiceOptions
     /// <summary>Header name cho internal auth (đặt cố định để AI service dễ đọc).</summary>
     public const string TokenHeaderName = "X-Internal-Token";
 
+    /// <summary>
+    /// HttpMessageHandler tùy chỉnh cho test/mocking. Nếu null, AiServiceClient tự tạo HttpClient mới.
+    /// Dùng khi cần mock cả audio download (storage) và AI service trong cùng handler.
+    /// </summary>
+    public HttpMessageHandler? HttpMessageHandler { get; set; }
+
     /// <summary>Đã cấu hình token đủ dùng cho internal auth chưa.</summary>
     public bool HasApiKey => !string.IsNullOrWhiteSpace(ApiKey);
 }

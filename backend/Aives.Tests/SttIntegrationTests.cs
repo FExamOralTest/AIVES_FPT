@@ -15,10 +15,8 @@ using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
 using Aives.Infrastructure.Queue;
 using Aives.Infrastructure.Repositories;
-using Aives.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -27,7 +25,7 @@ namespace Aives.Tests;
 
 /// <summary>
 /// Task 2.16 — STT Integration Test với audio variations.
-/// Test <see cref="AnswerOrchestrator"/> end-to-end với real R2 + mock AI service
+/// Test <see cref="AnswerOrchestrator"/> end-to-end với fake storage + mock AI service
 /// (HttpMessageHandler stub) — verify error taxonomy chuẩn của SttErrorCode được
 /// áp dụng đúng cho từng kịch bản audio thực tế.
 /// </summary>
@@ -36,9 +34,8 @@ public class SttIntegrationTests : IDisposable
     private readonly AivesDbContext _db;
     private readonly AnswerRepository _answerRepo;
     private readonly ResultRepository _resultRepo;
-    private readonly CloudflareR2StorageService _storageService;
-    private readonly FakeAiServiceFactory _aiFactory = new();
-    private readonly List<string> _uploadedKeys = new();
+    private readonly FakeStorageService _storageService;
+    private readonly FakeAiServiceFactory _aiFactory;
 
     public SttIntegrationTests()
     {
@@ -50,28 +47,14 @@ public class SttIntegrationTests : IDisposable
         _answerRepo = new AnswerRepository(_db);
         _resultRepo = new ResultRepository(_db);
 
-        // Real R2 — load user-secrets.
-        var basePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Aives.Api"));
-        var config = new ConfigurationBuilder()
-            .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: true)
-            .AddJsonFile("appsettings.Development.json", optional: false)
-            .Build();
-        var r2Options = new CloudflareR2Options();
-        config.GetSection(CloudflareR2Options.SectionName).Bind(r2Options);
-        r2Options.UseLocalStorageFallback = false;
-        _storageService = new CloudflareR2StorageService(
-            Options.Create(r2Options),
-            NullLogger<CloudflareR2StorageService>.Instance);
+        // Fake in-memory storage — không cần R2 credentials.
+        _storageService = new FakeStorageService();
+        _aiFactory = new FakeAiServiceFactory(_storageService);
     }
 
     public void Dispose()
     {
-        // Cleanup R2 — xoá các object key test đã upload để tránh rác bucket.
-        foreach (var key in _uploadedKeys)
-        {
-            try { _storageService.DeleteAudioAsync(key).GetAwaiter().GetResult(); } catch { /* best effort */ }
-        }
+        _storageService.Clear();
         _db.Database.EnsureDeleted();
         _db.Dispose();
     }
@@ -91,7 +74,7 @@ public class SttIntegrationTests : IDisposable
             LanguageDetected = "vi"
         });
 
-        // Upload 1 dummy audio (8 bytes WAV header) lên R2 thật.
+        // Upload dummy audio vào fake storage.
         var key = await UploadDummyAudioAsync(ctx);
 
         // Act
@@ -251,23 +234,17 @@ public class SttIntegrationTests : IDisposable
         Assert.False(err.Retryable);
     }
 
-    // ===================================================================
-    // AI Service response variations — verify Client trả về đúng code
-    // ===================================================================
-
     [Fact]
-    public async Task AiClient_SttTimeout_ReturnsEmptyTranscriptCode()
+    public async Task AiClient_SttTimeout_ReturnsRetryableCode()
     {
-        // Cts hết hạn → OperationCanceledException → Orchestrator catch → Timeout.
-        var (orchestrator, ctx) = BuildPipelineWithTimeout();
+        // AI service timeout → Orchestrator trả Timeout code, retryable.
+        var (orchestrator, ctx) = BuildPipelineWithTimeout(TimeSpan.FromSeconds(5));
         var key = await UploadDummyAudioAsync(ctx);
 
         var result = await orchestrator.ProcessAnswerAsync(ctx.AnswerId, attempt: 1, CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.NotNull(result.SttError);
-        // STT endpoint cần HTTP-level delay > AiCallTimeout. Với delay 100ms và timeout 2 phút,
-        // sẽ không timeout thật — nhưng nếu hang thì result phải có code retryable.
         Assert.True(result.SttError!.Retryable);
     }
 
@@ -277,7 +254,7 @@ public class SttIntegrationTests : IDisposable
 
     private async Task<string> UploadDummyAudioAsync(AnswerContext ctx)
     {
-        // 32 bytes WAV header + vài bytes data — đủ để R2 chấp nhận.
+        // 44 bytes minimal WAV header đủ để AI service parse được.
         var key = $"stt-tests/sessions/{ctx.Session.SessionId}/students/{ctx.Student.UserId}/q_{Guid.NewGuid():N}.wav";
         var header = new byte[]
         {
@@ -293,7 +270,6 @@ public class SttIntegrationTests : IDisposable
         };
         using var ms = new MemoryStream(header);
         await _storageService.UploadAudioAsync(key, ms, "audio/wav");
-        _uploadedKeys.Add(key);
         ctx.Answer.AudioUrl = key;
         await _db.SaveChangesAsync();
         return key;
@@ -304,40 +280,40 @@ public class SttIntegrationTests : IDisposable
         EvaluateSessionResponse? aiEvalResponse = null)
     {
         var ctx = SeedAnswerAsync().GetAwaiter().GetResult();
-        var aiClient = _aiFactory.CreateClient(aiResponse, aiEvalResponse);
+        var aiClient = _aiFactory.CreateClient(aiResponse, aiEvalResponse, out var handler);
         var orch = new AnswerOrchestrator(
             _answerRepo, _resultRepo, _storageService, aiClient,
-            NullLogger<AnswerOrchestrator>.Instance);
+            NullLogger<AnswerOrchestrator>.Instance, handler);
         return (orch, ctx);
     }
 
     private (AnswerOrchestrator orchestrator, AnswerContext ctx) BuildPipelineWithHttpError(HttpStatusCode status)
     {
         var ctx = SeedAnswerAsync().GetAwaiter().GetResult();
-        var aiClient = _aiFactory.CreateClientWithHttpError(status);
+        var aiClient = _aiFactory.CreateClientWithHttpError(status, out var handler);
         var orch = new AnswerOrchestrator(
             _answerRepo, _resultRepo, _storageService, aiClient,
-            NullLogger<AnswerOrchestrator>.Instance);
+            NullLogger<AnswerOrchestrator>.Instance, handler);
         return (orch, ctx);
     }
 
     private (AnswerOrchestrator orchestrator, AnswerContext ctx) BuildPipelineWithHttpRequestException()
     {
         var ctx = SeedAnswerAsync().GetAwaiter().GetResult();
-        var aiClient = _aiFactory.CreateClientWithException(new HttpRequestException("connection refused"));
+        var aiClient = _aiFactory.CreateClientWithException(new HttpRequestException("connection refused"), out var handler);
         var orch = new AnswerOrchestrator(
             _answerRepo, _resultRepo, _storageService, aiClient,
-            NullLogger<AnswerOrchestrator>.Instance);
+            NullLogger<AnswerOrchestrator>.Instance, handler);
         return (orch, ctx);
     }
 
-    private (AnswerOrchestrator orchestrator, AnswerContext ctx) BuildPipelineWithTimeout()
+    private (AnswerOrchestrator orchestrator, AnswerContext ctx) BuildPipelineWithTimeout(TimeSpan delay)
     {
         var ctx = SeedAnswerAsync().GetAwaiter().GetResult();
-        var aiClient = _aiFactory.CreateClientWithTimeout(TimeSpan.FromSeconds(5));
+        var aiClient = _aiFactory.CreateClientWithTimeout(delay, out var handler);
         var orch = new AnswerOrchestrator(
             _answerRepo, _resultRepo, _storageService, aiClient,
-            NullLogger<AnswerOrchestrator>.Instance);
+            NullLogger<AnswerOrchestrator>.Instance, handler);
         return (orch, ctx);
     }
 
@@ -410,13 +386,17 @@ public class SttIntegrationTests : IDisposable
 
 /// <summary>
 /// Factory tạo <see cref="IAiServiceClient"/> với response có thể control được
-/// dùng cho STT integration test.
+/// dùng cho STT integration test. Nhận biết fake storage URLs để mock audio download.
 /// </summary>
 internal class FakeAiServiceFactory
 {
-    public IAiServiceClient CreateClient(SpeechToTextResponse? sttResponse, EvaluateSessionResponse? evalResponse)
+    private readonly FakeStorageService _storageService;
+
+    public FakeAiServiceFactory(FakeStorageService storageService) => _storageService = storageService;
+
+    public IAiServiceClient CreateClient(SpeechToTextResponse? sttResponse, EvaluateSessionResponse? evalResponse, out HttpMessageHandler handler)
     {
-        var handler = new StubHandler(req =>
+        var h = new FakeR2AwareHandler(_storageService, req =>
         {
             var path = req.RequestUri?.AbsolutePath ?? string.Empty;
             if (path.Contains("transcribe") || path.Contains("speech"))
@@ -435,29 +415,33 @@ internal class FakeAiServiceFactory
                 }), Encoding.UTF8, "application/json")
             });
         });
-        return BuildClient(handler);
+        handler = h;
+        return BuildClient(h);
     }
 
-    public IAiServiceClient CreateClientWithHttpError(HttpStatusCode status)
+    public IAiServiceClient CreateClientWithHttpError(HttpStatusCode status, out HttpMessageHandler handler)
     {
-        var handler = new StubHandler(_ => Task.FromResult(new HttpResponseMessage(status)));
-        return BuildClient(handler);
+        var h = new FakeR2AwareHandler(_storageService, _ => Task.FromResult(new HttpResponseMessage(status)));
+        handler = h;
+        return BuildClient(h);
     }
 
-    public IAiServiceClient CreateClientWithException(Exception ex)
+    public IAiServiceClient CreateClientWithException(Exception ex, out HttpMessageHandler handler)
     {
-        var handler = new StubHandler(_ => throw ex);
-        return BuildClient(handler);
+        var h = new FakeR2AwareHandler(_storageService, _ => throw ex);
+        handler = h;
+        return BuildClient(h);
     }
 
-    public IAiServiceClient CreateClientWithTimeout(TimeSpan delay)
+    public IAiServiceClient CreateClientWithTimeout(TimeSpan delay, out HttpMessageHandler handler)
     {
-        var handler = new StubHandler(async _ =>
+        var h = new FakeR2AwareHandler(_storageService, async _ =>
         {
             await Task.Delay(delay);
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
-        return BuildClient(handler);
+        handler = h;
+        return BuildClient(h);
     }
 
     private static IAiServiceClient BuildClient(HttpMessageHandler handler)
@@ -472,10 +456,39 @@ internal class FakeAiServiceFactory
         return new Aives.Infrastructure.AI.AiServiceClient(http, opts, NullLogger<Aives.Infrastructure.AI.AiServiceClient>.Instance);
     }
 
-    private class StubHandler : HttpMessageHandler
+    /// <summary>
+    /// Handler nhận biết file:// URL của FakeStorageService → trả audio bytes.
+    /// Mọi request khác chuyển sang delegate AI thật.
+    /// </summary>
+    private class FakeR2AwareHandler : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, Task<HttpResponseMessage>> _h;
-        public StubHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> h) => _h = h;
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage r, CancellationToken c) => _h(r);
+        private readonly FakeStorageService _storage;
+        private readonly Func<HttpRequestMessage, Task<HttpResponseMessage>> _aiHandler;
+
+        public FakeR2AwareHandler(FakeStorageService storage, Func<HttpRequestMessage, Task<HttpResponseMessage>> aiHandler)
+        {
+            _storage = storage;
+            _aiHandler = aiHandler;
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var uri = request.RequestUri?.ToString() ?? string.Empty;
+
+            // Fake R2: http://localhost:9999/storage/exams/1/sessions/2/students/3/q_4.webm
+            if (uri.StartsWith("http://localhost:9999/storage/"))
+            {
+                var objectKey = "/" + Uri.UnescapeDataString(uri["http://localhost:9999/storage/".Length..].Split('?')[0]);
+                var stream = _storage.TryGetStream(objectKey);
+                if (stream == null)
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StreamContent(stream)
+                };
+            }
+
+            return await _aiHandler(request);
+        }
     }
 }

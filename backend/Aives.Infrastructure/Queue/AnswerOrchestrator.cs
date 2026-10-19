@@ -32,19 +32,22 @@ public class AnswerOrchestrator : IAnswerOrchestrator
     private readonly IStorageService _storageService;
     private readonly IAiServiceClient _aiServiceClient;
     private readonly ILogger<AnswerOrchestrator> _logger;
+    private readonly HttpMessageHandler? _downloadHandler;
 
     public AnswerOrchestrator(
         IAnswerRepository answerRepository,
         IResultRepository resultRepository,
         IStorageService storageService,
         IAiServiceClient aiServiceClient,
-        ILogger<AnswerOrchestrator> logger)
+        ILogger<AnswerOrchestrator> logger,
+        HttpMessageHandler? downloadHandler = null)
     {
         _answerRepository = answerRepository;
         _resultRepository = resultRepository;
         _storageService = storageService;
         _aiServiceClient = aiServiceClient;
         _logger = logger;
+        _downloadHandler = downloadHandler;
     }
 
     public async Task<OrchestrationResult> ProcessAnswerAsync(
@@ -76,7 +79,16 @@ public class AnswerOrchestrator : IAnswerOrchestrator
             {
                 var sttResult = await TranscribeFromR2Async(answer, attempt, cancellationToken);
                 if (!sttResult.Success)
+                {
+                    // STT failed (audio corrupted, empty transcript, AI error) — đánh dấu ERROR
+                    // để staff thấy và admin có thể retry. Trả SttError để AnswerProcessingJob
+                    // quyết định retry/dead-letter dựa vào SttError.Retryable.
+                    await _answerRepository.MarkFailedAsync(
+                        answerId,
+                        $"STT failed: {sttResult.SttError?.Code} - {sttResult.Message}",
+                        cancellationToken);
                     return sttResult;
+                }
                 transcript = sttResult.Transcript ?? string.Empty;
             }
             // Case B: audio trống, dùng text answer
@@ -147,7 +159,9 @@ public class AnswerOrchestrator : IAnswerOrchestrator
 
         try
         {
-            using var http = new HttpClient { Timeout = AiCallTimeout };
+            using var http = _downloadHandler != null
+                ? new HttpClient(_downloadHandler, disposeHandler: false) { Timeout = AiCallTimeout }
+                : new HttpClient { Timeout = AiCallTimeout };
             var presignedUrl = _storageService.ResolvePlaybackUrl(
                 answer.AudioUrl,
                 TimeSpan.FromMinutes(10));

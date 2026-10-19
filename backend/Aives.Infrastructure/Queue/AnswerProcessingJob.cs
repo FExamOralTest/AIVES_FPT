@@ -66,6 +66,19 @@ public class AnswerProcessingJob : IAnswerProcessingJob
                 $"STT error [{result.SttError.Code}]: {result.SttError.Message}");
         }
 
+        // Evaluation failure (AI2 trả Success=false) → không retry vì retry sẽ cho cùng kết quả.
+        // Transcript đã được persist OK, chỉ là AI2 chấm không ra điểm. → dead-letter.
+        if (!string.IsNullOrEmpty(result.EvaluationErrorCode))
+        {
+            metadata.Status = QueueJobStatus.DeadLetter;
+            metadata.LastError = result.Message;
+            _logger.LogError(
+                "AnswerProcessingJob dead-lettered (eval failure): AnswerId={AnswerId}, Code={Code}, Message={Message}",
+                metadata.AnswerId, result.EvaluationErrorCode, result.Message);
+            throw new NonRetryableJobException(
+                $"Evaluation error [{result.EvaluationErrorCode}]: {result.Message}");
+        }
+
         // Retryable error → throw để Hangfire retry (AutomaticRetry sẽ tăng Attempt).
         metadata.Status = QueueJobStatus.Failed;
         metadata.LastError = result.SttError?.Message ?? result.Message;

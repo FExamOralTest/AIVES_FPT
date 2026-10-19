@@ -148,9 +148,11 @@ public class HangfireQueueRetryTests : IDisposable
     }
 
     [Fact]
-    public async Task A5_ExecuteAsync_EvaluationError_ThrowsRetryable()
+    public async Task A5_ExecuteAsync_EvaluationError_ThrowsNonRetryable_DeadLetter()
     {
-        // Path lỗi Eval (không qua STT) → cũng retryable.
+        // Path lỗi Eval (không qua STT) → NonRetryable + dead-letter.
+        // Lý do: AI2 evaluation trả Success=false là business-level failure
+        // (không phải transient như timeout). Retry sẽ cho cùng kết quả.
         var metadata = NewMetadata();
         _orchestratorMock.Setup(o => o.ProcessAnswerAsync(1, 1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new OrchestrationResult
@@ -160,9 +162,9 @@ public class HangfireQueueRetryTests : IDisposable
                 Message = "Eval crash"
             });
 
-        await Assert.ThrowsAsync<AnswerProcessingJob.RetryableJobException>(
+        await Assert.ThrowsAsync<AnswerProcessingJob.NonRetryableJobException>(
             () => _job.ExecuteAsync(metadata, CancellationToken.None));
-        Assert.Equal(QueueJobStatus.Failed, metadata.Status);
+        Assert.Equal(QueueJobStatus.DeadLetter, metadata.Status);
         Assert.Equal("Eval crash", metadata.LastError);
     }
 
@@ -269,19 +271,29 @@ public class HangfireQueueRetryTests : IDisposable
     {
         UseFreshMemoryStorage();
         // Không start server để job đầu nằm yên trong Enqueued state → query thấy.
-        var monitoringApi = _currentStorage.GetMonitoringApi();
         var jobClient = new BackgroundJobClient(_currentStorage);
         var svc = new HangfireQueueService(
-            jobClient, monitoringApi, NullLogger<HangfireQueueService>.Instance);
+            jobClient, NullLogger<HangfireQueueService>.Instance);
 
         var m1 = new QueueJobMetadata { AnswerId = 7777, ResultId = 1, ObjectKey = "k", Attempt = 1 };
         var m2 = new QueueJobMetadata { AnswerId = 7777, ResultId = 1, ObjectKey = "k", Attempt = 1 };
 
-        var id1 = svc.EnqueueAnswerProcessing(m1);
-        var id2 = svc.EnqueueAnswerProcessing(m2);
+        // Set JobStorage.Current để HangfireQueueService (singleton) có thể resolve IMonitoringApi.
+        // C2 test StartServer cũng tự set Current — wrap trong try/finally phòng concurrent tests.
+        JobStorage.Current = _currentStorage;
+        try
+        {
+            var id1 = svc.EnqueueAnswerProcessing(m1);
+            var id2 = svc.EnqueueAnswerProcessing(m2);
 
-        Assert.False(string.IsNullOrEmpty(id1), "First enqueue should succeed.");
-        Assert.True(string.IsNullOrEmpty(id2), "Second enqueue (same answer) should be deduped.");
+            Assert.False(string.IsNullOrEmpty(id1), "First enqueue should succeed.");
+            Assert.True(string.IsNullOrEmpty(id2), "Second enqueue (same answer) should be deduped.");
+        }
+        finally
+        {
+            // Reset về null để test khác tự setup (tránh pollution giữa tests).
+            try { JobStorage.Current = null!; } catch { /* ignore */ }
+        }
     }
 
     [Fact]
@@ -290,10 +302,9 @@ public class HangfireQueueRetryTests : IDisposable
         UseFreshMemoryStorage();
         using var server = StartServer();
 
-        var monitoringApi = _currentStorage.GetMonitoringApi();
         var jobClient = new BackgroundJobClient(_currentStorage);
         var svc = new HangfireQueueService(
-            jobClient, monitoringApi, NullLogger<HangfireQueueService>.Instance);
+            jobClient, NullLogger<HangfireQueueService>.Instance);
 
         var m1 = new QueueJobMetadata { AnswerId = 1001, ResultId = 1, ObjectKey = "k", Attempt = 1 };
         var m2 = new QueueJobMetadata { AnswerId = 1002, ResultId = 1, ObjectKey = "k", Attempt = 1 };

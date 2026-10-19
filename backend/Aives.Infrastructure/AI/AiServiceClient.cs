@@ -34,13 +34,14 @@ public class AiServiceClient : IAiServiceClient
         IOptions<AiServiceOptions> options,
         ILogger<AiServiceClient> logger)
     {
-        _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
+        _httpClient = httpClient;
 
         if (_httpClient.BaseAddress is null)
             throw new InvalidOperationException(
-                "HttpClient.BaseAddress must be set via AddHttpClient when registering AiServiceClient.");
+                "HttpClient.BaseAddress must be set via AddHttpClient when registering AiServiceClient, " +
+                "or provide BaseAddress in tests.");
 
         if (!_options.HasApiKey)
         {
@@ -50,7 +51,6 @@ public class AiServiceClient : IAiServiceClient
                 "AI:ApiKey is not configured. Internal Service Token will be EMPTY — AI service may reject all requests.");
         }
     }
-
     public async Task<SpeechToTextResponse> TranscribeAudioAsync(
         Stream audioStream, string fileName, string examSessionId, string language = "vi-VN")
     {
