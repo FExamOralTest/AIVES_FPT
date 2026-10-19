@@ -15,17 +15,28 @@ public class HangfireQueueService : IQueueService
 {
     private readonly IBackgroundJobClient _jobClient;
     private readonly ILogger<HangfireQueueService> _logger;
+    private readonly IMonitoringApi? _injectedMonitoringApi;
 
     // IMonitoringApi is not registered in DI by Hangfire — resolve it on demand
     // via JobStorage.Current so the singleton can be constructed before the storage
-    // is fully initialised.
-    private IMonitoringApi MonitoringApi => JobStorage.Current.GetMonitoringApi();
+    // is fully initialised. Allows passing custom IMonitoringApi for unit tests.
+    private IMonitoringApi MonitoringApi => _injectedMonitoringApi ?? JobStorage.Current.GetMonitoringApi();
 
     public HangfireQueueService(
         IBackgroundJobClient jobClient,
         ILogger<HangfireQueueService> logger)
     {
         _jobClient = jobClient;
+        _logger = logger;
+    }
+
+    public HangfireQueueService(
+        IBackgroundJobClient jobClient,
+        IMonitoringApi monitoringApi,
+        ILogger<HangfireQueueService> logger)
+    {
+        _jobClient = jobClient;
+        _injectedMonitoringApi = monitoringApi;
         _logger = logger;
     }
 
