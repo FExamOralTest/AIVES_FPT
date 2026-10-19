@@ -54,9 +54,28 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("answered_at");
 
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempt_count");
+
                     b.Property<string>("AudioUrl")
                         .HasColumnType("text")
                         .HasColumnName("audio_url");
+
+                    b.Property<string>("DetectedLanguage")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("detected_language");
+
+                    b.Property<float?>("DurationSeconds")
+                        .HasColumnType("real")
+                        .HasColumnName("duration_seconds");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("error_message");
 
                     b.Property<float?>("FinalScore")
                         .HasColumnType("real")
@@ -67,6 +86,16 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("is_follow_up");
+
+                    b.Property<string>("JobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("job_id");
+
+                    b.Property<string>("ObjectKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("object_key");
 
                     b.Property<int>("QuestionId")
                         .HasColumnType("integer")
@@ -107,6 +136,68 @@ namespace Aives.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("answers", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<long>("LogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("log_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("LogId"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("action");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("integer")
+                        .HasColumnName("entity_id");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("entity_name");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("new_value");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("old_value");
+
+                    b.Property<DateTime>("PerformedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("performed_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int?>("PerformedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("performed_by");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.HasKey("LogId")
+                        .HasName("audit_logs_pkey");
+
+                    b.HasIndex(new[] { "EntityName", "EntityId" }, "idx_audit_logs_entity");
+
+                    b.HasIndex(new[] { "PerformedBy" }, "idx_audit_logs_performed_by");
+
+                    b.ToTable("audit_logs", (string)null);
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.Course", b =>
@@ -751,6 +842,17 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("Result");
                 });
 
+            modelBuilder.Entity("Aives.Domain.Entities.AuditLog", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.User", "PerformedByNavigation")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("PerformedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("audit_logs_performed_by_fkey");
+
+                    b.Navigation("PerformedByNavigation");
+                });
+
             modelBuilder.Entity("Aives.Domain.Entities.Course", b =>
                 {
                     b.HasOne("Aives.Domain.Entities.User", "CreatedByNavigation")
@@ -1011,6 +1113,8 @@ namespace Aives.Infrastructure.Migrations
 
             modelBuilder.Entity("Aives.Domain.Entities.User", b =>
                 {
+                    b.Navigation("AuditLogs");
+
                     b.Navigation("CourseCreatedByNavigations");
 
                     b.Navigation("CourseTeachers");

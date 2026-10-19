@@ -21,4 +21,14 @@ export const teacherResultsApi = {
     const { data } = await http.post<ResultForReviewDto>(`/api/results/${resultId}/publish`, {})
     return data
   },
+
+  async getAudioPlaybackUrl(answerId: number): Promise<{ playbackUrl: string; expiresAt: string }> {
+    const { data } = await http.get<{ playbackUrl: string; expiresAt: string }>(`/api/answers/${answerId}/audio`)
+    return data
+  },
+
+  async retryAnswer(answerId: number, reason?: string): Promise<{ jobId: string; status: string }> {
+    const { data } = await http.post<{ jobId: string; status: string }>(`/api/answers/${answerId}/retry`, { reason })
+    return data
+  },
 }

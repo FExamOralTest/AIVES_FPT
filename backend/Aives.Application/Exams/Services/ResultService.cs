@@ -16,17 +16,20 @@ public class ResultService : IResultService
     private readonly IExamSessionRepository _sessionRepository;
     private readonly IUserRepository _userRepository;
     private readonly IStorageService _storageService;
+    private readonly IAuditLogRepository _auditLogRepository;
 
     public ResultService(
         IResultRepository resultRepository,
         IExamSessionRepository sessionRepository,
         IUserRepository userRepository,
-        IStorageService storageService)
+        IStorageService storageService,
+        IAuditLogRepository auditLogRepository)
     {
         _resultRepository = resultRepository;
         _sessionRepository = sessionRepository;
         _userRepository = userRepository;
         _storageService = storageService;
+        _auditLogRepository = auditLogRepository;
     }
 
     public async Task<IEnumerable<ResultForReviewDto>> GetResultsForReviewAsync(int sessionId, int teacherId)
@@ -70,6 +73,9 @@ public class ResultService : IResultService
             throw new InvalidOperationException(
                 $"Cannot review result with status '{result.Status}'. Only PENDING_REVIEW or REVIEWED results can be reviewed.");
 
+        var oldScore = result.FinalScore ?? result.AiScore;
+        var oldFeedback = result.FinalFeedback ?? result.AiFeedback;
+
         // BR-15: Không ghi đè ai_score/ai_feedback, chỉ cập nhật final_score và final_feedback
         if (request.FinalScore.HasValue)
             result.FinalScore = request.FinalScore.Value;
@@ -95,6 +101,19 @@ public class ResultService : IResultService
 
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
+
+        // Audit Trail: Record examiner review score adjustment
+        var oldValueJson = JsonSerializer.Serialize(new { Score = oldScore, Feedback = oldFeedback });
+        var newValueJson = JsonSerializer.Serialize(new { Score = result.FinalScore, Feedback = result.FinalFeedback });
+        await _auditLogRepository.LogAsync(
+            entityName: "Result",
+            entityId: result.ResultId,
+            action: "REVIEW_SCORE_OVERRIDE",
+            oldValue: oldValueJson,
+            newValue: newValueJson,
+            reason: request.FinalFeedback ?? "Examiner reviewed and finalized scores",
+            performedBy: teacherId);
+
         return MapToReviewDto(result);
     }
 
@@ -134,6 +153,17 @@ public class ResultService : IResultService
 
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
+
+        // Audit Trail: Record result publication
+        await _auditLogRepository.LogAsync(
+            entityName: "Result",
+            entityId: result.ResultId,
+            action: "PUBLISH_RESULT",
+            oldValue: null,
+            newValue: JsonSerializer.Serialize(new { Status = SubmissionStatus.PUBLISHED.ToString(), FinalScore = result.FinalScore }),
+            reason: "Published to student",
+            performedBy: teacherId);
+
         return MapToReviewDto(result);
     }
 

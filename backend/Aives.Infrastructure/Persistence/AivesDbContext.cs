@@ -36,6 +36,8 @@ public partial class AivesDbContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<AuditLog> AuditLogs { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
@@ -68,6 +70,22 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.AiScore).HasColumnName("ai_score");
             entity.Property(e => e.AnsweredAt).HasColumnName("answered_at");
             entity.Property(e => e.AudioUrl).HasColumnName("audio_url");
+            entity.Property(e => e.ObjectKey)
+                .HasMaxLength(500)
+                .HasColumnName("object_key");
+            entity.Property(e => e.JobId)
+                .HasMaxLength(100)
+                .HasColumnName("job_id");
+            entity.Property(e => e.AttemptCount)
+                .HasDefaultValue(0)
+                .HasColumnName("attempt_count");
+            entity.Property(e => e.ErrorMessage)
+                .HasColumnName("error_message");
+            entity.Property(e => e.DurationSeconds)
+                .HasColumnName("duration_seconds");
+            entity.Property(e => e.DetectedLanguage)
+                .HasMaxLength(20)
+                .HasColumnName("detected_language");
             entity.Property(e => e.FinalScore).HasColumnName("final_score");
             entity.Property(e => e.IsFollowUp)
                 .HasDefaultValue(false)
@@ -465,6 +483,59 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.Username)
                 .HasMaxLength(50)
                 .HasColumnName("username");
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.LogId).HasName("audit_logs_pkey");
+
+            entity.ToTable("audit_logs");
+
+            entity.HasIndex(e => new { e.EntityName, e.EntityId }, "idx_audit_logs_entity");
+
+            entity.HasIndex(e => e.PerformedBy, "idx_audit_logs_performed_by");
+
+            entity.Property(e => e.LogId)
+                .UseIdentityAlwaysColumn()
+                .HasColumnName("log_id");
+
+            entity.Property(e => e.EntityName)
+                .HasMaxLength(100)
+                .HasColumnName("entity_name");
+
+            entity.Property(e => e.EntityId)
+                .HasColumnName("entity_id");
+
+            entity.Property(e => e.Action)
+                .HasMaxLength(100)
+                .HasColumnName("action");
+
+            entity.Property(e => e.OldValue)
+                .HasColumnType("jsonb")
+                .HasColumnName("old_value");
+
+            entity.Property(e => e.NewValue)
+                .HasColumnType("jsonb")
+                .HasColumnName("new_value");
+
+            entity.Property(e => e.Reason)
+                .HasColumnName("reason");
+
+            entity.Property(e => e.PerformedBy)
+                .HasColumnName("performed_by");
+
+            entity.Property(e => e.PerformedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("performed_at");
+
+            entity.Property(e => e.IpAddress)
+                .HasMaxLength(45)
+                .HasColumnName("ip_address");
+
+            entity.HasOne(d => d.PerformedByNavigation).WithMany(p => p.AuditLogs)
+                .HasForeignKey(d => d.PerformedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("audit_logs_performed_by_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);
