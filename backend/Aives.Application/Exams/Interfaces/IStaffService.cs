@@ -11,8 +11,8 @@ namespace Aives.Application.Exams.Interfaces;
 public interface IStaffService
 {
     // ── Sessions / Rooms ───────────────────────────────────────
-    Task<IEnumerable<ExamSessionSummaryDto>> GetAllSessionsAsync(StaffSessionQuery query);
-    Task<ExamSessionDto> GetSessionByIdAsync(int sessionId);
+    Task<IEnumerable<ExamSessionSummaryDto>> GetAllSessionsAsync(StaffSessionQuery query, int staffId);
+    Task<ExamSessionDto> GetSessionByIdAsync(int sessionId, int staffId);
     Task<ExamSessionDto> CreateSessionAsync(StaffCreateSessionRequest request, int staffId);
     Task<ExamSessionDto> UpdateSessionAsync(int sessionId, StaffUpdateSessionRequest request, int staffId);
     Task DeleteSessionAsync(int sessionId, int staffId);

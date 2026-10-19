@@ -36,7 +36,8 @@ public class StaffController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<ExamSessionSummaryDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSessions([FromQuery] StaffSessionQuery? query)
     {
-        var sessions = await _staff.GetAllSessionsAsync(query ?? new StaffSessionQuery());
+        var id = CallerId ?? throw new UnauthorizedAccessException();
+        var sessions = await _staff.GetAllSessionsAsync(query ?? new StaffSessionQuery(), id);
         return Ok(sessions);
     }
 
@@ -45,7 +46,10 @@ public class StaffController : ControllerBase
     [ProducesResponseType(typeof(ExamSessionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<IActionResult> GetSession(int sessionId) => ExecuteAsync(async () =>
-        Ok(await _staff.GetSessionByIdAsync(sessionId)));
+    {
+        var id = CallerId ?? throw new UnauthorizedAccessException();
+        return Ok(await _staff.GetSessionByIdAsync(sessionId, id));
+    });
 
     /// <summary>Tạo ca thi mới (phòng, lịch, capacity). Không cần là người tạo Exam.</summary>
     [HttpPost("sessions")]

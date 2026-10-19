@@ -41,16 +41,23 @@ public class StaffService : IStaffService
     //  SESSIONS / ROOMS
     // ═══════════════════════════════════════════════════════════════
 
-    public async Task<IEnumerable<ExamSessionSummaryDto>> GetAllSessionsAsync(StaffSessionQuery query)
+    public async Task<IEnumerable<ExamSessionSummaryDto>> GetAllSessionsAsync(StaffSessionQuery query, int staffId)
     {
         var sessions = await _sessionRepository.GetAllAsync(query?.Status);
+        var actor = await _userRepository.GetByIdAsync(staffId)
+            ?? throw new UnauthorizedAccessException("Staff account was not found.");
+
+        if (actor.Role != UserRole.ADMIN)
+            sessions = sessions.Where(s => s.Exam?.Course?.TeacherId == staffId);
+
         return sessions.Select(MapToSummary);
     }
 
-    public async Task<ExamSessionDto> GetSessionByIdAsync(int sessionId)
+    public async Task<ExamSessionDto> GetSessionByIdAsync(int sessionId, int staffId)
     {
         var session = await _sessionRepository.GetByIdAsync(sessionId)
             ?? throw new KeyNotFoundException($"ExamSession {sessionId} not found.");
+        await EnsureStaffCanManageCourseAsync(session.ExamId, staffId, session.Exam);
         return MapToFull(session, session.Exam);
     }
 
@@ -64,9 +71,13 @@ public class StaffService : IStaffService
                 throw new InvalidOperationException("StartTime must be earlier than EndTime.");
             if (request.StartTime < DateTime.UtcNow.AddMinutes(-5))
                 throw new InvalidOperationException("StartTime cannot be in the past.");
+            if (request.MaxCapacity < 1)
+                throw new ArgumentException("MaxCapacity must be at least 1.");
 
             var exam = await _examRepository.GetByIdWithQuestionsAsync(request.ExamId)
                 ?? throw new KeyNotFoundException($"Exam {request.ExamId} not found.");
+
+            await EnsureStaffCanManageCourseAsync(exam.CourseId, staffId, exam);
 
             if (exam.ExamQuestions is null || exam.ExamQuestions.Count == 0)
                 throw new InvalidOperationException("Add questions to the exam before creating a session.");
@@ -102,6 +113,8 @@ public class StaffService : IStaffService
         {
             var session = await _sessionRepository.GetByIdAsync(sessionId)
                 ?? throw new KeyNotFoundException($"ExamSession {sessionId} not found.");
+
+            await EnsureStaffCanManageCourseAsync(session.ExamId, staffId, session.Exam);
 
             if (request.SessionName is not null)
             {
@@ -145,6 +158,8 @@ public class StaffService : IStaffService
         var session = await _sessionRepository.GetByIdAsync(sessionId)
             ?? throw new KeyNotFoundException($"ExamSession {sessionId} not found.");
 
+            await EnsureStaffCanManageCourseAsync(session.ExamId, staffId, session.Exam);
+
         if (session.Status == SessionStatus.IN_PROGRESS)
             throw new InvalidOperationException("Cannot delete a session that is in progress.");
         if (session.Status == SessionStatus.COMPLETED)
@@ -182,6 +197,8 @@ public class StaffService : IStaffService
         {
             var session = await _sessionRepository.GetByIdWithEnrollmentsAsync(sessionId)
                 ?? throw new KeyNotFoundException($"Session {sessionId} not found.");
+
+            await EnsureStaffCanManageCourseAsync(session.ExamId, staffId, session.Exam);
 
             if (session.Status == SessionStatus.COMPLETED || session.Status == SessionStatus.CANCELLED)
                 throw new InvalidOperationException("Session is no longer open for enrollment.");
@@ -266,6 +283,8 @@ public class StaffService : IStaffService
             var session = await _sessionRepository.GetByIdWithEnrollmentsAsync(sessionId)
                 ?? throw new KeyNotFoundException($"Session {sessionId} not found.");
 
+            await EnsureStaffCanManageCourseAsync(session.ExamId, staffId, session.Exam);
+
             if (session.Status == SessionStatus.IN_PROGRESS)
                 throw new InvalidOperationException(
                     "Cannot remove students from a session that is in progress.");
@@ -307,6 +326,8 @@ public class StaffService : IStaffService
     {
         var session = await _sessionRepository.GetByIdWithEnrollmentsAsync(sessionId)
             ?? throw new KeyNotFoundException($"Session {sessionId} not found.");
+
+            await EnsureStaffCanManageCourseAsync(session.ExamId, staffId, session.Exam);
 
         var exam = await _examRepository.GetByIdAsync(session.ExamId);
 
@@ -384,6 +405,24 @@ public class StaffService : IStaffService
             throw new InvalidOperationException(
                 $"Cannot transition from '{current}' to '{target}'. " +
                 $"Allowed transitions: [{string.Join(", ", allowed)}].");
+    }
+
+    private async Task EnsureStaffCanManageCourseAsync(
+        int examId, int staffId, Exam? examAlreadyLoaded = null)
+    {
+        var exam = examAlreadyLoaded
+            ?? await _examRepository.GetByIdAsync(examId)
+            ?? throw new KeyNotFoundException($"Exam {examId} not found.");
+
+        var actor = await _userRepository.GetByIdAsync(staffId)
+            ?? throw new UnauthorizedAccessException("Staff account was not found.");
+
+        if (actor.Role == UserRole.ADMIN)
+            return;
+
+        if (actor.Role != UserRole.STAFF || exam.Course?.TeacherId != staffId)
+            throw new UnauthorizedAccessException(
+                "You are not assigned to the course of this exam.");
     }
 
     private static ExamSessionDto MapToFull(ExamSession s, Exam? exam) => new()
