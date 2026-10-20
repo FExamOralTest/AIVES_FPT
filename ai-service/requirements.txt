@@ -15,12 +15,15 @@ anyio>=4.6.0
 
 # File handling
 python-multipart>=0.0.12
+boto3>=1.35.0
 
 # Logging
 loguru>=0.7.2
 
 # Speech (free, local)
 faster-whisper>=1.2.1
+# Faster-Whisper 1.2.1 uses an audio API removed in PyAV 19.
+av>=11,<19
 edge-tts>=7.2.8
 
 # Testing

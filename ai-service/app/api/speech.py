@@ -4,17 +4,59 @@ Endpoints for Speech-to-Text and Text-to-Speech.
 Called by ASP.NET Core Backend (not directly by Frontend - see BR-14).
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, status
+import asyncio
+import secrets
+
+from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile, File, Form, status
 from loguru import logger
 
-from app.models.request import TextToSpeechRequest
-from app.models.response import SpeechToTextResponse, TextToSpeechResponse, ErrorResponse
+from app.core.config import get_settings
+from app.models.request import StoredSpeechToTextRequest, TextToSpeechRequest
+from app.models.response import StoredSpeechToTextResponse, SpeechToTextResponse, TextToSpeechResponse, ErrorResponse
+from app.services.r2_audio_service import AudioStorageError, download_audio
 from app.services.speech_service import SpeechToTextService
 from app.services.tts_service import TextToSpeechService
 
 router = APIRouter(prefix="/speech", tags=["Speech"])
 _stt_service = SpeechToTextService()
 _tts_service = TextToSpeechService()
+
+
+def _require_internal_token(x_internal_token: str | None = Header(default=None)) -> None:
+    secret = get_settings().ai_service_secret_key
+    if secret in {"", "dev-secret-key", "your-secret-key-here"}:
+        raise HTTPException(status_code=503, detail="Internal service authentication is not configured.")
+    if not x_internal_token or not secrets.compare_digest(x_internal_token.encode(), secret.encode()):
+        raise HTTPException(status_code=401, detail="Invalid internal service token.")
+
+
+@router.post(
+    "/transcribe-object",
+    response_model=StoredSpeechToTextResponse,
+    dependencies=[Depends(_require_internal_token)],
+    summary="Transcribe an answer audio object from private R2 storage",
+)
+async def transcribe_audio_object(request: StoredSpeechToTextRequest) -> StoredSpeechToTextResponse:
+    try:
+        audio = await asyncio.to_thread(download_audio, request.object_key)
+        result = await _stt_service.transcribe(
+            audio_bytes=audio,
+            exam_session_id=str(request.answer_id),
+            language=request.language,
+        )
+        return StoredSpeechToTextResponse(
+            success=result.success,
+            message=result.message,
+            answer_id=request.answer_id,
+            transcript=result.transcript,
+            language=result.language_detected or request.language,
+            duration=result.duration,
+        )
+    except AudioStorageError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("STT failed for answer {}", request.answer_id)
+        raise HTTPException(status_code=500, detail="Audio transcription failed.") from exc
 
 
 @router.post(

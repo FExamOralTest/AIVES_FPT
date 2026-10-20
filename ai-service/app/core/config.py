@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     stt_provider: str = Field(default="mock", alias="STT_PROVIDER")
     google_stt_api_key: str = Field(default="", alias="GOOGLE_STT_API_KEY")
     faster_whisper_model: str = Field(default="base", alias="FASTER_WHISPER_MODEL")
+    faster_whisper_device: str = Field(default="cpu", alias="FASTER_WHISPER_DEVICE")
+    faster_whisper_compute_type: str = Field(default="int8", alias="FASTER_WHISPER_COMPUTE_TYPE")
+    stt_max_audio_bytes: int = Field(default=50 * 1024 * 1024, gt=0, alias="STT_MAX_AUDIO_BYTES")
+
+    # --- R2 ---
+    r2_account_id: str = Field(default="", alias="R2_ACCOUNT_ID")
+    r2_endpoint_url: str = Field(default="", alias="R2_ENDPOINT_URL")
+    r2_access_key_id: str = Field(default="", alias="R2_ACCESS_KEY_ID")
+    r2_secret_access_key: str = Field(default="", alias="R2_SECRET_ACCESS_KEY")
+    r2_bucket_name: str = Field(default="aives-exam-audios", alias="R2_BUCKET_NAME")
 
     # --- TTS ---
     tts_provider: str = Field(default="mock", alias="TTS_PROVIDER")

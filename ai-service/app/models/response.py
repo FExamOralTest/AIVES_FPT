@@ -91,6 +91,7 @@ class SpeechToTextResponse(BaseResponse):
     """Response from STT transcription."""
 
     transcript: str = Field(..., description="Transcribed text from student's audio")
+    duration: float = Field(default=0.0, ge=0, allow_inf_nan=False, description="Audio duration in seconds")
     confidence: Optional[float] = Field(
         default=None,
         ge=0.0,
@@ -98,8 +99,15 @@ class SpeechToTextResponse(BaseResponse):
         description="Confidence score (0.0 to 1.0)",
     )
     language_detected: Optional[str] = Field(
-        default=None, description="Detected language BCP-47 code"
+        default=None, description="Language code returned by the STT provider"
     )
+
+
+class StoredSpeechToTextResponse(BaseResponse):
+    answer_id: int = Field(serialization_alias="answerId")
+    transcript: str
+    language: str
+    duration: float = Field(ge=0, allow_inf_nan=False)
 
 
 # ─────────────────────────────────────────────
