@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams.Exceptions;
 using Aives.Application.Exams.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -47,6 +48,10 @@ public class EnrollController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (QuestionBankConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {

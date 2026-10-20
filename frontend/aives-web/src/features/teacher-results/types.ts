@@ -1,5 +1,25 @@
+export type AnswerStatusType = 'PROCESSING' | 'EVALUATED' | 'ERROR'
+
+export interface AnswerAudioPlaybackDto {
+  answerId: number
+  resultId: number
+  playbackUrl: string
+  expiresAt: string
+  contentType?: string
+}
+
+export interface RetryAnswerResponseDto {
+  answerId: number
+  jobId: string
+  status: string
+  previousStatus: string
+  enqueuedAt: string
+}
+
 export interface AnswerForReviewDto {
   answerId: number
+  status?: AnswerStatusType | string
+  errorMessage?: string | null
   questionId: number
   questionText: string
   studentAnswer?: string | null

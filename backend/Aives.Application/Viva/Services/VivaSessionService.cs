@@ -190,6 +190,8 @@ public class VivaSessionService : IVivaSessionService
 
         string transcript = string.Empty;
         string? audioUrl = null;
+        string? storedObjectKey = null;
+        float? audioDuration = null;
 
         // 1. Process voice audio if submitted
         if (request.AudioFile != null && request.AudioFile.Length > 0)
@@ -197,6 +199,7 @@ public class VivaSessionService : IVivaSessionService
             var extension = Path.GetExtension(request.AudioFile.FileName);
             if (string.IsNullOrWhiteSpace(extension)) extension = ".webm";
             var objectKey = $"exams/{session.ExamId}/sessions/{sessionId}/students/{studentId}/q_{request.QuestionId}_{DateTime.UtcNow.Ticks}{extension}";
+            storedObjectKey = objectKey;
 
             using var memoryStream = new MemoryStream();
             await request.AudioFile.CopyToAsync(memoryStream);
@@ -218,6 +221,7 @@ public class VivaSessionService : IVivaSessionService
             if (sttResponse.Success && !string.IsNullOrWhiteSpace(sttResponse.Transcript))
             {
                 transcript = sttResponse.Transcript;
+                audioDuration = (float)sttResponse.Duration;
             }
         }
 
@@ -256,6 +260,8 @@ public class VivaSessionService : IVivaSessionService
             StudentAnswer = studentAnswerText,
             Transcript = transcript,
             AudioUrl = audioUrl,
+            ObjectKey = storedObjectKey,
+            DurationSeconds = audioDuration,
             Status = !string.IsNullOrWhiteSpace(transcript) ? AnswerStatus.EVALUATED : AnswerStatus.PROCESSING,
             IsFollowUp = request.IsFollowUp,
             AnsweredAt = DateTime.UtcNow
@@ -419,6 +425,7 @@ public class VivaSessionService : IVivaSessionService
                     var answer = answersById[itemEval.QuestionId];
                     answer.AiScore = itemEval.Score;
                     answer.AiFeedback = itemEval.Feedback;
+                    answer.Status = AnswerStatus.EVALUATED;
                     answer.AiAnalysis = JsonSerializer.Serialize(new StoredAnswerAnalysisDto
                     {
                         Context = contextsById[itemEval.QuestionId],
@@ -430,6 +437,14 @@ public class VivaSessionService : IVivaSessionService
             {
                 result.AiEvaluationStatus = AiEvaluationStatus.FAILED;
                 result.AiEvaluationError = evalResponse.Message ?? "AI evaluation failed.";
+                foreach (var answer in answers)
+                {
+                    if (answer.Status != AnswerStatus.EVALUATED)
+                    {
+                        answer.Status = AnswerStatus.ERROR;
+                        answer.ErrorMessage = result.AiEvaluationError;
+                    }
+                }
                 _logger.LogWarning("AI evaluation failed for result {ResultId}: {ErrorCode}",
                     result.ResultId, evalResponse.ErrorCode);
             }

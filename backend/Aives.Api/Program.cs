@@ -153,6 +153,7 @@ builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserReposi
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IResultRepository, ResultRepository>();
 builder.Services.AddScoped<IAnswerRepository, AnswerRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IUserService,             UserService>();
 builder.Services.AddScoped<ICourseService,           CourseService>();
 builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();

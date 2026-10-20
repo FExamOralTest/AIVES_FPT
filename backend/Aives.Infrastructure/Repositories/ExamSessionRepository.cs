@@ -41,6 +41,7 @@ public class ExamSessionRepository : IExamSessionRepository
     {
         return await _db.ExamSessions
             .Include(s => s.Exam)
+                .ThenInclude(e => e.Course)
             .Include(s => s.SessionEnrollments)
                 .ThenInclude(se => se.Student)
             .Include(s => s.Results)
@@ -50,10 +51,14 @@ public class ExamSessionRepository : IExamSessionRepository
 
     public async Task<ExamSession?> GetBySessionCodeAsync(string sessionCode)
     {
+        var normalizedCode = NormalizeSessionCode(sessionCode);
+        if (normalizedCode is null)
+            return null;
+
         return await _db.ExamSessions
             .Include(s => s.Exam)
             .Include(s => s.SessionEnrollments)
-            .FirstOrDefaultAsync(s => s.SessionCode == sessionCode);
+            .FirstOrDefaultAsync(s => s.SessionCode == normalizedCode);
     }
 
     public async Task<IEnumerable<ExamSession>> GetByTeacherIdAsync(int teacherId)
@@ -153,7 +158,11 @@ public class ExamSessionRepository : IExamSessionRepository
 
     public async Task<bool> SessionCodeExistsAsync(string sessionCode)
     {
-        return await _db.ExamSessions.AnyAsync(s => s.SessionCode == sessionCode);
+        var normalizedCode = NormalizeSessionCode(sessionCode);
+
+        return normalizedCode is not null
+            && await _db.ExamSessions
+                .AnyAsync(s => s.SessionCode == normalizedCode);
     }
 
     public async Task SaveChangesAsync()
@@ -171,6 +180,7 @@ public class ExamSessionRepository : IExamSessionRepository
     {
         var query = _db.ExamSessions
             .Include(s => s.Exam)
+                .ThenInclude(e => e.Course)
             .Include(s => s.SessionEnrollments)
             .AsQueryable();
 
@@ -180,5 +190,13 @@ public class ExamSessionRepository : IExamSessionRepository
         return await query
             .OrderByDescending(s => s.StartTime)
             .ToListAsync();
+    }
+    private static string? NormalizeSessionCode(string? sessionCode)
+    {
+        var value = sessionCode?.Trim();
+
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.ToUpperInvariant();
     }
 }
