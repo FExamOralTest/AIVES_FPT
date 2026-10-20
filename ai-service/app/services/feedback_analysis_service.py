@@ -78,7 +78,7 @@ class FeedbackAnalysisService:
             "topic": (question.topic or "").strip(),
             "rubric": [criterion.model_dump() for criterion in question.rubric],
         }
-        raw = await self.ai_client.complete(system_prompt, json.dumps(payload, ensure_ascii=False))
+        raw = await self.ai_client.complete_with_retry(system_prompt, json.dumps(payload, ensure_ascii=False))
         try:
             parsed = parse_ai_output(raw, FeedbackAnalysisOutput)
             return validate_analysis(parsed, transcript, question.rubric)
