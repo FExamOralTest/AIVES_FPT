@@ -63,3 +63,6 @@ appsettings.Development.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# ===== Local temporary checks, previews, and generated artifacts =====
+/tmp/
