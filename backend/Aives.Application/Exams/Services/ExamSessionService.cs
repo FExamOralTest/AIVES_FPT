@@ -102,13 +102,24 @@ public class ExamSessionService : IExamSessionService
 
         return MapToSessionDto(updated, updated.Exam);
     }
-    public async Task<EnrollSessionResponse> EnrollStudentAsync(EnrollSessionRequest request, int studentId)
+    public Task<EnrollSessionResponse> EnrollStudentAsync(EnrollSessionRequest request, int studentId)
+        => _unitOfWork.ExecuteAsync(async () =>
     {
-        var session = await _sessionRepository.GetBySessionCodeAsync(request.SessionCode)
+        if (request is null || string.IsNullOrWhiteSpace(request.SessionCode))
+            throw new ArgumentException("SessionCode is required.");
+
+        var normalizedSessionCode = request.SessionCode.Trim().ToUpperInvariant();
+        var session = await _sessionRepository.GetBySessionCodeAsync(normalizedSessionCode)
             ?? throw new KeyNotFoundException("Invalid or expired Enroll Code.");
 
         if (session.Status != SessionStatus.NOT_STARTED && session.Status != SessionStatus.IN_PROGRESS)
             throw new InvalidOperationException("This session is not open for enrollment.");
+
+        var now = DateTime.UtcNow;
+        if (now < session.StartTime)
+            throw new InvalidOperationException("Enrollment has not started yet.");
+        if (now > session.EndTime)
+            throw new InvalidOperationException("Enrollment has ended.");
 
         if (session.CurrentEnrollment >= session.MaxCapacity)
             throw new InvalidOperationException("Session has reached maximum capacity.");
@@ -143,7 +154,7 @@ public class ExamSessionService : IExamSessionService
             EndTime = session.EndTime,
             Status = session.Status?.ToString() ?? SessionStatus.NOT_STARTED.ToString()
         };
-    }
+    });
 
     public Task<IEnumerable<StudentSessionEnrollmentDto>> GetStudentEnrollmentsAsync(
         int studentId, CancellationToken cancellationToken = default)
