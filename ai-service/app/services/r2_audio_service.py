@@ -2,6 +2,7 @@ from contextlib import closing
 from functools import lru_cache
 
 from app.core.config import get_settings
+from app.services.stt_errors import SttError
 
 settings = get_settings()
 
@@ -46,12 +47,12 @@ def download_audio(object_key: str) -> bytes:
         response = _get_r2_client().get_object(Bucket=settings.r2_bucket_name, Key=object_key)
         with closing(response["Body"]) as body:
             if response.get("ContentLength", 0) > settings.stt_max_audio_bytes:
-                raise AudioStorageError(413, "Audio exceeds the configured size limit.")
+                raise SttError("UNSUPPORTED_FORMAT", "Audio exceeds the configured size limit.", 413)
             audio = body.read(settings.stt_max_audio_bytes + 1)
         if len(audio) > settings.stt_max_audio_bytes:
-            raise AudioStorageError(413, "Audio exceeds the configured size limit.")
+            raise SttError("UNSUPPORTED_FORMAT", "Audio exceeds the configured size limit.", 413)
         if not audio:
-            raise AudioStorageError(400, "Audio file is empty.")
+            raise SttError("EMPTY_AUDIO")
         return audio
     except ClientError as exc:
         code = exc.response.get("Error", {}).get("Code")

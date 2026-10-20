@@ -13,6 +13,7 @@ import threading
 from loguru import logger
 from app.core.config import get_settings
 from app.models.response import SpeechToTextResponse
+from app.services.stt_errors import SttError
 
 settings = get_settings()
 
@@ -52,16 +53,41 @@ class SpeechToTextService:
             f"({len(audio_bytes)} bytes, lang={language})"
         )
 
-        if self.provider == "gemini":
-            return await self._transcribe_gemini(audio_bytes, language)
-        elif self.provider == "google":
-            return await self._transcribe_google(audio_bytes, language)
-        elif self.provider == "openai_whisper":
-            return await self._transcribe_whisper(audio_bytes, language)
-        elif self.provider == "faster_whisper":
-            return await self._transcribe_faster_whisper(audio_bytes, language)
-        else:
-            return await self._transcribe_mock(audio_bytes, language)
+        if not audio_bytes:
+            raise SttError("EMPTY_AUDIO")
+        if len(audio_bytes) > settings.stt_max_audio_bytes:
+            raise SttError("UNSUPPORTED_FORMAT", "Audio exceeds the configured size limit.", 413)
+        supported = (
+            audio_bytes[:4] in (b"RIFF", b"OggS", b"fLaC", b"\x1aE\xdf\xa3")
+            or audio_bytes.startswith(b"ID3")
+            or (len(audio_bytes) >= 2 and audio_bytes[0] == 255 and audio_bytes[1] & 224 == 224)
+            or audio_bytes[4:8] == b"ftyp"
+        )
+        if not supported:
+            raise SttError("UNSUPPORTED_FORMAT")
+
+        providers = {
+            "mock": self._transcribe_mock,
+            "gemini": self._transcribe_gemini,
+            "google": self._transcribe_google,
+            "openai_whisper": self._transcribe_whisper,
+            "faster_whisper": self._transcribe_faster_whisper,
+        }
+        provider = providers.get(self.provider)
+        if provider is None:
+            raise SttError("INTERNAL_ERROR")
+        try:
+            result = await asyncio.wait_for(
+                provider(audio_bytes, language), timeout=settings.stt_timeout_seconds
+            )
+        except TimeoutError as exc:
+            raise SttError("TIMEOUT") from exc
+        if not result.success:
+            raise SttError("INTERNAL_ERROR")
+        result.transcript = result.transcript.strip()
+        if not result.transcript:
+            raise SttError("EMPTY_TRANSCRIPT")
+        return result
 
     async def _transcribe_gemini(self, audio_bytes: bytes, language: str) -> SpeechToTextResponse:
         """Transcribe recorded audio with Gemini's audio input API."""
@@ -70,7 +96,7 @@ class SpeechToTextService:
         if not settings.gemini_api_key:
             raise ValueError("GEMINI_API_KEY is not set.")
         if not audio_bytes or len(audio_bytes) > 14_000_000:
-            raise ValueError("Gemini STT requires nonempty audio of at most 14 MB.")
+            raise SttError("UNSUPPORTED_FORMAT", "Gemini STT supports audio of at most 14 MB.", 413)
         if audio_bytes[:4] == b"RIFF" and audio_bytes[8:12] == b"WAVE":
             mime_type = "audio/wav"
         elif audio_bytes.startswith(b"\x1aE\xdf\xa3"):
@@ -82,7 +108,7 @@ class SpeechToTextService:
         elif audio_bytes[4:8] == b"ftyp":
             mime_type = "audio/mp4"
         else:
-            raise ValueError("Unsupported audio container for Gemini STT.")
+            raise SttError("UNSUPPORTED_FORMAT")
 
         model = (settings.gemini_stt_model or settings.gemini_model).removeprefix("models/")
         if not re.fullmatch(r"[A-Za-z0-9._-]+", model):
@@ -114,7 +140,7 @@ class SpeechToTextService:
         parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
         transcript = "".join(part.get("text", "") for part in parts if not part.get("thought")).strip()
         if not transcript:
-            raise ValueError("Gemini returned no transcript; the audio may contain no speech or be blocked.")
+            raise SttError("EMPTY_TRANSCRIPT")
         return SpeechToTextResponse(success=True, transcript=transcript, confidence=None, language_detected=language)
 
     # ── Mock ──────────────────────────────────────────────
@@ -168,13 +194,7 @@ class SpeechToTextService:
 
         results = data.get("results", [])
         if not results:
-            return SpeechToTextResponse(
-                success=True,
-                transcript="",
-                confidence=0.0,
-                language_detected=language,
-                message="No speech detected in audio.",
-            )
+            raise SttError("NO_SPEECH")
 
         best = results[0]["alternatives"][0]
         return SpeechToTextResponse(
@@ -189,29 +209,45 @@ class SpeechToTextService:
         self, audio_bytes: bytes, language: str
     ) -> SpeechToTextResponse:
         def _run() -> SpeechToTextResponse:
+            import av
             from faster_whisper import WhisperModel
+            from faster_whisper.audio import decode_audio
 
-            # Keep model loading and lazy segment inference off the event loop.
-            with self._whisper_lock:
+            # A timed-out native inference keeps running; do not queue more work behind it.
+            if not self._whisper_lock.acquire(blocking=False):
+                raise SttError("INTERNAL_ERROR", "The STT model is busy. Please retry.", 503)
+            try:
+                try:
+                    with io.BytesIO(audio_bytes) as audio:
+                        samples = decode_audio(audio, sampling_rate=16000)
+                except (av.error.FFmpegError, ValueError, EOFError) as exc:
+                    raise SttError("AUDIO_CORRUPTED") from exc
+                if samples.size == 0:
+                    raise SttError("AUDIO_CORRUPTED", "Audio contains no samples.")
                 if self._whisper_model is None:
                     self._whisper_model = WhisperModel(
                         settings.faster_whisper_model,
                         device=settings.faster_whisper_device,
                         compute_type=settings.faster_whisper_compute_type,
                     )
-                with io.BytesIO(audio_bytes) as audio:
-                    segments, info = self._whisper_model.transcribe(
-                        audio,
-                        language=language.replace("_", "-").split("-")[0].lower(),
-                        vad_filter=True,
-                    )
-                    text = " ".join(segment.text.strip() for segment in segments).strip()
+                segments, info = self._whisper_model.transcribe(
+                    samples,
+                    language=language.replace("_", "-").split("-")[0].lower(),
+                    vad_filter=True,
+                )
+                text = " ".join(segment.text.strip() for segment in segments).strip()
+                if info.duration_after_vad == 0:
+                    raise SttError("NO_SPEECH")
+                if not text:
+                    raise SttError("EMPTY_TRANSCRIPT")
                 return SpeechToTextResponse(
                     transcript=text,
                     confidence=info.language_probability,
                     language_detected=info.language,
                     duration=info.duration,
                 )
+            finally:
+                self._whisper_lock.release()
 
         return await asyncio.to_thread(_run)
 

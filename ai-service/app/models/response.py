@@ -87,6 +87,12 @@ class GenerateFollowUpResponse(BaseResponse):
 # ─────────────────────────────────────────────
 
 
+class SttErrorPayload(BaseModel):
+    code: str
+    message: str
+    retryable: bool
+
+
 class SpeechToTextResponse(BaseResponse):
     """Response from STT transcription."""
 
@@ -101,6 +107,7 @@ class SpeechToTextResponse(BaseResponse):
     language_detected: Optional[str] = Field(
         default=None, description="Language code returned by the STT provider"
     )
+    error: Optional[SttErrorPayload] = None
 
 
 class StoredSpeechToTextResponse(BaseResponse):
@@ -108,6 +115,7 @@ class StoredSpeechToTextResponse(BaseResponse):
     transcript: str
     language: str
     duration: float = Field(ge=0, allow_inf_nan=False)
+    error: Optional[SttErrorPayload] = None
 
 
 # ─────────────────────────────────────────────
