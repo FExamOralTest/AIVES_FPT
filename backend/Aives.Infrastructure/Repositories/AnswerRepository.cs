@@ -28,17 +28,22 @@ public class AnswerRepository : IAnswerRepository
             .Include(a => a.Result)
                 .ThenInclude(r => r.Session)
                     .ThenInclude(s => s.Exam)
+                        .ThenInclude(e => e.Course)
             .FirstOrDefaultAsync(a => a.AnswerId == answerId, cancellationToken);
     }
 
     public async Task UpdateTranscriptAsync(
-        int answerId, string transcript, AnswerStatus status, CancellationToken cancellationToken = default)
+        int answerId, string transcript, AnswerStatus status, CancellationToken cancellationToken = default,
+        string? detectedLanguage = null, float? durationSeconds = null)
     {
         var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
         if (answer == null) return;
         answer.Transcript = transcript;
+        if (detectedLanguage != null) answer.DetectedLanguage = detectedLanguage;
+        if (durationSeconds.HasValue) answer.DurationSeconds = durationSeconds;
         answer.Status = status;
-        answer.AnsweredAt = DateTime.UtcNow;
+        answer.ErrorMessage = null;
+        answer.AnsweredAt ??= DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -56,6 +61,7 @@ public class AnswerRepository : IAnswerRepository
         answer.AiFeedback = aiFeedback;
         answer.AiAnalysis = aiAnalysisJson;
         answer.Status = status;
+        answer.ErrorMessage = null;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -65,7 +71,7 @@ public class AnswerRepository : IAnswerRepository
         var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
         if (answer == null) return;
         answer.Status = AnswerStatus.ERROR;
-        answer.TeacherComment = errorMessage;
+        answer.ErrorMessage = errorMessage;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -74,12 +80,14 @@ public class AnswerRepository : IAnswerRepository
         var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
         if (answer == null) return;
         answer.Transcript = null;
+        answer.DetectedLanguage = null;
+        answer.DurationSeconds = null;
         answer.AiScore = null;
         answer.AiFeedback = null;
         answer.AiAnalysis = null;
         answer.Status = AnswerStatus.PROCESSING;
         answer.AnsweredAt = null;
-        answer.TeacherComment = null;
+        answer.ErrorMessage = null;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -88,13 +96,17 @@ public class AnswerRepository : IAnswerRepository
         var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
         if (answer == null) return;
         answer.AudioUrl = audioUrl;
+        answer.ObjectKey = Uri.TryCreate(audioUrl, UriKind.Absolute, out _) || audioUrl.StartsWith('/')
+            ? null : audioUrl;
         answer.Transcript = null;
+        answer.DetectedLanguage = null;
+        answer.DurationSeconds = null;
         answer.AiScore = null;
         answer.AiFeedback = null;
         answer.AiAnalysis = null;
         answer.Status = AnswerStatus.PROCESSING;
         answer.AnsweredAt = DateTime.UtcNow;
-        answer.TeacherComment = null;
+        answer.ErrorMessage = null;
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

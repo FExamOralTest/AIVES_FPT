@@ -90,6 +90,35 @@ public class SttErrorPayload
     public bool Retryable { get; set; } = true;
 }
 
+public class StoredSpeechToTextResponse
+{
+    [JsonRequired]
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonRequired]
+    [JsonPropertyName("answerId")]
+    public int AnswerId { get; set; }
+
+    [JsonRequired]
+    [JsonPropertyName("transcript")]
+    public string Transcript { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("language")]
+    public string Language { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("duration")]
+    public double Duration { get; set; }
+
+    [JsonPropertyName("error")]
+    public SttErrorPayload? Error { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
 public class TextToSpeechRequest
 {
     [JsonPropertyName("text")]

@@ -340,7 +340,7 @@ public class AiPipelineE2ETests : IDisposable
 
         var dbAnswer = await _db.Answers.FindAsync(seed.AnswerId);
         Assert.Equal(AnswerStatus.ERROR, dbAnswer!.Status);
-        Assert.NotNull(dbAnswer.TeacherComment); // Lỗi message
+        Assert.NotNull(dbAnswer.ErrorMessage);
     }
 
     [Fact]
