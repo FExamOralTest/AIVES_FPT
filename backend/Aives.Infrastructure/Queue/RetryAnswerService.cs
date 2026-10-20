@@ -90,7 +90,7 @@ public class RetryAnswerService : IRetryAnswerService
         await _answerRepository.ResetForRetryAsync(answerId, cancellationToken);
 
         // 6. Enqueue job mới.
-        var objectKey = answer.AudioUrl ?? string.Empty;
+        var objectKey = answer.ObjectKey ?? answer.AudioUrl ?? string.Empty;
         var metadata = new QueueJobMetadata
         {
             AnswerId = answerId,

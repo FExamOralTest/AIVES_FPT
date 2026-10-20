@@ -43,6 +43,10 @@ public class OrchestrationResult
     /// <summary>Transcript sinh ra từ STT — caller dùng để lưu vào DB.</summary>
     public string? Transcript { get; set; }
 
+    public string? DetectedLanguage { get; set; }
+
+    public float? DurationSeconds { get; set; }
+
     /// <summary>AI score (sau khi eval thành công).</summary>
     public float? AiScore { get; set; }
 

@@ -13,7 +13,8 @@ public interface IAnswerRepository
     Task<Domain.Entities.Answer?> GetByIdWithDetailsAsync(int answerId, CancellationToken cancellationToken = default);
 
     /// <summary>Cập nhật transcript + status (sau STT).</summary>
-    Task UpdateTranscriptAsync(int answerId, string transcript, Domain.Enums.AnswerStatus status, CancellationToken cancellationToken = default);
+    Task UpdateTranscriptAsync(int answerId, string transcript, Domain.Enums.AnswerStatus status,
+        CancellationToken cancellationToken = default, string? detectedLanguage = null, float? durationSeconds = null);
 
     /// <summary>Cập nhật kết quả AI (score + feedback + analysis JSON + status).</summary>
     Task UpdateAiEvaluationAsync(
