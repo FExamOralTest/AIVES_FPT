@@ -18,6 +18,12 @@ from app.models.response import (
     QuestionScoreDetail,
 )
 from app.services.markdown_processor import MarkdownProcessor
+from app.services.response_validator import get_validator
+from app.exceptions.ai_exceptions import (
+    AIValidationError,
+    AITimeoutError,
+    MaxRetriesExceededError,
+)
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "scoring_prompt.txt"
 _SCORING_PROMPT_TEMPLATE: str = _PROMPT_PATH.read_text(encoding="utf-8")
@@ -55,6 +61,7 @@ class ScoringService:
 
     def __init__(self, ai_client: BaseAIClient | None = None) -> None:
         self.ai_client = ai_client or get_ai_client()
+        self.validator = get_validator()
 
     async def evaluate_answer(
         self, request: EvaluateAnswerRequest
@@ -89,9 +96,12 @@ class ScoringService:
             ensure_ascii=False,
         )
 
-        raw_response = await self.ai_client.complete(system_prompt, user_message)
-
         try:
+            # Use complete_with_retry instead of complete for automatic retry logic
+            raw_response = await self.ai_client.complete_with_retry(system_prompt, user_message)
+            
+            # Parse and validate using the old method for now (to maintain compatibility)
+            # TODO: Migrate to AIEvaluationContract when rubric support is added
             data = parse_ai_output(raw_response, ScoringOutput)
             if data.max_score != request.max_score:
                 raise ValueError("AI max_score does not match the requested maximum.")
@@ -101,6 +111,9 @@ class ScoringService:
                 question_id=qa.question_id,
                 **data.model_dump(),
             )
+        except (AIValidationError, AITimeoutError, MaxRetriesExceededError) as exc:
+            logger.error(f"[ScoringService] AI error: {exc}")
+            raise ValueError(f"AI evaluation failed: {exc.message}") from exc
         except ValueError as exc:
             logger.warning("[ScoringService] Rejected invalid scoring response.")
             raise ValueError("AI returned an invalid scoring response.") from exc
