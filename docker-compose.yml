@@ -39,6 +39,7 @@ services:
       ConnectionStrings__DefaultConnection: Host=postgres;Database=aives_dev;Username=aives;Password=aives-local-development
       Jwt__Key: aives-docker-local-development-key-32-characters
       AI__BaseUrl: http://ai-service:8000
+      AI__ApiKey: aives-dev-internal-key
     volumes:
       - uploads:/app/wwwroot/uploads
     depends_on:
@@ -61,6 +62,7 @@ services:
     environment:
       AI_SERVICE_ENV: development
       AI_PROVIDER: mock
+      AI_SERVICE_SECRET_KEY: aives-dev-internal-key
       STT_PROVIDER: mock
       TTS_PROVIDER: mock
       BACKEND_URL: http://backend:8080
