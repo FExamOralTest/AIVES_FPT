@@ -7,19 +7,48 @@ Called by ASP.NET Core Backend (not directly by Frontend - see BR-14).
 import asyncio
 import secrets
 
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile, File, Form, status
+from fastapi.responses import JSONResponse
 from loguru import logger
 
 from app.core.config import get_settings
 from app.models.request import StoredSpeechToTextRequest, TextToSpeechRequest
-from app.models.response import StoredSpeechToTextResponse, SpeechToTextResponse, TextToSpeechResponse, ErrorResponse
+from app.models.response import StoredSpeechToTextResponse, SpeechToTextResponse, SttErrorPayload, TextToSpeechResponse, ErrorResponse
 from app.services.r2_audio_service import AudioStorageError, download_audio
 from app.services.speech_service import SpeechToTextService
+from app.services.stt_errors import SttError
 from app.services.tts_service import TextToSpeechService
 
 router = APIRouter(prefix="/speech", tags=["Speech"])
 _stt_service = SpeechToTextService()
 _tts_service = TextToSpeechService()
+
+
+def _stt_error_response(error: SttError, answer_id: int | None = None) -> JSONResponse:
+    payload = SttErrorPayload(code=error.code, message=str(error), retryable=error.retryable)
+    if answer_id is not None:
+        response = StoredSpeechToTextResponse(
+            success=False, message=str(error), answer_id=answer_id,
+            transcript="", language="", duration=0, error=payload,
+        )
+    else:
+        response = SpeechToTextResponse(success=False, message=str(error), transcript="", error=payload)
+    return JSONResponse(status_code=error.status_code, content=response.model_dump(by_alias=True))
+
+
+_stt_error_responses = {
+    code: {"model": SpeechToTextResponse, "description": description}
+    for code, description in {
+        400: "Empty or corrupted audio",
+        413: "Audio exceeds the size limit",
+        415: "Unsupported audio format",
+        422: "No speech, empty transcript, or invalid request",
+        500: "STT inference failed",
+        503: "STT or audio storage unavailable",
+        504: "STT timed out",
+    }.items()
+}
 
 
 def _require_internal_token(x_internal_token: str | None = Header(default=None)) -> None:
@@ -35,10 +64,14 @@ def _require_internal_token(x_internal_token: str | None = Header(default=None))
     response_model=StoredSpeechToTextResponse,
     dependencies=[Depends(_require_internal_token)],
     summary="Transcribe an answer audio object from private R2 storage",
+    responses=_stt_error_responses,
 )
-async def transcribe_audio_object(request: StoredSpeechToTextRequest) -> StoredSpeechToTextResponse:
+async def transcribe_audio_object(request: StoredSpeechToTextRequest) -> StoredSpeechToTextResponse | JSONResponse:
     try:
-        audio = await asyncio.to_thread(download_audio, request.object_key)
+        audio = await asyncio.wait_for(
+            asyncio.to_thread(download_audio, request.object_key),
+            timeout=get_settings().stt_timeout_seconds,
+        )
         result = await _stt_service.transcribe(
             audio_bytes=audio,
             exam_session_id=str(request.answer_id),
@@ -52,11 +85,16 @@ async def transcribe_audio_object(request: StoredSpeechToTextRequest) -> StoredS
             language=result.language_detected or request.language,
             duration=result.duration,
         )
+    except SttError as exc:
+        return _stt_error_response(exc, request.answer_id)
+    except (TimeoutError, httpx.TimeoutException):
+        return _stt_error_response(SttError("TIMEOUT"), request.answer_id)
     except AudioStorageError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    except Exception as exc:
+        code = "AUDIO_CORRUPTED" if exc.status_code == 404 else "INTERNAL_ERROR"
+        return _stt_error_response(SttError(code, str(exc), exc.status_code), request.answer_id)
+    except Exception:
         logger.exception("STT failed for answer {}", request.answer_id)
-        raise HTTPException(status_code=500, detail="Audio transcription failed.") from exc
+        return _stt_error_response(SttError("INTERNAL_ERROR"), request.answer_id)
 
 
 @router.post(
@@ -68,17 +106,13 @@ async def transcribe_audio_object(request: StoredSpeechToTextRequest) -> StoredS
         "Accepts multipart/form-data with audio file + session metadata. "
         "Supports WAV, WebM, MP3 formats."
     ),
-    responses={
-        200: {"description": "Transcript returned successfully"},
-        400: {"description": "Invalid audio file"},
-        500: {"model": ErrorResponse, "description": "STT transcription failed"},
-    },
+    responses=_stt_error_responses,
 )
 async def speech_to_text(
     audio_file: UploadFile = File(..., description="Student voice recording"),
     exam_session_id: str = Form(..., description="UUID of the ExamSession"),
     language: str = Form(default="vi-VN", description="BCP-47 language code"),
-) -> SpeechToTextResponse:
+) -> SpeechToTextResponse | JSONResponse:
     """
     Transcribe audio to text using the configured STT provider.
 
@@ -91,17 +125,11 @@ async def speech_to_text(
         )
 
         if not audio_file.filename:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No audio file provided.",
-            )
+            raise SttError("EMPTY_AUDIO", "No audio file provided.")
 
-        audio_bytes = await audio_file.read()
+        audio_bytes = await audio_file.read(get_settings().stt_max_audio_bytes + 1)
         if not audio_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Audio file is empty.",
-            )
+            raise SttError("EMPTY_AUDIO")
 
         return await _stt_service.transcribe(
             audio_bytes=audio_bytes,
@@ -109,20 +137,15 @@ async def speech_to_text(
             language=language,
         )
 
-    except HTTPException:
-        raise
-    except ValueError as exc:
-        logger.error(f"[SpeechAPI] STT error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
-    except Exception as exc:
-        logger.exception(f"[SpeechAPI] Unexpected STT error: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Transcription failed unexpectedly.",
-        )
+    except SttError as exc:
+        return _stt_error_response(exc)
+    except (TimeoutError, httpx.TimeoutException):
+        return _stt_error_response(SttError("TIMEOUT"))
+    except Exception:
+        logger.exception("[SpeechAPI] Unexpected STT error")
+        return _stt_error_response(SttError("INTERNAL_ERROR"))
+    finally:
+        await audio_file.close()
 
 
 @router.post(

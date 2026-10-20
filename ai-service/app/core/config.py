@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     faster_whisper_device: str = Field(default="cpu", alias="FASTER_WHISPER_DEVICE")
     faster_whisper_compute_type: str = Field(default="int8", alias="FASTER_WHISPER_COMPUTE_TYPE")
     stt_max_audio_bytes: int = Field(default=50 * 1024 * 1024, gt=0, alias="STT_MAX_AUDIO_BYTES")
+    stt_timeout_seconds: float = Field(default=110, gt=0, le=3600, alias="STT_TIMEOUT_SECONDS")
 
     # --- R2 ---
     r2_account_id: str = Field(default="", alias="R2_ACCOUNT_ID")

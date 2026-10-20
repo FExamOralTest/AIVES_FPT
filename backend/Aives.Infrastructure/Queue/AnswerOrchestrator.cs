@@ -196,9 +196,17 @@ public class AnswerOrchestrator : IAnswerOrchestrator
 
             if (!stt.Success)
             {
-                return SttFail(SttErrorCode.InternalError,
-                    stt.Message ?? "AI STT returned a failure response.",
-                    retryable: true); // Có thể là AI1 quá tải / lỗi downstream → retry.
+                var code = stt.Error?.Code?.ToUpperInvariant() switch
+                {
+                    "EMPTY_AUDIO" or "AUDIO_CORRUPTED" => SttErrorCode.AudioCorrupted,
+                    "NO_SPEECH" or "EMPTY_TRANSCRIPT" => SttErrorCode.EmptyTranscript,
+                    "UNSUPPORTED_FORMAT" => SttErrorCode.UnsupportedFormat,
+                    "TIMEOUT" => SttErrorCode.Timeout,
+                    _ => SttErrorCode.InternalError
+                };
+                return SttFail(code,
+                    stt.Error?.Message ?? stt.Message ?? "AI STT returned a failure response.",
+                    retryable: code is SttErrorCode.Timeout or SttErrorCode.InternalError);
             }
 
             if (string.IsNullOrWhiteSpace(stt.Transcript))

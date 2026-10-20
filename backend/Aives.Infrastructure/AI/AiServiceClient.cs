@@ -77,30 +77,59 @@ public class AiServiceClient : IAiServiceClient
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("STT failed with status {StatusCode}: {Error}", response.StatusCode, error);
-                return new SpeechToTextResponse
+                _logger.LogWarning("STT failed with status {StatusCode}", response.StatusCode);
+                try
                 {
-                    Success = false,
-                    Message = $"AI STT service returned status {response.StatusCode}: {error}",
-                    Transcript = string.Empty
+                    var failure = await response.Content.ReadFromJsonAsync<SpeechToTextResponse>();
+                    if (failure?.Error is { } error && !string.IsNullOrWhiteSpace(error.Code))
+                    {
+                        failure.Success = false;
+                        failure.Transcript = string.Empty;
+                        failure.Message = error.Message;
+                        return failure;
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Older deployments and proxies may return a different error body.
+                }
+
+                var code = (int)response.StatusCode switch
+                {
+                    400 or 404 => "AUDIO_CORRUPTED",
+                    413 or 415 => "UNSUPPORTED_FORMAT",
+                    422 => "EMPTY_TRANSCRIPT",
+                    408 or 504 => "TIMEOUT",
+                    _ => "INTERNAL_ERROR"
                 };
+                return SttFailure(code, $"AI STT service returned status {(int)response.StatusCode}.");
             }
 
             var result = await response.Content.ReadFromJsonAsync<SpeechToTextResponse>();
             return result ?? new SpeechToTextResponse { Success = false, Message = "Empty response from STT service." };
         }
+        catch (OperationCanceledException)
+        {
+            return SttFailure("TIMEOUT", "AI STT request timed out.");
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception calling AI STT service at {BaseAddress}", _httpClient.BaseAddress);
-            return new SpeechToTextResponse
-            {
-                Success = false,
-                Message = $"Error connecting to AI STT: {ex.Message}",
-                Transcript = string.Empty
-            };
+            return SttFailure("INTERNAL_ERROR", "Could not complete AI STT request.");
         }
     }
+
+    private static SpeechToTextResponse SttFailure(string code, string message) => new()
+    {
+        Success = false,
+        Message = message,
+        Error = new SttErrorPayload
+        {
+            Code = code,
+            Message = message,
+            Retryable = code is "TIMEOUT" or "INTERNAL_ERROR"
+        }
+    };
 
     public async Task<TextToSpeechResponse> SynthesizeSpeechAsync(string text, string language = "vi-VN", string? voice = null)
     {
