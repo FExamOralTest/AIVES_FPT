@@ -32,6 +32,9 @@ class Settings(BaseSettings):
 
     # --- AI Provider ---
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
+    ai_max_retries: int = Field(default=3, ge=0, le=10, alias="AI_MAX_RETRIES")
+    ai_timeout_seconds: float = Field(default=60.0, gt=0, le=300, alias="AI_TIMEOUT_SECONDS")
+    ai_retry_delay_seconds: float = Field(default=2.0, gt=0, le=30, alias="AI_RETRY_DELAY_SECONDS")
     question_generation_timeout_seconds: float = Field(
         default=240, gt=0, le=3600, alias="QUESTION_GENERATION_TIMEOUT_SECONDS"
     )
