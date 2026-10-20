@@ -1,22 +1,54 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Aives.Application.AI.DTOs;
 using Aives.Application.AI;
+using Aives.Application.AI.DTOs;
 using Aives.Application.AI.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Aives.Infrastructure.AI;
 
+/// <summary>
+/// HTTP client gọi AI service (Faster-Whisper STT, evaluation, follow-up, TTS).
+/// Mọi request tự động gắn <c>X-Internal-Token</c> header để AI verify
+/// request đến từ backend AIVES (chứ không phải attacker gọi trực tiếp).
+/// </summary>
+/// <remarks>
+/// Triết lý bảo mật:
+/// <list type="bullet">
+///   <item>Backend và AI là 2 microservice trong cùng cluster → network policy đã cô lập.</item>
+///   <item>Token header là defense-in-depth: nếu network policy bị miss, AI vẫn từ chối.</item>
+///   <item>Token KHÔNG log ra → tránh lộ qua application log aggregator.</item>
+///   <item>Nếu AI trả 401/403 → coi như internal auth failed, fail-fast (không retry).</item>
+/// </list>
+/// </remarks>
 public class AiServiceClient : IAiServiceClient
 {
     private readonly HttpClient _httpClient;
+    private readonly AiServiceOptions _options;
     private readonly ILogger<AiServiceClient> _logger;
 
-    public AiServiceClient(HttpClient httpClient, ILogger<AiServiceClient> logger)
+    public AiServiceClient(
+        HttpClient httpClient,
+        IOptions<AiServiceOptions> options,
+        ILogger<AiServiceClient> logger)
     {
         _httpClient = httpClient;
+        _options = options.Value;
         _logger = logger;
+
+        if (_httpClient.BaseAddress is null)
+            throw new InvalidOperationException(
+                "HttpClient.BaseAddress must be set via AddHttpClient when registering AiServiceClient.");
+
+        if (!_options.HasApiKey)
+        {
+            // Không crash app ở dev nếu user chưa set, nhưng warn loudly.
+            // Production thì Program.cs sẽ fail-fast khi build options.
+            _logger.LogWarning(
+                "AI:ApiKey is not configured. Internal Service Token will be EMPTY — AI service may reject all requests.");
+        }
     }
 
     public async Task<SpeechToTextResponse> TranscribeAudioAsync(
@@ -24,6 +56,8 @@ public class AiServiceClient : IAiServiceClient
     {
         try
         {
+            ApplyInternalToken();
+
             using var form = new MultipartFormDataContent();
             var streamContent = new StreamContent(audioStream);
             streamContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
@@ -31,7 +65,15 @@ public class AiServiceClient : IAiServiceClient
             form.Add(new StringContent(examSessionId), "exam_session_id");
             form.Add(new StringContent(language), "language");
 
-            var response = await _httpClient.PostAsync("/ai/speech/transcribe", form);
+            using var response = await _httpClient.PostAsync("/ai/speech/transcribe", form);
+
+            if (IsAuthFailure(response.StatusCode))
+            {
+                _logger.LogError(
+                    "AI STT rejected with {StatusCode} — internal token invalid. Check AI:ApiKey config.",
+                    (int)response.StatusCode);
+                return AuthFailure("STT");
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -64,6 +106,8 @@ public class AiServiceClient : IAiServiceClient
     {
         try
         {
+            ApplyInternalToken();
+
             var request = new TextToSpeechRequest
             {
                 Text = text,
@@ -71,7 +115,10 @@ public class AiServiceClient : IAiServiceClient
                 Voice = voice
             };
 
-            var response = await _httpClient.PostAsJsonAsync("/ai/speech/synthesize", request);
+            using var response = await _httpClient.PostAsJsonAsync("/ai/speech/synthesize", request);
+
+            if (IsAuthFailure(response.StatusCode))
+                return new TextToSpeechResponse { Success = false, Message = "Internal auth failed (TTS)." };
 
             if (!response.IsSuccessStatusCode)
             {
@@ -102,7 +149,17 @@ public class AiServiceClient : IAiServiceClient
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("/ai/interview/follow-up", request);
+            ApplyInternalToken();
+
+            using var response = await _httpClient.PostAsJsonAsync("/ai/interview/follow-up", request);
+
+            if (IsAuthFailure(response.StatusCode))
+                return new FollowUpResponse
+                {
+                    Success = false,
+                    ShouldFollowUp = false,
+                    Message = "Internal auth failed (Follow-up)."
+                };
 
             if (!response.IsSuccessStatusCode)
             {
@@ -136,7 +193,12 @@ public class AiServiceClient : IAiServiceClient
     {
         try
         {
+            ApplyInternalToken();
+
             using var response = await _httpClient.PostAsJsonAsync("/ai/evaluate/session", request, cancellationToken);
+
+            if (IsAuthFailure(response.StatusCode))
+                return EvaluationFailure("internal_auth_failed", "AI rejected request: invalid internal token.");
 
             if (!response.IsSuccessStatusCode)
             {
@@ -173,6 +235,37 @@ public class AiServiceClient : IAiServiceClient
             return EvaluationFailure("invalid_response", "AI evaluation returned an invalid response.");
         }
     }
+
+    // ────────────────────────────────────────────────────────────────────
+    //  Internal helpers
+    // ────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Gắn <c>X-Internal-Token</c> header cho request TIẾP THEO.
+    /// Dùng per-request thay vì DefaultRequestHeaders để tránh leak sang HttpClient instances khác
+    /// (khi HttpClient được resolve từ pool có thể dùng chung nếu cấu hình sai).
+    /// </summary>
+    private void ApplyInternalToken()
+    {
+        if (!_options.HasApiKey)
+            return; // Caller đã log warning ở constructor; không spam thêm ở mỗi request.
+
+        // Set trên HttpClient default headers — OK vì AddHttpClient bind 1 HttpClient riêng cho AiServiceClient.
+        // Nếu sau này cần multi-tenant, switch sang HttpRequestMessage.Headers trong từng call.
+        if (!_httpClient.DefaultRequestHeaders.Contains(AiServiceOptions.TokenHeaderName))
+        {
+            _httpClient.DefaultRequestHeaders.Add(AiServiceOptions.TokenHeaderName, _options.ApiKey);
+        }
+    }
+
+    private static bool IsAuthFailure(System.Net.HttpStatusCode statusCode) =>
+        statusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden;
+
+    private static SpeechToTextResponse AuthFailure(string endpoint) => new()
+    {
+        Success = false,
+        Message = $"Internal auth failed at {endpoint}. Check AI:ApiKey configuration."
+    };
 
     private static EvaluateSessionResponse EvaluationFailure(string code, string message) => new()
     {

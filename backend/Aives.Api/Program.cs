@@ -2,12 +2,15 @@ using System.Text;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
@@ -24,6 +27,8 @@ using Aives.Application.Viva.Interfaces;
 using Aives.Application.Viva.Services;
 using Aives.Infrastructure.AI;
 using Aives.Infrastructure.Storage;
+using Aives.Application.Queue.Interfaces;
+using Aives.Infrastructure.Queue;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
@@ -147,6 +152,8 @@ builder.Services.AddScoped<IMarkdownDocumentRepository, MarkdownDocumentReposito
 builder.Services.AddScoped<Aives.Application.Interfaces.Repositories.IUserRepository, Aives.Infrastructure.Repositories.UserRepository>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IResultRepository, ResultRepository>();
+builder.Services.AddScoped<IAnswerRepository, AnswerRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IUserService,             UserService>();
 builder.Services.AddScoped<ICourseService,           CourseService>();
 builder.Services.AddScoped<IMarkdownDocumentService, MarkdownDocumentService>();
@@ -166,13 +173,57 @@ builder.Services.AddHttpClient<IAIQuestionService, AIQuestionService>(client =>
         throw new InvalidOperationException("AI:QuestionGenerationTimeoutSeconds must be between 0 and 3600.");
     client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
-builder.Services.AddHttpClient<Aives.Application.AI.Interfaces.IAiServiceClient, AiServiceClient>(client =>
+
+// AI Service: read options + validate Internal Token (production fail-fast; dev warn-only).
+builder.Services.AddOptions<AiServiceOptions>()
+    .Bind(builder.Configuration.GetSection(AiServiceOptions.SectionName))
+    .PostConfigure(opts =>
+    {
+        if (string.IsNullOrWhiteSpace(opts.BaseUrl))
+            throw new InvalidOperationException("AI:BaseUrl configuration is required.");
+        if (opts.TimeoutSeconds <= 0 || opts.TimeoutSeconds > 3600)
+            throw new InvalidOperationException("AI:TimeoutSeconds must be between 1 and 3600.");
+        if (builder.Environment.IsProduction() && !opts.HasApiKey)
+            throw new InvalidOperationException(
+                "AI:ApiKey is required in production. Internal Service Token must be configured.");
+    });
+builder.Services.AddHttpClient<Aives.Application.AI.Interfaces.IAiServiceClient, AiServiceClient>((sp, client) =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["AI:BaseUrl"] ?? "http://localhost:8000");
-    client.Timeout = TimeSpan.FromMinutes(5);
+    var opts = sp.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+    client.BaseAddress = new Uri(opts.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
 });
 builder.Services.AddScoped<Aives.Infrastructure.AI.IAiServiceClient>(sp =>
     (AiServiceClient)sp.GetRequiredService<Aives.Application.AI.Interfaces.IAiServiceClient>());
+
+// Hangfire: background job processing for AI answer pipeline.
+// NOTE: schemaName mặc định "hangfire" — tạo schema riêng để tránh xung đột với migrations.
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(opts => opts.UseNpgsqlConnection(connectionString), new PostgreSqlStorageOptions
+    {
+        SchemaName = builder.Configuration["Hangfire:SchemaName"] ?? "hangfire",
+        QueuePollInterval = TimeSpan.FromSeconds(2),
+        InvisibilityTimeout = TimeSpan.FromMinutes(10)
+    }));
+
+var workerCount = builder.Configuration.GetValue<int?>("Hangfire:WorkerCount") ?? 5;
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Math.Max(1, workerCount);
+    options.Queues = new[] { "default", "answers" };
+    options.ServerName = $"aives-api-{Environment.MachineName}";
+});
+
+// Queue services
+builder.Services.AddScoped<IAnswerOrchestrator, AnswerOrchestrator>();
+builder.Services.AddScoped<IAnswerProcessingJob, AnswerProcessingJob>();
+builder.Services.AddSingleton<IQueueService, HangfireQueueService>();
+builder.Services.AddScoped<IRetryAnswerService, RetryAnswerService>();
+builder.Services.AddScoped<IAudioPlaybackService, AudioPlaybackService>();
+builder.Services.AddScoped<IAnswerAudioService, AnswerAudioService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -219,6 +270,9 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    // Hangfire Dashboard — chỉ dev, staff dùng để debug job queue.
+    // Production: truy cập qua portal nội bộ với auth riêng (chưa cấu hình ở scope này).
+    app.UseHangfireDashboard("/hangfire");
 }
 else
 {

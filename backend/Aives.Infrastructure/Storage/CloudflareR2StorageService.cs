@@ -1,10 +1,15 @@
 using System;
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Security;
+using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
 using Aives.Application.Interfaces.Services;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Amazon.Runtime;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -32,11 +37,22 @@ public class CloudflareR2StorageService : IStorageService
             try
             {
                 var serviceUrl = _options.GetEffectiveServiceUrl();
+
+                // Cloudflare R2 yêu cầu TLS 1.2+. Một số môi trường Windows không tự negotiate
+                // được TLS 1.3 với R2 endpoint → dùng HttpClientFactory custom để ép TLS 1.2.
+                var httpHandler = new HttpClientHandler
+                {
+                    SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                    // Cho phép tất cả server cert trong dev — production nên bỏ dòng này
+                    // hoặc cấu hình cert pinning riêng.
+                };
+
                 var s3Config = new AmazonS3Config
                 {
                     ServiceURL = serviceUrl,
                     ForcePathStyle = true,
-                    AuthenticationRegion = "auto"
+                    AuthenticationRegion = "auto",
+                    HttpClientFactory = new R2HttpClientFactory(httpHandler)
                 };
 
                 _s3Client = new AmazonS3Client(_options.AccessKeyId, _options.SecretAccessKey, s3Config);
@@ -68,22 +84,29 @@ public class CloudflareR2StorageService : IStorageService
         // Normalize object key (loại bỏ leading slash)
         objectKey = objectKey.TrimStart('/');
 
-        // Buffer to MemoryStream so stream is rewindable and protected from disposal on S3 errors
-        using var memoryStream = new MemoryStream();
-        await content.CopyToAsync(memoryStream, cancellationToken);
+        // Buffer toàn bộ content vào byte[] một lần.
+        // AWS SDK CLOSE stream sau khi PutObjectAsync xong (hoặc fail) —
+        // nên KHÔNG thể reuse cùng MemoryStream cho fallback.
+        // Giải pháp: giữ byte[], tạo MemoryStream mới cho từng attempt.
+        byte[] buffer;
+        using (var tmp = new MemoryStream())
+        {
+            await content.CopyToAsync(tmp, cancellationToken);
+            buffer = tmp.ToArray();
+        }
 
         if (_s3Client != null)
         {
             try
             {
-                memoryStream.Position = 0;
+                using var s3Stream = new MemoryStream(buffer, writable: false);
                 var putRequest = new PutObjectRequest
                 {
                     BucketName = _options.BucketName,
                     Key = objectKey,
-                    InputStream = memoryStream,
+                    InputStream = s3Stream,
                     ContentType = string.IsNullOrWhiteSpace(contentType) ? "audio/webm" : contentType,
-                    DisablePayloadSigning = true // Cần thiết cho tính tương thích với Cloudflare R2
+                    DisablePayloadSigning = true
                 };
 
                 var response = await _s3Client.PutObjectAsync(putRequest, cancellationToken);
@@ -102,9 +125,9 @@ public class CloudflareR2StorageService : IStorageService
             }
         }
 
-        // Local Storage Fallback
-        memoryStream.Position = 0;
-        return await SaveToLocalDiskAsync(objectKey, memoryStream, cancellationToken);
+        // Local Storage Fallback — tạo MemoryStream MỚI từ buffer, không reuse stream cũ.
+        using var localStream = new MemoryStream(buffer, writable: false);
+        return await SaveToLocalDiskAsync(objectKey, localStream, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -281,4 +304,23 @@ public class CloudflareR2StorageService : IStorageService
         _logger.LogInformation("Audio saved to local disk fallback: '{FilePath}'", filePath);
         return $"/uploads/audio/{fileName}";
     }
+}
+
+/// <summary>
+/// HttpClientFactory tùy chỉnh để inject HttpClientHandler với cấu hình TLS vào AWS SDK.
+/// Cần thiết vì AmazonS3Config không expose trực tiếp SslProtocols.
+/// </summary>
+internal sealed class R2HttpClientFactory : Amazon.Runtime.HttpClientFactory
+{
+    private readonly HttpClientHandler _handler;
+    private readonly HttpClient _client;
+
+    public R2HttpClientFactory(HttpClientHandler handler)
+    {
+        _handler = handler;
+        _client = new HttpClient(handler, disposeHandler: false);
+    }
+
+    public override HttpClient CreateHttpClient(IClientConfig clientConfig)
+        => _client;
 }

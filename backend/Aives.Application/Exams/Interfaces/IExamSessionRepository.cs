@@ -26,15 +26,18 @@ public interface IExamSessionRepository
     Task<SessionEnrollment?> GetEnrollmentAsync(int sessionId, int studentId);
 
     Task AddEnrollmentAsync(SessionEnrollment enrollment);
-    Task AddEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments);
-    Task RemoveEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments);
+
+    /// <summary>Bulk add nhiều enrollment cùng lúc — KHÔNG SaveChanges, caller chịu trách nhiệm.</summary>
+    Task AddEnrollmentsRangeAsync(IEnumerable<SessionEnrollment> enrollments);
+
+    /// <summary>Xoá 1 enrollment — SaveChanges ngay (dùng cho single remove).</summary>
     Task RemoveEnrollmentAsync(SessionEnrollment enrollment);
 
-    /// <summary>Lấy tất cả enrollment hiện có của 1 session (để check trùng khi bulk insert).</summary>
+    /// <summary>Lấy tập studentId đã enrolled trong session (dùng để check trùng trong bulk add).</summary>
     Task<IReadOnlySet<int>> GetEnrolledStudentIdsAsync(int sessionId);
 
-    /// <summary>Lấy các enrollment theo danh sách studentId (để bulk remove).</summary>
-    Task<IReadOnlyList<SessionEnrollment>> GetEnrollmentsByStudentIdsAsync(int sessionId, IEnumerable<int> studentIds);
+    /// <summary>Trả về user tồn tại theo danh sách id — bulk lookup tối ưu cho staff import.</summary>
+    Task<IReadOnlyList<User>> GetUsersByIdsAsync(IEnumerable<int> ids);
 
     Task UpdateAsync(ExamSession session);
 

@@ -17,6 +17,30 @@ public class DocumentContextDto
     public string DocumentType { get; set; } = "course_content";
 }
 
+/// <summary>
+/// Response chuẩn từ AI1 (Faster-Whisper) — dùng làm HĐ giữa AI service và Backend.
+/// Backend KHÔNG phụ thuộc schema gốc của AI1: mọi mapping được thực hiện ở tầng
+/// <c>AiServiceClient</c> (cast kiểu + fallback mặc định).
+/// </summary>
+/// <remarks>
+/// Schema bắt buộc (cho AI1 team):
+/// <code>
+/// {
+///   "success": true,
+///   "message": null,             // optional
+///   "transcript": "string",      // rỗng nếu audio im lặng — KHÔNG coi là lỗi
+///   "language_detected": "vi",   // ISO-639-1 (vd: "vi", "en") — giữ tên cũ để tương thích AI service
+///   "duration": 12.34,           // giây, > 0 nếu audio hợp lệ
+///   "confidence": 0.92,          // optional, 0..1
+///   "error": {                    // optional, chỉ set khi success=false
+///     "code": "AUDIO_CORRUPTED", // chuẩn hoá theo SttErrorCode
+///     "message": "...",
+///     "retryable": false
+///   }
+/// }
+/// </code>
+/// Backend tự bổ sung <c>ProcessedAt</c> (UTC) sau khi parse — không cần AI1 trả.
+/// </remarks>
 public class SpeechToTextResponse
 {
     [JsonPropertyName("success")]
@@ -28,11 +52,42 @@ public class SpeechToTextResponse
     [JsonPropertyName("transcript")]
     public string Transcript { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Mã ngôn ngữ ISO-639-1 (vd: "vi", "en"). Backend fallback "vi" nếu thiếu.
+    /// JSON name giữ <c>language_detected</c> để tương thích ngược với AI service hiện tại;
+    /// tên C# là <c>LanguageDetected</c> vì property đã được dùng trong callers.
+    /// </summary>
+    [JsonPropertyName("language_detected")]
+    public string LanguageDetected { get; set; } = "vi";
+
+    /// <summary>Độ dài audio (giây). Dùng để validate audio hợp lệ (vd: &gt; 0).</summary>
+    [JsonPropertyName("duration")]
+    public double Duration { get; set; }
+
+    /// <summary>Độ tin cậy của Whisper (0..1). Optional.</summary>
     [JsonPropertyName("confidence")]
     public float? Confidence { get; set; }
 
-    [JsonPropertyName("language_detected")]
-    public string? LanguageDetected { get; set; }
+    /// <summary>Error format chuẩn — chỉ set khi <c>success = false</c>.</summary>
+    [JsonPropertyName("error")]
+    public SttErrorPayload? Error { get; set; }
+
+    /// <summary>Thời điểm STT hoàn tất (UTC) — Backend tự gán sau parse, không cần AI1 trả.</summary>
+    [JsonIgnore]
+    public DateTime ProcessedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>Payload lỗi chuẩn từ AI1 (JSON contract).</summary>
+public class SttErrorPayload
+{
+    [JsonPropertyName("code")]
+    public string Code { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("retryable")]
+    public bool Retryable { get; set; } = true;
 }
 
 public class TextToSpeechRequest
