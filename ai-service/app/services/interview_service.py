@@ -10,7 +10,7 @@ from app.core.ai_client import get_ai_client
 from app.models.request import GenerateQuestionRequest, GenerateFollowUpRequest
 from app.models.response import GenerateQuestionResponse, GenerateFollowUpResponse
 from app.services.question_service import QuestionService
-from app.services.followup_service import FollowUpService
+from app.services.followup_service import get_followup_service
 
 
 class InterviewService:
@@ -23,7 +23,7 @@ class InterviewService:
     def __init__(self) -> None:
         ai_client = get_ai_client()
         self.question_service = QuestionService(ai_client=ai_client)
-        self.followup_service = FollowUpService(ai_client=ai_client)
+        self.followup_service = get_followup_service()
 
     async def get_next_question(
         self, request: GenerateQuestionRequest
@@ -47,4 +47,21 @@ class InterviewService:
         logger.info(
             f"[InterviewService] Evaluating follow-up for session {request.exam_session_id}"
         )
-        return await self.followup_service.generate_followup(request)
+        
+        # Generate follow-up using FollowUpService
+        contract = await self.followup_service.generate_follow_up(
+            course_name=request.course_name,
+            documents=request.documents,
+            original_question=request.original_question,
+            student_answer=request.student_answer,
+            previous_questions=[request.original_question],  # Include original to avoid duplication
+            learning_outcomes=None  # Can be extracted from documents if needed
+        )
+        
+        # Convert contract to GenerateFollowUpResponse
+        return GenerateFollowUpResponse(
+            success=True,
+            follow_up_question=contract.follow_up_question,
+            reason=contract.reason,
+            should_follow_up=contract.should_follow_up
+        )
