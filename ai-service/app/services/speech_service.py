@@ -1,39 +1,20 @@
 """
 AIVES AI Service - Speech-to-Text Service
 Transcribes student voice answers to text.
-Pluggable: mock / Google STT / OpenAI Whisper.
+Pluggable: mock / Gemini / Google STT / Faster-Whisper / OpenAI Whisper.
 """
 
 import asyncio
 import base64
-import os
+import io
 import re
-import tempfile
+import threading
 
 from loguru import logger
 from app.core.config import get_settings
 from app.models.response import SpeechToTextResponse
 
 settings = get_settings()
-
-
-def _decode_audio(path: str):
-    """Decode any audio file to 16kHz mono int16 numpy array using PyAV."""
-    import av
-    import numpy as np
-
-    container = av.open(path)
-    stream = container.streams.audio[0]
-    resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
-    chunks = []
-    for frame in container.decode(stream):
-        for rframe in resampler.resample(frame):
-            arr = rframe.to_ndarray()
-            if arr.size:
-                chunks.append(arr.reshape(-1))
-    if not chunks:
-        return np.zeros(0, dtype=np.int16)
-    return np.concatenate(chunks)
 
 
 class SpeechToTextService:
@@ -45,6 +26,8 @@ class SpeechToTextService:
 
     def __init__(self) -> None:
         self.provider = settings.stt_provider.lower()
+        self._whisper_model = None
+        self._whisper_lock = threading.Lock()
         logger.info(f"[STTService] Provider: {self.provider}")
 
     async def transcribe(
@@ -205,39 +188,32 @@ class SpeechToTextService:
     async def _transcribe_faster_whisper(
         self, audio_bytes: bytes, language: str
     ) -> SpeechToTextResponse:
-        """
-        Local Faster-Whisper transcription (no API key, CPU-friendly).
-        Requires STT_PROVIDER=faster_whisper.
-        """
-        from faster_whisper import WhisperModel
+        def _run() -> SpeechToTextResponse:
+            from faster_whisper import WhisperModel
 
-        lang_code = language.split("-")[0]
-        model = WhisperModel(settings.faster_whisper_model, device="cpu", compute_type="int8")
+            # Keep model loading and lazy segment inference off the event loop.
+            with self._whisper_lock:
+                if self._whisper_model is None:
+                    self._whisper_model = WhisperModel(
+                        settings.faster_whisper_model,
+                        device=settings.faster_whisper_device,
+                        compute_type=settings.faster_whisper_compute_type,
+                    )
+                with io.BytesIO(audio_bytes) as audio:
+                    segments, info = self._whisper_model.transcribe(
+                        audio,
+                        language=language.replace("_", "-").split("-")[0].lower(),
+                        vad_filter=True,
+                    )
+                    text = " ".join(segment.text.strip() for segment in segments).strip()
+                return SpeechToTextResponse(
+                    transcript=text,
+                    confidence=info.language_probability,
+                    language_detected=info.language,
+                    duration=info.duration,
+                )
 
-        def _run() -> tuple[str, float | None]:
-            tmp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                    tmp.write(audio_bytes)
-                    tmp_path = tmp.name
-                audio = _decode_audio(tmp_path)
-                segments, info = model.transcribe(audio, language=lang_code)
-                text = " ".join(seg.text for seg in segments).strip()
-                return text, getattr(info, "language_probability", None)
-            finally:
-                if tmp_path:
-                    try:
-                        os.remove(tmp_path)
-                    except OSError:
-                        pass
-
-        text, prob = await asyncio.to_thread(_run)
-        return SpeechToTextResponse(
-            success=True,
-            transcript=text,
-            confidence=prob,
-            language_detected=language,
-        )
+        return await asyncio.to_thread(_run)
 
     # ── OpenAI Whisper ─────────────────────────────────────
     async def _transcribe_whisper(

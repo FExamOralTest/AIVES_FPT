@@ -7,7 +7,7 @@ Pydantic schemas for all incoming API requests from the Backend.
 # It depends on DocumentContext defined above.
 
 from typing import Annotated, List, Literal, Optional
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import AliasChoices, BaseModel, Field, StringConstraints, model_validator
 
 
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -111,6 +111,14 @@ class GenerateFollowUpRequest(BaseModel):
 # ─────────────────────────────────────────────
 #  Speech - Speech-to-Text
 # ─────────────────────────────────────────────
+
+
+class StoredSpeechToTextRequest(BaseModel):
+    answer_id: int = Field(gt=0, strict=True, validation_alias=AliasChoices("answerId", "answer_id"))
+    object_key: NonEmptyText = Field(
+        max_length=1024, validation_alias=AliasChoices("objectKey", "object_key")
+    )
+    language: NonEmptyText = Field(default="vi-VN", max_length=35)
 
 
 class SpeechToTextRequest(BaseModel):
