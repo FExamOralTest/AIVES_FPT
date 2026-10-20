@@ -438,15 +438,26 @@ Set these on your platform (ECS task def, Fly secrets, etc.):
 > EF migrations: either run `dotnet ef database update` from CI before deploy, or call `Database.MigrateAsync()` on startup (add this call in `Program.cs` for prod, behind a `MigrateOnStartup` flag — currently the app does `EnsureCreatedAsync` only for the local Docker dev DB).
 
 ### 8.4 — AI Service env vars (production)
-| Env var | Value |
-|---|---|
-| `AI_SERVICE_ENV` | `production` |
-| `AI_PROVIDER` | `gemini` (or `openai`) |
-| `GEMINI_API_KEY` / `OPENAI_API_KEY` | from provider |
-| `STT_PROVIDER` | `gemini` / `faster_whisper` / `google` |
-| `TTS_PROVIDER` | `edge_tts` / `google` / `openai_tts` |
-| `AI_SERVICE_SECRET_KEY` | same as backend `AI__ApiKey` |
-| `BACKEND_URL` | internal URL of backend |
+| Env var | Value | Bắt buộc? | Mô tả |
+|---|---|---|---|
+| `AI_SERVICE_ENV` | `production` | ✅ | |
+| `AI_SERVICE_SECRET_KEY` | same as backend `AI__ApiKey` | ✅ | Được gửi qua header `X-Internal-Token` đến `transcribe-object` |
+| `AI_PROVIDER` | `gemini` (or `openai`) | ✅ | |
+| `GEMINI_API_KEY` / `OPENAI_API_KEY` | from provider | tuỳ provider | |
+| `STT_PROVIDER` | `gemini` / `faster_whisper` / `google` | ✅ | |
+| `STT_MAX_AUDIO_BYTES` | `14680064` (~14 MB) | khuyến nghị | Cap kích thước audio STT nhận được |
+| `TTS_PROVIDER` | `edge_tts` / `google` / `openai_tts` | khuyến nghị | |
+| `FASTER_WHISPER_MODEL` | `base` | nếu dùng local | `tiny`/`base`/`small`/`medium` |
+| `FASTER_WHISPER_DEVICE` | `cpu` | nếu dùng local | `cuda` nếu có GPU |
+| `FASTER_WHISPER_COMPUTE_TYPE` | `int8` | nếu dùng local | |
+| **R2 (mới — PR #41)** ||||
+| `R2_ACCOUNT_ID` | từ Cloudflare R2 | ✅ nếu gọi `transcribe-object` | |
+| `R2_ENDPOINT_URL` | `https://<account_id>.r2.cloudflarestorage.com` | ✅ | Nếu bỏ trống sẽ tự derive từ Account ID |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | API token R2 | ✅ | Quyền **Read** trên bucket là đủ cho STT |
+| `R2_BUCKET_NAME` | `aives-exam-audios` | ✅ | Trùng với bucket backend dùng |
+| `BACKEND_URL` | internal URL of backend | ✅ nếu dùng callback | |
+
+> **Quan trọng — PR #41 (`transcribe-object`):** từ phiên bản này AI service **tự download** audio từ R2 bằng credentials riêng, không cần backend ký presigned URL. Backend chỉ cần gửi `object_key` (lưu trong `answers.object_key`) qua JSON body kèm header `X-Internal-Token`.
 
 ### 8.5 — Frontend
 Build the image (or let your platform build from `frontend/aives-web/Dockerfile`) with:
@@ -543,11 +554,20 @@ AI_PROVIDER
 GEMINI_API_KEY / GEMINI_MODEL / GEMINI_STT_MODEL
 OPENAI_API_KEY / OPENAI_MODEL
 STT_PROVIDER
+STT_MAX_AUDIO_BYTES                 # PR #41 — default ~14 MB cap
 GOOGLE_STT_API_KEY
 FASTER_WHISPER_MODEL
+FASTER_WHISPER_DEVICE               # PR #41 — cpu | cuda
+FASTER_WHISPER_COMPUTE_TYPE         # PR #41 — int8 | float16 | ...
 TTS_PROVIDER
 GOOGLE_TTS_API_KEY
 BACKEND_URL
+# PR #41 — dùng cho endpoint /speech/transcribe-object
+R2_ACCOUNT_ID
+R2_ENDPOINT_URL                     # optional: auto-derive từ Account ID
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+R2_BUCKET_NAME
 ```
 
 ### Frontend (Vite)
