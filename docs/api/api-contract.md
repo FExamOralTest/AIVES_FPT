@@ -1,387 +1,298 @@
-# AIVES AI Service - API Contract
+# AIVES AI Service — API Reference
 
-Base URL: `http://localhost:8000`
-Prefix: `/ai`
-Auth: Internal secret key shared with Backend (`AI_SERVICE_SECRET_KEY`)
+**Base URL:** `http://localhost:8000` · **Prefix:** `/ai` · **Content-Type:** `application/json`
+**Swagger UI:** `/docs` · **OpenAPI:** `/openapi.json`
 
-## Endpoints
+## Quy ước chung
 
-### POST /ai/interview/question
-Generate the next viva interview question.
+| Mục | Giá trị |
+|---|---|
+| Auth nội bộ | Header `X-Internal-Token` = `AI_SERVICE_SECRET_KEY` (backend gửi `AI:ApiKey`) |
+| Endpoint yêu cầu auth | Chỉ `POST /ai/speech/transcribe-object`: sai/thiếu token → `401`, chưa cấu hình secret → `503` |
+| Đặt tên field | API ngoài dùng `snake_case`; JSON contract nội bộ của LLM dùng `camelCase` |
+| Validate request | `422` khi thiếu field hoặc sai kiểu (Pydantic) |
+| Lỗi provider | `500` model lỗi · `502` vi phạm contract · `504` timeout |
+| Retry | `AI_MAX_RETRIES` = 3, backoff `AI_RETRY_DELAY_SECONDS` = 2s |
+| Timeout | `AI_TIMEOUT_SECONDS` = 60s/call · sinh đề `QUESTION_GENERATION_TIMEOUT_SECONDS` = 240s |
 
-**Request:**
-```json
-{
-  "exam_session_id": "uuid",
-  "exam_id": "uuid",
-  "course_name": "Software Architecture",
-  "documents": [
-    {
-      "document_id": "uuid",
-      "title": "Chapter 1",
-      "content": "...",
-      "document_type": "course_content | learning_outcomes"
-    }
-  ],
-  "question_index": 1,
-  "total_questions": 5,
-  "already_asked_topics": ["topic1"]
-}
-```
+## Danh sách endpoint
 
-**Response 200:**
-```json
-{
-  "success": true,
-  "message": null,
-  "question": "...",
-  "question_type": "conceptual | application | analysis",
-  "difficulty": "easy | medium | hard",
-  "expected_keywords": ["..."],
-  "topic": "..."
-}
-```
+| # | Method | Path | Mục đích | Backend gọi từ |
+|---|---|---|---|---|
+| 1 | POST | `/ai/questions/generate` | Sinh bộ đề + rubric | `AIQuestionService` |
+| 2 | POST | `/ai/interview/question` | Sinh 1 câu vấn đáp | — (test/Swagger) |
+| 3 | POST | `/ai/interview/follow-up` | Quyết định + sinh câu hỏi xoáy | `VivaSessionService` |
+| 4 | POST | `/ai/interview/generate-questions` | Sinh nhanh câu hỏi từ markdown | — |
+| 5 | POST | `/ai/speech/transcribe` | Speech-to-Text từ file upload | `VivaSessionService` |
+| 6 | POST | `/ai/speech/transcribe-object` | Speech-to-Text từ object trên R2 | `AnswerOrchestrator` |
+| 7 | POST | `/ai/speech/synthesize` | Text-to-Speech | `AiServiceClient` |
+| 8 | POST | `/ai/evaluate/answer` | Chấm 1 câu trả lời | — (test/Swagger) |
+| 9 | POST | `/ai/evaluate/session` | Chấm toàn bộ buổi thi | `AnswerOrchestrator` |
+| 10 | POST | `/ai/markdown/process` | Chuẩn hoá & kiểm tra markdown | — |
+| 11 | GET | `/health` | Health check | Docker healthcheck |
 
 ---
 
-### POST /ai/interview/follow-up
-Analyse student answer and decide if a follow-up question is needed.
+## 1. POST /ai/questions/generate
 
-**Request:**
-```json
-{
-  "exam_session_id": "uuid",
-  "course_name": "Software Architecture",
-  "documents": [...],
-  "original_question": "...",
-  "student_answer": "...",
-  "question_index": 1
-}
-```
+Sinh bộ câu hỏi thi kèm rubric và learning outcome cho ngân hàng đề.
 
-**Response 200:**
-```json
-{
-  "success": true,
-  "message": null,
-  "follow_up_question": "...",
-  "reason": "...",
-  "should_follow_up": true
-}
-```
+**Request**
 
----
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `documents` | `QuestionBankDocument[]` | ✅ | `document_id` (int > 0), `document_type` (`CONTENT` \| `LEARNING_OUTCOMES`), `content` |
+| `question_count` | int | ✅ | ≥ 5 |
+| `focus_topics` | string[] | — | Chủ đề ưu tiên |
+| `max_score` | number | — | Điểm tối đa mỗi câu, mặc định 10 |
 
-### POST /ai/speech/transcribe
-Speech-to-Text (multipart/form-data).
+**Response 200**
 
-**Form fields:**
-- `audio_file`: audio file (WAV / WebM / MP3)
-- `exam_session_id`: UUID
-- `language`: BCP-47 code (default `vi-VN`)
+| Field | Kiểu | Ghi chú |
+|---|---|---|
+| `questions[]` | array | Danh sách câu hỏi |
+| `questions[].question_text` | string | Nội dung câu hỏi |
+| `questions[].topic` | string | Chủ đề |
+| `questions[].sample_answer` | string | Đáp án mẫu |
+| `questions[].learning_outcome` | string | LO mà câu hỏi kiểm tra |
+| `questions[].rubric[]` | array | `description`, `max_score`; tổng bằng `max_score` của câu |
+| `questions[].max_score` | number | Điểm tối đa |
+| `questions[].level` | int | Độ khó 1–3 |
+| `questions[].is_follow_up_allowed` | bool | Cho phép hỏi xoáy |
+| `questions[].expected_keywords` | string[] | Từ khoá kỳ vọng |
 
-**Response 200:**
-```json
-{
-  "success": true,
-  "message": null,
-  "transcript": "...",
-  "confidence": 0.95,
-  "language_detected": "vi-VN"
-}
-```
+**Lỗi:** `422` request sai · `502` AI trả sai contract · `504` timeout.
 
 ---
 
-### POST /ai/speech/synthesize
-Text-to-Speech.
+## 2. POST /ai/interview/question
 
-**Request:**
-```json
-{
-  "text": "Xin chào",
-  "language": "vi-VN",
-  "voice": "vi-VN-HoaiMyNeural"
-}
-```
+Sinh một câu hỏi vấn đáp dựa trên tài liệu khoá học.
 
-**Response 200:**
-```json
-{
-  "success": true,
-  "message": null,
-  "audio_base64": "...",
-  "audio_format": "mp3",
-  "duration_seconds": null
-}
-```
+**Request**
 
----
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `exam_session_id` | string | ✅ | UUID phiên thi |
+| `exam_id` | string | ✅ | UUID đề thi |
+| `course_name` | string | ✅ | Tên môn học |
+| `documents` | `DocumentContext[]` | ✅ | `document_id`, `title`, `content`, `document_type` |
+| `question_index` | int | — | Thứ tự câu, mặc định 1 |
+| `total_questions` | int | — | Tổng số câu |
+| `already_asked_topics` | string[] | — | Tránh trùng chủ đề |
+| `already_asked_questions` | string[] | — | Tránh trùng câu hỏi |
+| `question_type` | string | — | Ép loại câu hỏi |
+| `difficulty` | string | — | `easy` \| `medium` \| `hard` |
 
-### POST /ai/evaluate/answer
-Score a single Q&A pair.
+**Response 200**
 
-**Request:**
-```json
-{
-  "exam_session_id": "uuid",
-  "course_name": "Software Architecture",
-  "documents": [...],
-  "question_answer": {
-    "question_id": "uuid",
-    "question_text": "...",
-    "student_answer": "...",
-    "is_follow_up": false,
-    "sample_answer": "Independent services communicate through APIs.",
-    "learning_outcome": "LO1: Explain service communication.",
-    "topic": "Microservices",
-    "rubric": [
-      {"criterion_id": "c1", "description": "Explain independent services", "max_score": 4}
-    ]
-  },
-  "max_score": 10.0
-}
-```
+| Field | Kiểu | Ghi chú |
+|---|---|---|
+| `question` | string | Nội dung câu hỏi |
+| `question_type` | string | `conceptual` \| `application` \| `analysis` |
+| `difficulty` | string | `easy` \| `medium` \| `hard` |
+| `expected_keywords` | string[] | Từ khoá kỳ vọng |
+| `topic` | string | Chủ đề |
+| `learning_outcome` | string | LO tương ứng |
 
-`student_answer` is the transcript. `sample_answer`, `learning_outcome`, and `rubric` are optional. When `rubric` is present, the sample answer and learning outcome are required, criterion ids must be unique, and the response adds sentence and criterion analysis. The numeric `score` is unchanged by that analysis.
-
-**Response 200:**
-```json
-{
-  "success": true,
-  "message": null,
-  "question_id": "uuid",
-  "score": 7.5,
-  "max_score": 10.0,
-  "feedback": "...",
-  "strengths": ["..."],
-  "weaknesses": ["..."],
-  "missing_content": ["..."],
-  "sentence_feedback": [
-    {"sentence": "exact transcript sentence", "judgment": "correct", "comment": "..."}
-  ],
-  "criterion_analyses": [
-    {
-      "criterion_id": "c1",
-      "judgment": "partial",
-      "explanation": "...",
-      "errors": [],
-      "omissions": ["..."],
-      "evidence_quotes": ["exact transcript excerpt"]
-    }
-  ],
-  "improvements": ["..."]
-}
-```
-
-`sentence_feedback.judgment` is `correct`, `error`, `omission`, or `irrelevant`. `criterion_analyses.judgment` is `met`, `partial`, or `not_met`. Every `evidence_quotes` value is copied from the transcript.
+**Lỗi:** `422` · `500` · `502`.
 
 ---
 
-### POST /ai/evaluate/session
-Evaluate a full exam session.
+## 3. POST /ai/interview/follow-up
 
-**Request:**
-```json
-{
-  "exam_session_id": "uuid",
-  "student_id": "uuid",
-  "course_name": "Software Architecture",
-  "documents": [...],
-  "question_answers": [
-    {
-      "question_id": "uuid",
-      "question_text": "...",
-      "student_answer": "...",
-      "is_follow_up": false,
-      "sample_answer": "...",
-      "learning_outcome": "...",
-      "topic": "...",
-      "rubric": [
-        {"criterion_id": "c1", "description": "...", "max_score": 4}
-      ]
-    }
-  ],
-  "max_score_per_question": 10.0
-}
-```
+Phân tích câu trả lời và quyết định có hỏi xoáy hay không.
 
-When any answer includes a rubric, `overall_feedback` summarizes those analyses and cites transcript excerpts. `study_suggestions` lists the learning outcome or topic for criteria that are partial or not met. Requests without a rubric keep the previous score-band summary.
+**Request**
 
-**Response 200:**
-```json
-{
-  "success": true,
-  "message": null,
-  "exam_session_id": "uuid",
-  "total_score": 7.5,
-  "max_total_score": 10.0,
-  "percentage": 75.0,
-  "overall_feedback": "...",
-  "question_scores": [
-    {
-      "question_id": "uuid",
-      "question_text": "...",
-      "score": 7.5,
-      "feedback": "...",
-      "sentence_feedback": [],
-      "criterion_analyses": [],
-      "improvements": []
-    }
-  ],
-  "study_suggestions": ["LO1: Explain service communication. — Criterion c1 is not covered by the transcript."]
-}
-```
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `exam_session_id` | string | ✅ | UUID phiên thi |
+| `course_name` | string | ✅ | Tên môn học |
+| `documents` | `DocumentContext[]` | ✅ | Ngữ cảnh khoá học |
+| `original_question` | string | ✅ | Câu hỏi gốc |
+| `student_answer` | string | ✅ | Transcript câu trả lời |
+| `question_index` | int | — | Thứ tự câu hiện tại, mặc định 1 |
+
+**Response 200**
+
+| Field | Kiểu | Ghi chú |
+|---|---|---|
+| `follow_up_question` | string | Câu hỏi xoáy; rỗng khi `should_follow_up = false` |
+| `reason` | string | Lý do |
+| `should_follow_up` | bool | Có cần hỏi xoáy không |
+
+**Lỗi:** `422` · `500`.
 
 ---
 
-## Error Responses
+## 4. POST /ai/interview/generate-questions
 
-All endpoints return standard error format:
+Sinh nhanh danh sách câu hỏi từ markdown (không lưu DB).
 
-```json
-{
-  "success": false,
-  "error": "ErrorType",
-  "detail": "Human readable message"
-}
-```
+**Request**
 
-Status codes: 400 (bad request), 422 (validation), 500 (internal), 503 (AI provider unavailable).
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `markdown_contents` | string[] | — | Nội dung markdown nguồn |
+| `question_count` | int | — | Số câu cần sinh |
+| `focus_topics` | string[] | — | Chủ đề ưu tiên |
 
-## Backend question bank and exam selection
+**Response 200:** `success`, `questions[]` với `questionText`, `maxScore`, `level`, `isFollowUpAllowed` (camelCase).
 
-These routes use the backend base URL and a Bearer JWT with role `TEACHER`.
-The caller must be the teacher currently assigned to the course. A teacher from
-another course receives `403`, including when listing, searching, suggesting,
-creating, updating, deleting questions or creating an exam. A missing course or
-a question outside the route's course returns `404`.
+**Lỗi:** `422`.
 
-### GET /api/courses/{courseId}/questions
+---
 
-Query parameters: `search` (optional, at most 1000 characters), `page` (default 1,
-range 1–21474836), `pageSize` (default 20, range 1–100). Search is a literal,
-case-insensitive substring match on question text or topic. Results are ordered
-by creation time descending, then question ID descending. All counts refer to
-the filtered course. An empty or out-of-range page has an empty `items` array.
+## 5. POST /ai/speech/transcribe
 
-**Response 200:**
-```json
-{
-  "items": [{
-    "questionId": 42,
-    "courseId": 7,
-    "documentId": 3,
-    "questionText": "Explain microservices.",
-    "topic": "Architecture",
-    "sampleAnswer": "Services can be deployed independently.",
-    "level": 2,
-    "maxScore": 10,
-    "isFollowUpAllowed": true,
-    "createdAt": "2026-10-13T00:00:00Z",
-    "isInUse": false
-  }],
-  "totalCount": 1,
-  "page": 1,
-  "pageSize": 20,
-  "totalPages": 1
-}
-```
+Speech-to-Text từ file upload (`multipart/form-data`).
 
-### Question CRUD
+**Form fields**
 
-| Method | Route | Success |
-| --- | --- | --- |
-| GET | `/api/courses/{courseId}/questions/{questionId}` | `200`, one question |
-| POST | `/api/courses/{courseId}/questions` | `201`, one question and a Location header |
-| PUT | `/api/courses/{courseId}/questions/{questionId}` | `200`, updated question |
-| DELETE | `/api/courses/{courseId}/questions/{questionId}` | `204`, no body |
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `audio_file` | file | ✅ | WAV / WebM / MP3 |
+| `exam_session_id` | string | ✅ | UUID phiên thi |
+| `language` | string | — | Mặc định `vi-VN` |
 
-POST and PUT share this body:
-```json
-{
-  "questionText": "Explain microservices.",
-  "topic": "Architecture",
-  "sampleAnswer": "Services can be deployed independently.",
-  "level": 2,
-  "maxScore": 10,
-  "isFollowUpAllowed": true
-}
-```
+**Response 200:** `success`, `transcript`, `duration`, `confidence`, `language_detected`, `error { code, message, retryable }`.
 
-`questionText` is required and nonblank (at most 10000 characters); `topic` and
-`sampleAnswer` are optional (at most 1000 and 10000 characters). Text is trimmed.
-`level` defaults to 1 and accepts 1–3; `maxScore` defaults to 1 and accepts finite
-values 0.01–100; `isFollowUpAllowed` defaults to true. PUT replaces these editable
-fields; course, document provenance and creation time remain fixed. A manually
-created question has `documentId: null`. The question shape above also applies
-to the existing generated-question response.
+**Lỗi:** `400` audio hỏng/rỗng · `413` quá lớn · `415` định dạng không hỗ trợ · `422` không có giọng nói · `500` lỗi inference · `503` provider/storage không sẵn sàng · `504` timeout.
 
-`isInUse` is true when any exam or answer references the question. PUT and DELETE
-then return `409` without changing the question, exam or answer. This includes
-draft exams. Create a new question to revise used content. Concurrent conflicts
-return `409`; reload data before retrying. Invalid bodies or query parameters
-return `400`; missing/invalid authentication returns `401`.
+---
 
-### POST /api/exams/suggest-questions
+## 6. POST /ai/speech/transcribe-object
 
-Replaces `/api/exams/ai-suggest-questions`, which is removed. This endpoint uses
-keyword ranking and does not call an AI provider. The real AI generation endpoint
-remains `/api/courses/{courseId}/documents/generate-questions`.
+Speech-to-Text cho audio đã lưu trên R2 (worker chấm bài gọi).
 
-**Request:**
-```json
-{ "courseId": 7, "focusTopic": "microservices architecture", "maxSuggestions": 10 }
-```
+**Auth:** bắt buộc `X-Internal-Token`.
 
-`courseId` must be positive; `focusTopic` is optional (at most 1000 characters),
-and `maxSuggestions` defaults to 10 (range 1–100). Rank the entire course bank by
-the number of distinct, case-insensitive keyword substrings in question text,
-then maximum score, creation time and question ID descending. With no topic,
-rank by maximum score, creation time and ID. Zero matches may still return
-questions, and an empty bank returns an empty list.
+**Request**
 
-**Response 200:**
-```json
-{
-  "suggestedQuestions": [{
-    "questionId": 42,
-    "questionText": "Explain microservices.",
-    "questionScore": 10,
-    "maxScore": 10,
-    "isFollowUpAllowed": true
-  }],
-  "selectionMethod": "keyword",
-  "rationale": "Ranked by keyword matches in question text for: microservices architecture."
-}
-```
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `answerId` | int | ✅ | ID câu trả lời |
+| `objectKey` | string | ✅ | Key object trong bucket |
+| `language` | string | — | Mặc định `vi-VN` |
 
-Clients must replace `aiRationale` with `rationale` and use the new route.
+**Response 200:** `success`, `message`, `answerId`, `transcript`, `language`, `duration`, `error`.
 
-### POST /api/exams
+**Lỗi:** `401` token sai/thiếu · `503` chưa cấu hình secret hoặc storage lỗi · `400`/`413`/`415`/`422`/`500`/`504` như endpoint 5.
 
-**Request:**
-```json
-{
-  "title": "Architecture viva",
-  "courseId": 7,
-  "durationMinutes": 30,
-  "maxQuestions": 10,
-  "questions": [{ "questionId": 42, "questionScore": 10 }]
-}
-```
+---
 
-Returns `201` with `ExamDto` and a Location header. A nonblank title is required
-(at most 255 characters); duration is 1–480 and `maxQuestions` is 1–200. Question
-IDs must be positive, distinct, exist and belong to the course. Scores must be
-finite and within 0.01–100; selected count cannot exceed `maxQuestions`. Selected
-bank questions must have nonblank text, level 1–3 and a valid maximum score.
-Invalid selection returns `400` before any exam is saved. Missing or empty
-`questions` creates an empty draft. Validation, exam creation and all question
-assignments run in one transaction, so persistence failures leave no partial
-exam. Concurrent conflicts return `409`.
+## 7. POST /ai/speech/synthesize
 
-`GET /api/exams/{examId}` requires both ownership and current course assignment.
-`GET /api/exams/my` includes only owned exams in currently assigned courses,
-with their complete question text. Reassignment revokes the previous teacher's
-access to questions and exams.
+Text-to-Speech, trả audio base64 để frontend phát.
+
+**Request**
+
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `text` | string | ✅ | Nội dung cần đọc |
+| `language` | string | — | Mặc định `vi-VN` |
+| `voice` | string | — | Tên voice của provider |
+
+**Response 200:** `success`, `audio_base64`, `audio_format`, `duration_seconds`.
+
+**Lỗi:** `422` · `500`.
+
+---
+
+## 8. POST /ai/evaluate/answer
+
+Chấm một câu trả lời theo rubric.
+
+**Request**
+
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `exam_session_id` | string | ✅ | UUID phiên thi |
+| `course_name` | string | ✅ | Tên môn học |
+| `documents` | `DocumentContext[]` | ✅ | Ngữ cảnh khoá học |
+| `question_answer` | `QuestionAnswerPair` | ✅ | Xem bảng dưới |
+| `max_score` | number | — | Điểm tối đa, mặc định 10 |
+
+`QuestionAnswerPair`: `question_id`, `question_text`, `student_answer` (bắt buộc); `is_follow_up`, `sample_answer`, `learning_outcome`, `topic`, `max_score`, `rubric[]` (`criterion_id`, `description`, `max_score`), `expected_keywords`.
+
+**Response 200**
+
+| Field | Kiểu | Ghi chú |
+|---|---|---|
+| `question_id` | string | Echo lại ID câu hỏi |
+| `score` | number | 0 → `max_score` |
+| `max_score` | number | Điểm tối đa |
+| `feedback` | string | Nhận xét tổng |
+| `strengths[]` | string[] | Điểm mạnh |
+| `weaknesses[]` | string[] | Điểm yếu |
+| `missing_content[]` | string[] | Nội dung thiếu |
+| `sentence_feedback[]` | array | `sentence`, `judgment`, `comment`; rỗng khi không có rubric |
+| `criterion_analyses[]` | array | `criterion_id`, `judgment` (`met` \| `partial` \| `not_met`), `explanation`, `errors[]`, `omissions[]`, `evidence_quotes[]` |
+| `improvements[]` | string[] | Gợi ý cải thiện |
+
+**Lỗi:** `422` · `500`.
+
+---
+
+## 9. POST /ai/evaluate/session
+
+Chấm toàn bộ buổi thi (worker gọi sau khi có transcript).
+
+**Request**
+
+| Field | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `exam_session_id` | string | ✅ | UUID phiên thi |
+| `student_id` | string | ✅ | UUID sinh viên |
+| `course_name` | string | ✅ | Tên môn học |
+| `documents` | `DocumentContext[]` | ✅ | Ngữ cảnh khoá học |
+| `question_answers` | `QuestionAnswerPair[]` | ✅ | Danh sách câu hỏi + bài làm |
+| `max_score_per_question` | number | — | Điểm tối đa mỗi câu |
+
+**Response 200**
+
+| Field | Kiểu | Ghi chú |
+|---|---|---|
+| `exam_session_id` | string | Echo lại ID phiên |
+| `total_score` | number | Tổng điểm đạt được |
+| `max_total_score` | number | Tổng điểm tối đa |
+| `percentage` | number | Phần trăm (0–100) |
+| `overall_feedback` | string | Nhận xét chung |
+| `question_scores[]` | array | `question_id`, `question_text`, `student_answer`, `score`, `max_score`, `feedback`, `strengths[]`, `weaknesses[]`, `missing_content[]`, `sentence_feedback[]`, `criterion_analyses[]`, `improvements[]` |
+| `study_suggestions[]` | string[] | Gợi ý ôn tập |
+| `status` | string | Trạng thái tổng kết |
+
+**Lỗi:** `422` · `500`.
+
+---
+
+## 10. POST /ai/markdown/process
+
+Chuẩn hoá markdown và kiểm tra tính hợp lệ trước khi dùng làm ngữ cảnh.
+
+**Request:** `course_name` (✅), `documents` (`DocumentContext[]`, ✅).
+
+**Response 200:** `course_name`, `is_valid`, `validation_errors[]`, `documents[]` (`document_id`, `title`, `document_type`, `raw_char_count`, `clean_char_count`, `heading_count`, `headings[]`, `learning_outcomes[]`, `key_topics[]`, `is_valid`, `validation_errors[]`), `context_string`.
+
+**Lỗi:** `422` · `500`.
+
+---
+
+## 11. GET /health
+
+**Response 200:** `status`, `service`, `version`, `ai_provider`, `stt_provider`, `tts_provider`.
+
+---
+
+## Contract nội bộ của LLM
+
+Response của model được validate trước khi trả ra ngoài:
+
+| Quy tắc | Giá trị |
+|---|---|
+| Điểm | `AiScore` trong `0–100` |
+| Độ tin cậy | `confidence` trong `0.0–1.0` |
+| Feedback | Đủ `strengths`, `improvements`, `actionableTips` |
+| Rubric | Mỗi `rubricResults[]` có `criterionId`, `criterionName`, `score ≤ maxScore`, `maxScore`, `evidence`, `comment` |
+| Xử lý | Bóc fence ```` ```json ```` → parse → kiểm tra đủ field → kiểm tra range → retry tối đa `AI_MAX_RETRIES` → raise `AIValidationError` / `AITimeoutError` |
