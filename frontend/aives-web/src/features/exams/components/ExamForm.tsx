@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { teacherQuestionsApi } from '@/features/teacher-questions/api/teacherQuestionsApi'
 import type { QuestionItemDto } from '@/features/teacher-questions/types'
@@ -22,7 +23,8 @@ export function ExamForm({ exam, onSubmit, onSaved, onCancel, onPending, submitL
 
   useEffect(() => {
     let active = true
-    teacherQuestionsApi.getAllQuestions(exam.courseId).then((items) => {
+    // The backend rejects exams containing unapproved questions, so only offer approved ones.
+    teacherQuestionsApi.getAllQuestions(exam.courseId, 'APPROVED').then((items) => {
       if (active) { setQuestions(items); setLoaded(true); setLoading(false) }
     }).catch((err) => { if (active) { setError(toApiError(err).message); setLoading(false) } })
     return () => { active = false }
@@ -76,7 +78,11 @@ export function ExamForm({ exam, onSubmit, onSaved, onCancel, onPending, submitL
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm">Selected {selected.size}/{maxQuestions} questions</p><Button type="button" variant="outline" disabled={!loaded || !questions.length || maxQuestions < 1 || maxQuestions > 200} onClick={() => void suggest()}>{suggesting ? 'Suggesting…' : 'Suggest questions'}</Button></div>
       {rationale && <p className="text-xs text-muted-foreground">{rationale}</p>}
-      {loading ? <p role="status">Loading question bank…</p> : !questions.length ? <p className="text-sm">The question bank is empty.</p> : <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border p-3">
+      <p className="text-xs text-muted-foreground">
+        Only approved questions are listed.{' '}
+        <Link to={`/staff/questions?courseId=${exam.courseId}`} className="font-medium text-brand hover:text-brand-hover">Review pending questions</Link>
+      </p>
+      {loading ? <p role="status">Loading question bank…</p> : !questions.length ? <p className="rounded-xl border border-dashed p-4 text-sm">No approved questions for this course yet. Approve questions in the question bank first.</p> : <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border p-3">
         {questions.map((question) => <div key={question.questionId} className="space-y-2 rounded-xl border p-3">
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={selected.has(question.questionId)} disabled={!selected.has(question.questionId) && selected.size >= maxQuestions} onChange={() => toggle(question)} /><span>{question.questionText}</span></label>
           {selected.has(question.questionId) && <label className="block text-xs">Score for #{question.questionId}<input required type="number" min="0.01" max="100" step="0.0001" className={`${inputClass} max-w-32`} value={selected.get(question.questionId)} onChange={(event) => setSelected((previous) => new Map(previous).set(question.questionId, Number(event.target.value)))} /></label>}

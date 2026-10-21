@@ -1,3 +1,4 @@
+import { Check, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -5,9 +6,12 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { teacherCoursesApi } from '@/features/teacher-courses/api/teacherCoursesApi'
 import type { TeacherCourse } from '@/features/teacher-courses/types'
 import { toApiError } from '@/lib/http/apiError'
+import { cn } from '@/lib/utils'
 import { teacherQuestionsApi } from '../api/teacherQuestionsApi'
 import { QuestionFormDialog } from '../components/QuestionFormDialog'
-import type { QuestionItemDto, QuestionPage, QuestionQuery } from '../types'
+import { RejectQuestionDialog } from '../components/RejectQuestionDialog'
+import { APPROVAL_LABEL, APPROVAL_STATUSES, APPROVAL_TONE } from '../lib/approvalStatus'
+import type { QuestionApprovalStatus, QuestionItemDto, QuestionPage, QuestionQuery } from '../types'
 
 const control = 'rounded-xl border bg-background px-3 py-2 text-sm'
 const emptyPage: QuestionPage = { items: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 }
@@ -32,6 +36,9 @@ export default function TeacherQuestionsPage() {
   const [generateCount, setGenerateCount] = useState(10)
   const [focusTopics, setFocusTopics] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [counts, setCounts] = useState<Record<QuestionApprovalStatus, number> | null>(null)
+  const [approvingId, setApprovingId] = useState<number | null>(null)
+  const [rejecting, setRejecting] = useState<QuestionItemDto | null>(null)
 
   useEffect(() => {
     let active = true
@@ -59,7 +66,25 @@ export default function TeacherQuestionsPage() {
     return () => { active = false }
   }, [courseId, query, revision])
 
+  // Review-state counts for the filter tabs; refreshed with the list (revision) but not on paging or sorting.
+  useEffect(() => {
+    if (!courseId) return
+    let active = true
+    teacherQuestionsApi.countByStatus(courseId).then((next) => { if (active) setCounts(next) }).catch(() => { if (active) setCounts(null) })
+    return () => { active = false }
+  }, [courseId, revision])
+
   function refresh() { setError(null); setLoading(true); setRevision((value) => value + 1) }
+
+  async function approve(question: QuestionItemDto) {
+    if (approvingId !== null) return
+    setApprovingId(question.questionId); setError(null); setFlash(null)
+    try {
+      await teacherQuestionsApi.approve(courseId, question.questionId)
+      setFlash('Question approved. It can now be added to exams.'); refresh()
+    } catch (err) { setError(toApiError(err).message) }
+    finally { setApprovingId(null) }
+  }
   function changeQuery(changes: QuestionQuery) {
     setError(null); setLoading(true); setQuery((previous) => ({ ...previous, page: 1, ...changes }))
   }
@@ -80,8 +105,9 @@ export default function TeacherQuestionsPage() {
     setGenerating(true); setError(null); setFlash(null)
     try {
       const result = await teacherQuestionsApi.generateQuestions(courseId, { questionCount: generateCount, focusTopics: focusTopics.trim() })
-      setFlash(`Generated ${result.generatedCount ?? result.questions.length} questions.`)
-      changeQuery({ page: 1 }); refresh()
+      setFlash(`Generated ${result.generatedCount ?? result.questions.length} questions. Review and approve them before adding them to an exam.`)
+      // New AI questions start as pending, so show that queue.
+      changeQuery({ page: 1, status: 'PENDING_REVIEW' }); refresh()
     } catch (err) { setError(toApiError(err).message) }
     finally { setGenerating(false) }
   }
@@ -109,6 +135,28 @@ export default function TeacherQuestionsPage() {
         </form>
       </section>
       <section className="space-y-4" aria-label="Question list" aria-busy={loading}>
+        <div role="group" aria-label="Filter by review status" className="flex flex-wrap gap-1.5">
+          {([undefined, ...APPROVAL_STATUSES] as (QuestionApprovalStatus | undefined)[]).map((status) => {
+            const active = query.status === status
+            const count = status ? counts?.[status] : counts ? counts.PENDING_REVIEW + counts.APPROVED + counts.REJECTED : undefined
+            return (
+              <button
+                key={status ?? 'ALL'}
+                type="button"
+                aria-pressed={active}
+                disabled={!courseId}
+                onClick={() => changeQuery({ status })}
+                className={cn(
+                  'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm transition-colors',
+                  active ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {status ? APPROVAL_LABEL[status] : 'All'}
+                {count !== undefined && <span className={cn('tabular-nums', active ? 'text-background/70' : 'text-muted-foreground/80')}>{count}</span>}
+              </button>
+            )
+          })}
+        </div>
         <form onSubmit={(event) => { event.preventDefault(); changeQuery({ search: search.trim() }) }} className="flex flex-wrap items-end gap-3">
           <label className="flex-1 text-sm">Search questions<input type="search" maxLength={1000} className={`${control} mt-1 block w-full`} value={search} onChange={(event) => setSearch(event.target.value)} /></label>
           <Button variant="outline" disabled={!courseId}>Search</Button>
@@ -119,10 +167,28 @@ export default function TeacherQuestionsPage() {
         <p className="text-sm text-muted-foreground">{data.totalCount} questions</p>
         {loading ? <p role="status">Loading questions…</p> : error ? null : !data.items.length ? <p className="rounded-xl border border-dashed p-8 text-center">No matching questions.</p> : data.items.map((question) => (
           <article key={question.questionId} className="space-y-3 rounded-2xl border p-5">
-            <p className="font-medium">{question.questionText}</p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="font-medium">{question.questionText}</p>
+              <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-medium', APPROVAL_TONE[question.approvalStatus])}>
+                {APPROVAL_LABEL[question.approvalStatus]}
+              </span>
+            </div>
             <p className="text-sm text-muted-foreground">{question.topic ? `${question.topic} · ` : ''}{levels[question.level - 1]} · {question.maxScore} pts</p>
+            {question.approvalStatus === 'REJECTED' && question.rejectionReason && (
+              <p className="rounded-xl bg-[#fef1f0] px-3.5 py-2.5 text-sm text-destructive">
+                <span className="font-medium">Rejection reason: </span>{question.rejectionReason}
+              </p>
+            )}
             {question.isInUse && <p className="text-xs text-muted-foreground">Already used in an exam. Create a new question to change its content.</p>}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {question.approvalStatus === 'PENDING_REVIEW' && <>
+                <Button size="sm" disabled={approvingId !== null} onClick={() => void approve(question)}>
+                  <Check aria-hidden="true" />{approvingId === question.questionId ? 'Approving…' : 'Approve'}
+                </Button>
+                <Button size="sm" variant="destructive" disabled={approvingId !== null} onClick={() => { setRejecting(question); setFlash(null) }}>
+                  <X aria-hidden="true" />Reject
+                </Button>
+              </>}
               <Button size="sm" variant="outline" onClick={() => setDialog({ questionId: question.questionId, readOnly: true })}>View</Button>
               <Button size="sm" variant="outline" disabled={question.isInUse} onClick={() => setDialog({ questionId: question.questionId, readOnly: false })}>Edit</Button>
               <Button size="sm" variant="ghost" disabled={question.isInUse} onClick={() => { setDeleting(question); setDeleteError(null) }}>Delete</Button>
@@ -136,7 +202,8 @@ export default function TeacherQuestionsPage() {
         </div>
       </section>
       <Button asChild variant="outline"><Link to="/staff/exams">Manage exams</Link></Button>
-      {dialog && <QuestionFormDialog key={`${courseId}/${dialog.questionId ?? 'new'}/${dialog.readOnly}`} courseId={courseId} {...dialog} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); setFlash('Question saved.'); refresh() }} />}
+      {dialog && <QuestionFormDialog key={`${courseId}/${dialog.questionId ?? 'new'}/${dialog.readOnly}`} courseId={courseId} {...dialog} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); setFlash('Question saved. It is pending review until approved.'); refresh() }} />}
+      {rejecting && <RejectQuestionDialog courseId={courseId} question={rejecting} onClose={() => setRejecting(null)} onRejected={() => { setRejecting(null); setFlash('Question rejected. Editing it sends it back for review.'); refresh() }} />}
       <ConfirmDialog open={deleting !== null} title="Delete question?" description={deleting?.questionText ?? ''} pending={deletePending} error={deleteError} onClose={() => setDeleting(null)} onConfirm={() => void remove()} />
     </div>
   )

@@ -1,5 +1,12 @@
+/** AI-generated and edited questions start as PENDING_REVIEW; only APPROVED ones can go into an exam. */
+export type QuestionApprovalStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
+
 export interface QuestionItemDto {
   questionId: number
+  approvalStatus: QuestionApprovalStatus
+  reviewedBy?: number | null
+  reviewedAt?: string | null
+  rejectionReason?: string | null
   questionText: string
   topic?: string | null
   level: number
@@ -30,6 +37,7 @@ export interface QuestionQuery {
   pageSize?: number
   search?: string
   level?: number
+  status?: QuestionApprovalStatus
   sortBy?: 'createdAt' | 'questionText' | 'level' | 'maxScore'
   sortDirection?: 'asc' | 'desc'
 }

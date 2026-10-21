@@ -2,8 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toApiError } from '@/lib/http/apiError'
+import { cn } from '@/lib/utils'
 import { teacherQuestionsApi } from '../api/teacherQuestionsApi'
-import type { WriteQuestionInput } from '../types'
+import { APPROVAL_LABEL, APPROVAL_TONE } from '../lib/approvalStatus'
+import type { QuestionItemDto, WriteQuestionInput } from '../types'
 
 const fieldClass = 'mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm'
 const emptyQuestion: WriteQuestionInput = {
@@ -25,6 +27,7 @@ export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, on
   const [loading, setLoading] = useState(questionId !== undefined)
   const [pending, setPending] = useState(false)
   const [inUse, setInUse] = useState(false)
+  const [review, setReview] = useState<Pick<QuestionItemDto, 'approvalStatus' | 'rejectionReason'> | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -40,6 +43,7 @@ export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, on
         rubric: question.rubric?.length ? question.rubric.map((criterion) => ({ ...criterion })) : [{ description: '', maxScore: question.maxScore ?? 1 }],
       })
       setInUse(Boolean(question.isInUse))
+      setReview({ approvalStatus: question.approvalStatus, rejectionReason: question.rejectionReason })
       setLoading(false)
     }).catch((err) => {
       if (active) { setError(toApiError(err).message); setLoadFailed(true); setLoading(false) }
@@ -86,6 +90,25 @@ export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, on
         </DialogHeader>
         {loading ? <p role="status">Loading question…</p> : (
           <form onSubmit={submit} className="space-y-4">
+            {review && (
+              <div className="space-y-2">
+                <span className={cn('inline-flex rounded-full px-2.5 py-1 text-xs font-medium', APPROVAL_TONE[review.approvalStatus])}>
+                  {APPROVAL_LABEL[review.approvalStatus]}
+                </span>
+                {review.approvalStatus === 'REJECTED' && review.rejectionReason && (
+                  <p className="rounded-xl bg-[#fef1f0] px-3.5 py-2.5 text-sm text-destructive">
+                    <span className="font-medium">Rejection reason: </span>{review.rejectionReason}
+                  </p>
+                )}
+                {/* The backend resets any edited question to PENDING_REVIEW; say so before the user saves. */}
+                {!locked && review.approvalStatus !== 'PENDING_REVIEW' && (
+                  <p role="note" className="rounded-xl bg-warning-soft px-3.5 py-2.5 text-sm text-warning">
+                    Saving changes sends this question back to <span className="font-medium">Pending review</span>.
+                    {review.approvalStatus === 'APPROVED' && ' It cannot be added to new exams until it is approved again.'}
+                  </p>
+                )}
+              </div>
+            )}
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <fieldset disabled={locked || pending} className="space-y-4">
               <label className="block text-sm">Question<textarea aria-label="Question" required maxLength={10000} rows={3} className={fieldClass} value={form.questionText} onChange={(event) => set('questionText', event.target.value)} /></label>
