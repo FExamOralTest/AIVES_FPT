@@ -16,7 +16,7 @@ export function RolesSection() {
     <section id="roles" className="scroll-mt-6 px-4 pt-28 sm:px-6">
       <Reveal className="mx-auto flex max-w-[1200px] flex-col items-center gap-12">
         <RevealItem index={-1}>
-          <SectionHeading label="Vai trò" title="Mỗi người thấy đúng phần việc của mình" />
+          <SectionHeading label="Roles" title="Everyone sees exactly the work that is theirs" />
         </RevealItem>
         <div className="grid w-full gap-4 md:grid-cols-3">
           {ROLES.map((role, i) => (

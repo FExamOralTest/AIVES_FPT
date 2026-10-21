@@ -42,7 +42,6 @@ export default function VivaRoomPage() {
 
   const recorder = useAudioRecorder()
   const textInputId = useId()
-  const prevIsRecordingRef = useRef(recorder.isRecording)
   const autoStartedSession = useRef<string | null>(null)
 
   // Format recording seconds MM:SS
@@ -52,23 +51,19 @@ export default function VivaRoomPage() {
     return `${mins.toString().padStart(2, '0')}:${rem.toString().padStart(2, '0')}`
   }
 
-  // Auto-fill textAnswer in real time as speech recognition transcribes words
-  useEffect(() => {
-    if (recorder.transcript && recorder.transcript.trim()) {
-      setTextAnswer(recorder.transcript.trim())
-    }
-  }, [recorder.transcript])
-
-  // When recording transitions from active to stopped, guarantee textAnswer is filled
-  useEffect(() => {
-    if (prevIsRecordingRef.current && !recorder.isRecording) {
-      const text = recorder.transcript || recorder.interimTranscript
-      if (text && text.trim()) {
-        setTextAnswer(text.trim())
-      }
-    }
-    prevIsRecordingRef.current = recorder.isRecording
-  }, [recorder.isRecording, recorder.transcript, recorder.interimTranscript])
+  // Mirror the live transcript into the editable answer, and fill it once more when recording stops.
+  // Done during render (React's "adjust state when a prop changes" pattern) instead of in effects.
+  const [seenTranscript, setSeenTranscript] = useState(recorder.transcript)
+  const [wasRecording, setWasRecording] = useState(recorder.isRecording)
+  if (recorder.transcript !== seenTranscript) {
+    setSeenTranscript(recorder.transcript)
+    if (recorder.transcript?.trim()) setTextAnswer(recorder.transcript.trim())
+  }
+  if (recorder.isRecording !== wasRecording) {
+    setWasRecording(recorder.isRecording)
+    const text = recorder.transcript || recorder.interimTranscript
+    if (!recorder.isRecording && text?.trim()) setTextAnswer(text.trim())
+  }
 
   // Stop recording and immediately populate textAnswer
   const handleStopRecording = () => {
@@ -83,7 +78,7 @@ export default function VivaRoomPage() {
     const value = rawId.trim()
     const id = Number(value)
     if (!/^\d+$/.test(value) || !Number.isInteger(id) || id < 1 || id > 2147483647) {
-      setErrorMessage('ID ca thi phải là số nguyên dương, không phải tên ca thi hoặc mã tham gia ESS-XXXXXXXX.')
+      setErrorMessage('The session ID must be a positive whole number, not the session name or an ESS-XXXXXXXX join code.')
       return
     }
     setIsLoading(true)
@@ -120,7 +115,7 @@ export default function VivaRoomPage() {
     const hasText = Boolean(textAnswer.trim())
 
     if (!hasAudio && !hasText) {
-      setErrorMessage('Vui lòng ghi âm câu trả lời hoặc nhập văn bản trước khi gửi.')
+      setErrorMessage('Please record your answer or type it before submitting.')
       return
     }
 
@@ -134,7 +129,8 @@ export default function VivaRoomPage() {
       formData.append('isFollowUp', currentQuestion.isFollowUp.toString())
 
       if (recorder.audioBlob) {
-        formData.append('audioFile', recorder.audioBlob, 'answer.wav')
+        // The backend names the stored object after this extension, so it must match the real format.
+        formData.append('audioFile', recorder.audioBlob, `answer.${audioExtension(recorder.audioBlob.type)}`)
       }
       if (hasText) {
         formData.append('textAnswer', textAnswer.trim())
@@ -151,7 +147,7 @@ export default function VivaRoomPage() {
       setTextAnswer('')
 
       if (res.shouldFollowUp && res.nextQuestion) {
-        setFollowUpAlert('AI có một câu hỏi phụ để làm rõ nội dung bạn vừa trả lời!')
+        setFollowUpAlert('The AI has a follow-up question to clarify your last answer.')
         setCurrentQuestion(res.nextQuestion)
       } else if (res.isCompleted || !res.nextQuestion) {
         setIsCompleted(true)
@@ -186,9 +182,9 @@ export default function VivaRoomPage() {
     return (
       <div className="mx-auto max-w-xl py-6">
         <header className="text-center sm:text-left">
-          <h1 className="font-heading text-3xl font-medium tracking-tight">Phòng thi vấn đáp AI</h1>
+          <h1 className="font-heading text-3xl font-medium tracking-tight">AI viva room</h1>
           <p className="mt-2 text-muted-foreground">
-            Vào phòng thi vấn đáp trực tuyến bằng giọng nói. Chuẩn bị micro và không gian yên tĩnh.
+            Take your viva exam online by voice. Get your microphone ready and find a quiet place.
           </p>
         </header>
 
@@ -202,7 +198,7 @@ export default function VivaRoomPage() {
 
           <form onSubmit={handleEntrySubmit} noValidate className="flex flex-col gap-4">
             <label htmlFor="session-id-input" className="text-sm font-semibold">
-              ID ca thi (Session ID)
+              Session ID
             </label>
             <div className="flex gap-3">
               <input
@@ -215,7 +211,7 @@ export default function VivaRoomPage() {
                   setErrorMessage(null)
                 }}
                 aria-describedby="session-id-hint"
-                placeholder="Nhập ID được hiển thị sau khi đăng ký"
+                placeholder="Enter the ID shown after you joined"
                 className="h-12 w-full rounded-xl border border-input bg-background px-4 font-mono text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
               <Button
@@ -223,19 +219,19 @@ export default function VivaRoomPage() {
                 disabled={isLoading || !inputSessionId.trim()}
                 className="h-12 px-6 shrink-0"
               >
-                {isLoading ? 'Đang vào…' : 'Vào phòng thi'}
+                {isLoading ? 'Entering…' : 'Enter room'}
               </Button>
             </div>
             <p id="session-id-hint" className="text-sm text-muted-foreground">
-              Dùng ID dạng số hiển thị sau khi đăng ký ca thi. Tên ca thi có thể khác ID;
-              mã ESS-XXXXXXXX dùng ở trang Tham gia ca thi.
+              Use the numeric ID shown after you joined the session. It differs from the session name;
+              the ESS-XXXXXXXX code is only for the Join a session page.
             </p>
           </form>
 
           <div className="mt-6 flex items-center justify-between border-t pt-5 text-sm text-muted-foreground">
-            <span>Chưa đăng ký ca thi?</span>
+            <span>Not registered for a session?</span>
             <Link to="/student/enroll" className="font-semibold text-brand hover:text-brand-hover">
-              Đăng ký tham gia ca thi ngay
+              Join a session now
             </Link>
           </div>
         </div>
@@ -252,27 +248,27 @@ export default function VivaRoomPage() {
         </div>
 
         <h1 className="mt-6 font-heading text-3xl font-medium tracking-tight sm:text-4xl">
-          Hoàn thành bài thi vấn đáp!
+          Viva exam completed!
         </h1>
         <p className="mt-3 text-lg text-muted-foreground">
-          Bạn đã hoàn thành các câu hỏi trong ca thi <span className="font-semibold text-foreground">{session.sessionName}</span>.
+          You have answered all the questions in <span className="font-semibold text-foreground">{session.sessionName}</span>.
         </p>
 
         <div className="mt-8 rounded-3xl border bg-card p-6 text-left shadow-sm sm:p-8">
-          <h2 className="font-heading text-lg font-medium">Trạng thái chấm thi</h2>
+          <h2 className="font-heading text-lg font-medium">Scoring status</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            AI đã hoàn thành đánh giá sơ bộ toàn bộ câu trả lời của bạn. Bài thi đang được gửi tới giảng viên phụ trách để duyệt và công bố điểm chính thức.
+            The AI has made a first assessment of all your answers. Your exam is now with the examiner, who will review it and publish the official score.
           </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Button asChild className="flex-1">
               <Link to={`/student/results?sessionId=${session.sessionId}`}>
-                Xem kết quả thi
+                View result
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
             <Button variant="secondary" onClick={() => navigate('/student')}>
-              Về trang chủ
+              Back to home
             </Button>
           </div>
         </div>
@@ -303,7 +299,7 @@ export default function VivaRoomPage() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-2 text-sm font-medium">
             <Clock className="size-4 text-brand" />
-            <span>Thời lượng: {session.durationMinutes} phút</span>
+            <span>Duration: {session.durationMinutes} min</span>
           </div>
 
           <Button
@@ -313,7 +309,7 @@ export default function VivaRoomPage() {
             disabled={isFinishing}
             className="rounded-xl px-4"
           >
-            {isFinishing ? 'Đang nộp…' : 'Nộp bài sớm'}
+            {isFinishing ? 'Submitting…' : 'Submit early'}
           </Button>
         </div>
       </header>
@@ -362,21 +358,21 @@ export default function VivaRoomPage() {
       <section aria-labelledby="answer-heading" className="mt-6 rounded-3xl border bg-card p-6 shadow-sm sm:p-8">
         <div className="flex items-center justify-between">
           <h2 id="answer-heading" className="font-heading text-lg font-medium">
-            Trả lời câu hỏi
+            Your answer
           </h2>
 
           {/* Active status indicator */}
           {recorder.isRecording && (
             <span className="flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-3.5 py-1 text-xs font-semibold text-destructive animate-pulse">
               <span className="size-2 rounded-full bg-destructive animate-ping" />
-              Đang ghi âm ({formatTime(recorder.recordingTime)})
+              Recording ({formatTime(recorder.recordingTime)})
             </span>
           )}
 
           {!recorder.isRecording && hasRecordedAudio && (
             <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="size-3.5" />
-              Đã ghi âm xong ({formatTime(recorder.recordingTime)})
+              Recorded ({formatTime(recorder.recordingTime)})
             </span>
           )}
         </div>
@@ -397,7 +393,7 @@ export default function VivaRoomPage() {
               onClick={recorder.clearError}
               className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10"
             >
-              Đóng
+              Close
             </Button>
           </Alert>
         )}
@@ -415,7 +411,7 @@ export default function VivaRoomPage() {
           <div className="mt-4 rounded-2xl border border-brand/20 bg-brand/5 p-4 text-sm animate-in fade-in duration-200">
             <div className="flex items-center gap-2 font-medium text-brand text-xs uppercase tracking-wider mb-1.5">
               <Sparkles className="size-3.5 animate-spin text-brand" />
-              Đang nhận diện giọng nói (Speech-to-Text):
+              Transcribing your speech:
             </div>
             <p className="text-foreground text-sm font-normal min-h-[1.5rem]">
               {recorder.transcript || recorder.interimTranscript ? (
@@ -427,7 +423,7 @@ export default function VivaRoomPage() {
                 </>
               ) : (
                 <span className="text-muted-foreground italic">
-                  Đang lắng nghe... Bạn hãy nói to, rõ ràng vào micro.
+                  Listening... Speak clearly into your microphone.
                 </span>
               )}
             </p>
@@ -447,12 +443,12 @@ export default function VivaRoomPage() {
               {recorder.isStarting ? (
                 <>
                   <Loader2 className="size-5 animate-spin" />
-                  Đang bật Micro...
+                  Turning on the microphone...
                 </>
               ) : (
                 <>
                   <Mic className="size-5" />
-                  Bắt đầu ghi âm câu trả lời
+                  Start recording your answer
                 </>
               )}
             </Button>
@@ -468,7 +464,7 @@ export default function VivaRoomPage() {
                 className="gap-2.5 rounded-full px-7 py-6 text-base shadow-lg shadow-destructive/25 transition-all font-medium animate-pulse"
               >
                 <Square className="size-5 fill-current" />
-                Dừng ghi âm ({formatTime(recorder.recordingTime)})
+                Stop recording ({formatTime(recorder.recordingTime)})
               </Button>
               <Button
                 type="button"
@@ -478,7 +474,7 @@ export default function VivaRoomPage() {
                 className="gap-1.5 rounded-full px-5 py-6 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-4" />
-                Hủy bỏ
+                Cancel
               </Button>
             </div>
           )}
@@ -491,11 +487,11 @@ export default function VivaRoomPage() {
                 variant="outline"
                 size="sm"
                 onClick={recorder.resetRecording}
-                title="Ghi âm lại"
+                title="Record again"
                 className="gap-2 rounded-full px-4"
               >
                 <RotateCcw className="size-4" />
-                Ghi âm lại
+                Record again
               </Button>
             </div>
           )}
@@ -506,8 +502,8 @@ export default function VivaRoomPage() {
           <div className="flex items-center justify-between">
             <label htmlFor={textInputId} className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {hasRecordedAudio || textAnswer
-                ? 'Nội dung câu trả lời (nhận diện từ giọng nói - bạn có thể chỉnh sửa):'
-                : 'Hoặc nhập câu trả lời bằng văn bản (dự phòng):'}
+                ? 'Your answer (transcribed from your voice – you can edit it):'
+                : 'Or type your answer (fallback):'}
             </label>
             {textAnswer && (
               <button
@@ -515,7 +511,7 @@ export default function VivaRoomPage() {
                 onClick={() => setTextAnswer('')}
                 className="text-xs text-muted-foreground hover:text-destructive transition-colors"
               >
-                Xóa văn bản
+                Clear text
               </button>
             )}
           </div>
@@ -523,7 +519,7 @@ export default function VivaRoomPage() {
           {hasRecordedAudio && textAnswer && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
               <CheckCircle2 className="size-3.5" />
-              <span>Đã chuyển giọng nói thành văn bản bên dưới. Bạn có thể bấm vào khung để chỉnh sửa hoặc bổ sung ý trước khi gửi.</span>
+              <span>Your speech has been transcribed below. Click the box to edit or add to it before submitting.</span>
             </div>
           )}
 
@@ -534,8 +530,8 @@ export default function VivaRoomPage() {
             onChange={(e) => setTextAnswer(e.target.value)}
             placeholder={
               recorder.isRecording
-                ? 'Lời nói của bạn đang được chuyển thành chữ tại đây theo thời gian thực...'
-                : 'Văn bản câu trả lời sẽ xuất hiện tại đây sau khi bạn nói, hoặc bạn có thể gõ trực tiếp...'
+                ? 'Your words appear here in real time...'
+                : 'Your answer appears here after you speak, or you can type it directly...'
             }
             className="mt-2 w-full rounded-2xl border border-input bg-background p-4 text-sm outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 resize-none leading-relaxed"
           />
@@ -546,7 +542,7 @@ export default function VivaRoomPage() {
           <div className="mt-4 rounded-2xl bg-muted/70 p-4 text-xs">
             <span className="font-semibold text-muted-foreground flex items-center gap-1.5 mb-1">
               <Volume2 className="size-3.5 text-brand" />
-              Văn bản AI ghi nhận câu trước đó:
+              What the AI recorded for your previous answer:
             </span>
             <p className="text-foreground italic">"{transcript}"</p>
           </div>
@@ -563,12 +559,12 @@ export default function VivaRoomPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Đang xử lý câu trả lời…
+                Processing your answer…
               </>
             ) : (
               <>
                 <Send className="size-4" />
-                Gửi câu trả lời
+                Submit answer
               </>
             )}
           </Button>
@@ -576,4 +572,12 @@ export default function VivaRoomPage() {
       </section>
     </div>
   )
+}
+
+/** "audio/webm;codecs=opus" → "webm", "audio/mp4" → "m4a"; MediaRecorder output varies by browser. */
+function audioExtension(mimeType: string) {
+  if (mimeType.includes('mp4')) return 'm4a'
+  if (mimeType.includes('ogg')) return 'ogg'
+  if (mimeType.includes('wav')) return 'wav'
+  return 'webm'
 }

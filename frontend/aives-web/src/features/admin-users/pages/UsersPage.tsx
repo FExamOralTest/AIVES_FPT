@@ -14,7 +14,7 @@ import type { User, UserRole } from '../types'
 type Filter = 'ALL' | UserRole
 
 const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'ALL', label: 'Tất cả' },
+  { value: 'ALL', label: 'All' },
   { value: 'STAFF', label: ROLE_LABEL.STAFF },
   { value: 'EXAMINER', label: ROLE_LABEL.EXAMINER },
   { value: 'STUDENT', label: ROLE_LABEL.STUDENT },
@@ -53,7 +53,7 @@ export default function UsersPage() {
     try {
       await usersApi.delete(deleting.userId)
       setUsers((previous) => previous.filter((user) => user.userId !== deleting.userId))
-      setFlash(`Đã xóa tài khoản ${deleting.username}.`)
+      setFlash(`Deleted account ${deleting.username}.`)
       setDeleting(null)
     } catch (err) { setDeleteError(toApiError(err).message) }
     finally { setDeletePending(false) }
@@ -70,7 +70,7 @@ export default function UsersPage() {
         setLoad({ status: 'ready' })
       })
       .catch((err) => {
-        if (!cancelled) setLoad({ status: 'error', message: toApiError(err, 'Không tải được danh sách người dùng.').message })
+        if (!cancelled) setLoad({ status: 'error', message: toApiError(err, 'Could not load users.').message })
       })
     return () => {
       cancelled = true
@@ -94,7 +94,7 @@ export default function UsersPage() {
 
   function handleSaved(saved: User, created: boolean) {
     setUsers((prev) => (created ? [...prev, saved] : prev.map((u) => (u.userId === saved.userId ? saved : u))))
-    setFlash(created ? `Đã tạo tài khoản ${saved.username} (${ROLE_LABEL[saved.role]}).` : `Đã lưu thay đổi cho ${saved.fullName}.`)
+    setFlash(created ? `Created account ${saved.username} (${ROLE_LABEL[saved.role]}).` : `Saved changes for ${saved.fullName}.`)
     setDialog(null)
   }
 
@@ -102,14 +102,14 @@ export default function UsersPage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-medium tracking-tight">Người dùng</h1>
+          <h1 className="font-heading text-3xl font-medium tracking-tight">Users</h1>
           <p className="mt-1.5 max-w-2xl text-muted-foreground">
-            Tạo tài khoản giảng viên, sinh viên và quản trị viên; sửa thông tin và đổi vai trò.
+            Create staff, examiner, student and admin accounts; edit details and change roles.
           </p>
         </div>
         <Button onClick={() => setDialog({ type: 'create' })}>
           <Plus aria-hidden="true" />
-          Thêm người dùng
+          Add user
         </Button>
       </header>
       <div role="status" aria-live="polite">
@@ -122,7 +122,7 @@ export default function UsersPage() {
       </div>
 
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div role="group" aria-label="Lọc theo vai trò" className="flex gap-1 overflow-x-auto">
+        <div role="group" aria-label="Filter by role" className="flex gap-1 overflow-x-auto">
           {FILTERS.map(({ value, label }) => (
             <button
               key={value}
@@ -142,19 +142,19 @@ export default function UsersPage() {
           ))}
         </div>
         <label className="relative block lg:w-72">
-          <span className="sr-only">Tìm người dùng</span>
+          <span className="sr-only">Search users</span>
           <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm theo tên, tên đăng nhập, email"
+            placeholder="Search by name, username or email"
             className="h-10 w-full rounded-full border border-input bg-background pr-4 pl-10 text-sm outline-none focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand/15"
           />
         </label>
       </div>
 
-      <section aria-label="Danh sách người dùng" className="mt-4 overflow-hidden rounded-2xl border">
+      <section aria-label="User list" className="mt-4 overflow-hidden rounded-2xl border">
         {load.status === 'loading' && <ListSkeleton />}
 
         {load.status === 'error' && (
@@ -170,7 +170,7 @@ export default function UsersPage() {
               }}
             >
               <RotateCw aria-hidden="true" />
-              Thử lại
+              Try again
             </Button>
           </div>
         )}
@@ -179,7 +179,7 @@ export default function UsersPage() {
           <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
             <UserRound className="size-7 text-muted-foreground" aria-hidden="true" />
             <p className="text-muted-foreground">
-              {users.length === 0 ? 'Chưa có người dùng nào.' : 'Không có người dùng phù hợp với bộ lọc.'}
+              {users.length === 0 ? 'No users yet.' : 'No users match these filters.'}
             </p>
           </div>
         )}
@@ -190,10 +190,10 @@ export default function UsersPage() {
               aria-hidden="true"
               className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_8rem_8rem] gap-4 bg-muted/60 px-5 py-2.5 text-xs font-medium text-muted-foreground uppercase md:grid"
             >
-              <span>Người dùng</span>
+              <span>User</span>
               <span>Email</span>
-              <span>Vai trò</span>
-              <span className="text-right">Thao tác</span>
+              <span>Role</span>
+              <span className="text-right">Actions</span>
             </li>
             {visible.map((u) => (
               <UserRow
@@ -212,7 +212,7 @@ export default function UsersPage() {
         )}
       </section>
 
-      <ConfirmDialog open={deleting !== null} title="Xóa người dùng?" description={`Xóa tài khoản ${deleting?.username ?? ''}? Tài khoản có dữ liệu liên quan sẽ được giữ lại.`} pending={deletePending} error={deleteError} onClose={() => setDeleting(null)} onConfirm={() => void handleDelete()} />
+      <ConfirmDialog open={deleting !== null} title="Delete user?" description={`Delete account ${deleting?.username ?? ''}? Accounts with related data cannot be deleted.`} pending={deletePending} error={deleteError} onClose={() => setDeleting(null)} onConfirm={() => void handleDelete()} />
       {viewing && <UserDetail user={viewing} onClose={() => setViewing(null)} />}
 
       <UserFormDialog
@@ -238,14 +238,14 @@ function UserRow({ user, isSelf, onEdit, onDelete, onView }: { user: User; isSel
         <div className="min-w-0">
           <p className="flex items-center gap-2 truncate font-medium">
             <span className="truncate">{user.fullName}</span>
-            {isSelf && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Bạn</span>}
+            {isSelf && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">You</span>}
           </p>
           <p className="truncate text-sm text-muted-foreground">@{user.username}</p>
         </div>
       </div>
 
       <p className="col-span-2 row-start-2 truncate pl-12 text-sm text-muted-foreground md:col-span-1 md:row-start-auto md:pl-0 md:text-foreground">
-        {user.email ?? 'Chưa có email'}
+        {user.email ?? 'No email'}
       </p>
 
       <span
@@ -258,8 +258,8 @@ function UserRow({ user, isSelf, onEdit, onDelete, onView }: { user: User; isSel
       </span>
 
       <div className="col-span-2 row-start-3 flex justify-end gap-1 md:col-span-1 md:row-start-auto">
-        <Button variant="ghost" size="icon-sm" onClick={onView} aria-label={`Chi tiết ${user.fullName}`} title="Chi tiết"><Eye aria-hidden="true" /></Button>
-        <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label={`Sửa ${user.fullName}`} title="Sửa">
+        <Button variant="ghost" size="icon-sm" onClick={onView} aria-label={`View ${user.fullName}`} title="View"><Eye aria-hidden="true" /></Button>
+        <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label={`Edit ${user.fullName}`} title="Edit">
           <Pencil aria-hidden="true" />
         </Button>
         <Button
@@ -267,8 +267,8 @@ function UserRow({ user, isSelf, onEdit, onDelete, onView }: { user: User; isSel
           size="icon-sm"
           disabled={isSelf}
           onClick={onDelete}
-          aria-label={`Xoá ${user.fullName}`}
-          title={isSelf ? 'Không thể tự xóa tài khoản' : 'Xóa tài khoản'}
+          aria-label={`Delete ${user.fullName}`}
+          title={isSelf ? 'You cannot delete your own account' : 'Delete account'}
         >
           <Trash2 aria-hidden="true" />
         </Button>
@@ -280,16 +280,16 @@ function UserRow({ user, isSelf, onEdit, onDelete, onView }: { user: User; isSel
 function UserDetail({ user, onClose }: { user: User; onClose: () => void }) {
   const { state, reload } = useApi(() => usersApi.get(user.userId), user.userId)
   return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent>
-    <DialogHeader><DialogTitle>Chi tiết người dùng</DialogTitle><DialogDescription>Thông tin tài khoản hiện tại.</DialogDescription></DialogHeader>
-    {state.status === 'loading' ? <p>Đang tải…</p> : state.status === 'error' ? <p role="alert">{state.message} <Button onClick={reload}>Thử lại</Button></p> : <dl className="space-y-3 text-sm">
-      {[['Họ tên', state.data.fullName], ['Tên đăng nhập', state.data.username], ['Email', state.data.email ?? 'Chưa có'], ['Vai trò', ROLE_LABEL[state.data.role]]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="break-words font-medium">{value}</dd></div>)}
+    <DialogHeader><DialogTitle>User details</DialogTitle><DialogDescription>Current account information.</DialogDescription></DialogHeader>
+    {state.status === 'loading' ? <p>Loading…</p> : state.status === 'error' ? <p role="alert">{state.message} <Button onClick={reload}>Try again</Button></p> : <dl className="space-y-3 text-sm">
+      {[['Full name', state.data.fullName], ['Username', state.data.username], ['Email', state.data.email ?? 'Not set'], ['Role', ROLE_LABEL[state.data.role]]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="break-words font-medium">{value}</dd></div>)}
     </dl>}
   </DialogContent></Dialog>
 }
 
 function ListSkeleton() {
   return (
-    <ul aria-busy="true" aria-label="Đang tải" className="divide-y">
+    <ul aria-busy="true" aria-label="Loading" className="divide-y">
       {Array.from({ length: 4 }, (_, i) => (
         <li key={i} className="flex items-center gap-3 px-5 py-4">
           <span className="size-9 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />

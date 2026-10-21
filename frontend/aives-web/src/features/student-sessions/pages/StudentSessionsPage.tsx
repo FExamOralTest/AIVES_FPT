@@ -15,7 +15,7 @@ import type { StudentSessionEnrollment } from '../types'
 export default function StudentSessionsPage() {
   const { user } = useAuth()
   const { state, reload } = useApi(
-    () => studentSessionsApi.listMine(), user?.userId ?? 0, 'Không tải được danh sách ca thi đã đăng ký.',
+    () => studentSessionsApi.listMine(), user?.userId ?? 0, 'Could not load your sessions.',
   )
   const [filter, setFilter] = useState<SessionFilter>('all')
   const [search, setSearch] = useState('')
@@ -48,35 +48,35 @@ export default function StudentSessionsPage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-medium tracking-tight">Ca thi của tôi</h1>
+          <h1 className="font-heading text-3xl font-medium tracking-tight">My sessions</h1>
           <p className="mt-1.5 max-w-2xl text-muted-foreground">
-            Theo dõi các ca thi đã đăng ký, vào phòng thi và xem kết quả của bạn.
+            Track the sessions you joined, enter the viva room and see your results.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={reload} disabled={state.status === 'loading'}>
             <RotateCw aria-hidden="true" />
-            Làm mới
+            Refresh
           </Button>
           <Button asChild>
-            <Link to="/student/enroll"><KeyRound aria-hidden="true" />Tham gia ca thi</Link>
+            <Link to="/student/enroll"><KeyRound aria-hidden="true" />Join a session</Link>
           </Button>
         </div>
       </header>
 
-      <section aria-label="Lọc ca thi" className="mt-8 space-y-4">
+      <section aria-label="Filter sessions" className="mt-8 space-y-4">
         <div className="max-w-md space-y-2">
-          <Label htmlFor={searchId}>Tìm ca thi</Label>
+          <Label htmlFor={searchId}>Search sessions</Label>
           <input
             id={searchId}
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Tên ca thi, đề thi hoặc môn học"
+            placeholder="Session, exam or course name"
             className="h-11 w-full rounded-xl border border-input bg-background px-4 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
         </div>
-        <div role="group" aria-label="Trạng thái ca thi" className="flex flex-wrap gap-2">
+        <div role="group" aria-label="Session status" className="flex flex-wrap gap-2">
           {SESSION_FILTERS.map((option) => (
             <Button
               key={option.value}
@@ -91,10 +91,10 @@ export default function StudentSessionsPage() {
         </div>
       </section>
 
-      <section aria-label="Danh sách ca thi đã đăng ký" aria-busy={state.status === 'loading'} className="mt-6">
+      <section aria-label="Your sessions" aria-busy={state.status === 'loading'} className="mt-6">
         {state.status === 'loading' && (
           <div role="status" className="space-y-3">
-            <span className="sr-only">Đang tải danh sách ca thi…</span>
+            <span className="sr-only">Loading your sessions…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-44 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
             ))}
@@ -104,24 +104,24 @@ export default function StudentSessionsPage() {
           <div role="alert" className="flex flex-col items-center gap-3 rounded-2xl border px-6 py-14 text-center">
             <CircleAlert className="size-8 text-destructive" aria-hidden="true" />
             <p className="max-w-sm text-muted-foreground">{state.message}</p>
-            <Button variant="secondary" onClick={reload}><RotateCw aria-hidden="true" />Thử lại</Button>
+            <Button variant="secondary" onClick={reload}><RotateCw aria-hidden="true" />Try again</Button>
           </div>
         )}
         {state.status === 'ready' && sessions.length === 0 && (
           <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-6 py-14 text-center">
             <CalendarClock className="size-8 text-muted-foreground" aria-hidden="true" />
-            <h2 className="font-heading text-lg font-medium">Bạn chưa đăng ký ca thi nào</h2>
-            <p className="max-w-sm text-sm text-muted-foreground">Nhập mã giảng viên cung cấp để tham gia ca thi đầu tiên.</p>
-            <Button asChild><Link to="/student/enroll">Tham gia ca thi</Link></Button>
+            <h2 className="font-heading text-lg font-medium">You have not joined any session yet</h2>
+            <p className="max-w-sm text-sm text-muted-foreground">Enter the code from your lecturer to join your first session.</p>
+            <Button asChild><Link to="/student/enroll">Join a session</Link></Button>
           </div>
         )}
         {state.status === 'ready' && sessions.length > 0 && (
           <>
-            <p role="status" className="mb-3 text-sm text-muted-foreground">Hiển thị {visibleSessions.length} / {sessions.length} ca thi</p>
+            <p role="status" className="mb-3 text-sm text-muted-foreground">Showing {visibleSessions.length} of {sessions.length} sessions</p>
             {visibleSessions.length === 0 ? (
               <div className="rounded-2xl border px-6 py-12 text-center">
-                <p className="text-muted-foreground">Không có ca thi phù hợp với bộ lọc.</p>
-                <Button variant="link" onClick={() => { setFilter('all'); setSearch('') }}>Xóa bộ lọc</Button>
+                <p className="text-muted-foreground">No sessions match these filters.</p>
+                <Button variant="link" onClick={() => { setFilter('all'); setSearch('') }}>Clear filters</Button>
               </div>
             ) : (
               <ul className="space-y-3">
@@ -158,25 +158,25 @@ function StudentSessionCard({ session, now }: { session: StudentSessionEnrollmen
           {formatTimeRange(parseApiDate(session.startTime), parseApiDate(session.endTime))}
         </p>
         {session.room && <p className="flex items-center gap-2"><MapPin className="size-4 shrink-0" aria-hidden="true" />{session.room}</p>}
-        <p>Ca thi: {SESSION_STATUS_LABEL[session.sessionStatus]} · Bài thi: {SESSION_STATUS_LABEL[session.enrollmentStatus]}</p>
+        <p>Session: {SESSION_STATUS_LABEL[session.sessionStatus]} · Your exam: {SESSION_STATUS_LABEL[session.enrollmentStatus]}</p>
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
         <p className="text-sm text-muted-foreground">
           {state === 'waiting' && (now < parseApiDate(session.startTime).getTime()
-            ? 'Chưa đến giờ thi. Bạn có thể quay lại khi ca thi bắt đầu.'
-            : 'Đang chờ giảng viên mở ca thi. Nhấn Làm mới để cập nhật.')}
-          {state === 'ready' && 'Chuẩn bị micro và nơi yên tĩnh trước khi vào thi.'}
-          {state === 'inProgress' && 'Tiếp tục bài thi bạn đang làm.'}
-          {state === 'completed' && 'Bài thi đã hoàn thành. Vui lòng đợi giảng viên công bố kết quả.'}
-          {state === 'published' && 'Điểm và nhận xét của bạn đã được công bố.'}
-          {state === 'closed' && 'Ca thi đã đóng, bạn không thể vào phòng thi.'}
-          {state === 'cancelled' && 'Ca thi hoặc đăng ký đã bị hủy. Liên hệ giảng viên nếu cần hỗ trợ.'}
+            ? 'It is not time yet. Come back when the session starts.'
+            : 'Waiting for the session to be opened. Press Refresh to update.')}
+          {state === 'ready' && 'Get your microphone ready and find a quiet place before you start.'}
+          {state === 'inProgress' && 'Continue the exam you started.'}
+          {state === 'completed' && 'Exam completed. Please wait for your result to be published.'}
+          {state === 'published' && 'Your score and feedback have been published.'}
+          {state === 'closed' && 'This session is closed; you can no longer enter the viva room.'}
+          {state === 'cancelled' && 'The session or your registration was cancelled. Contact your lecturer if you need help.'}
         </p>
         {canEnter && (
-          <Button asChild><Link to={`/student/viva?sessionId=${session.sessionId}`}><Mic aria-hidden="true" />{state === 'inProgress' ? 'Tiếp tục thi' : 'Vào thi'}</Link></Button>
+          <Button asChild><Link to={`/student/viva?sessionId=${session.sessionId}`}><Mic aria-hidden="true" />{state === 'inProgress' ? 'Continue exam' : 'Start exam'}</Link></Button>
         )}
         {state === 'published' && (
-          <Button asChild><Link to={`/student/results?sessionId=${session.sessionId}`}><Trophy aria-hidden="true" />Xem kết quả</Link></Button>
+          <Button asChild><Link to={`/student/results?sessionId=${session.sessionId}`}><Trophy aria-hidden="true" />View result</Link></Button>
         )}
       </div>
     </article>

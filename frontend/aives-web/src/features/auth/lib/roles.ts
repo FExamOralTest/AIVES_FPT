@@ -8,9 +8,9 @@ export const ROLE_HOME: Record<UserRole, string> = {
 }
 
 export const ROLE_LABEL: Record<UserRole, string> = {
-  ADMIN: 'Quản trị viên',
-  STAFF: 'Cán bộ Chuyên môn',
-  EXAMINER: 'Cán bộ Khảo thí',
-  STUDENT: 'Sinh viên',
+  ADMIN: 'Administrator',
+  STAFF: 'Academic staff',
+  EXAMINER: 'Examiner',
+  STUDENT: 'Student',
 }
 

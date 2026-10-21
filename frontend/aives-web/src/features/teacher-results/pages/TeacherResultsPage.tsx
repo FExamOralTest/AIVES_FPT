@@ -18,9 +18,9 @@ import { ResultReviewModal } from '../components/ResultReviewModal'
 import type { ResultForReviewDto } from '../types'
 
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
-  PENDING_REVIEW: { label: 'Chờ duyệt', badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' },
-  REVIEWED: { label: 'Đã chấm điểm', badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' },
-  PUBLISHED: { label: 'Đã công bố', badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' },
+  PENDING_REVIEW: { label: 'Pending review', badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' },
+  REVIEWED: { label: 'Reviewed', badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' },
+  PUBLISHED: { label: 'Published', badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' },
 }
 
 export default function TeacherResultsPage() {
@@ -41,7 +41,7 @@ export default function TeacherResultsPage() {
 
   async function loadResults(id: number) {
     if (!id || isNaN(id)) {
-      setErrorMessage('Vui lòng nhập ID ca thi hợp lệ.')
+      setErrorMessage('Please enter a valid session ID.')
       return
     }
     setIsLoading(true)
@@ -71,10 +71,10 @@ export default function TeacherResultsPage() {
     <div className="mx-auto max-w-5xl py-6">
       <header className="mb-8">
         <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">
-          Chấm thi & Công bố kết quả
+          Review & publish results
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Xem bài làm vấn đáp của sinh viên, nghe audio, xem AI phân tích, điều chỉnh điểm và công bố kết quả chính thức.
+          Review students' viva answers, listen to the audio, read the AI analysis, adjust scores and publish official results.
         </p>
 
         {/* Search Session Bar */}
@@ -85,7 +85,7 @@ export default function TeacherResultsPage() {
               type="number"
               value={sessionIdInput}
               onChange={(e) => setSessionIdInput(e.target.value)}
-              placeholder="Nhập Session ID ca thi..."
+              placeholder="Enter the session ID..."
               className="h-11 w-full rounded-xl border border-input bg-background pl-10 pr-4 text-sm outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
             />
           </div>
@@ -94,7 +94,7 @@ export default function TeacherResultsPage() {
             disabled={isLoading || !sessionIdInput}
             className="h-11 px-5"
           >
-            {isLoading ? 'Đang tải…' : 'Xem danh sách'}
+            {isLoading ? 'Loading…' : 'Show results'}
           </Button>
         </div>
       </header>
@@ -111,7 +111,7 @@ export default function TeacherResultsPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-heading text-lg font-medium">
-              Danh sách bài làm ({results.length})
+              Submissions ({results.length})
             </h2>
             <span className="text-xs text-muted-foreground">
               Ca thi: {results[0]?.sessionName}
@@ -144,7 +144,7 @@ export default function TeacherResultsPage() {
                       {res.submittedAt && (
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="size-3" />
-                          Nộp: {formatDateTime(parseApiDate(res.submittedAt))}
+                          Submitted: {formatDateTime(parseApiDate(res.submittedAt))}
                         </p>
                       )}
                     </div>
@@ -154,7 +154,7 @@ export default function TeacherResultsPage() {
                       <div className="flex gap-4 text-right">
                         <div>
                           <span className="block text-[11px] uppercase font-semibold text-muted-foreground">
-                            AI đề xuất
+                            AI suggested
                           </span>
                           <span className="font-heading text-sm font-semibold text-foreground flex items-center gap-1 justify-end">
                             <Sparkles className="size-3 text-amber-500" />
@@ -164,7 +164,7 @@ export default function TeacherResultsPage() {
 
                         <div>
                           <span className="block text-[11px] uppercase font-semibold text-muted-foreground">
-                            Điểm chính thức
+                            Official score
                           </span>
                           <span className="font-heading text-base font-bold text-brand flex items-center gap-1 justify-end">
                             <Award className="size-4" />
@@ -180,7 +180,7 @@ export default function TeacherResultsPage() {
                         className="gap-2 rounded-xl"
                       >
                         <Edit3 className="size-4" />
-                        {res.status === 'PUBLISHED' ? 'Xem lại bài' : 'Chấm & Duyệt bài'}
+                        {res.status === 'PUBLISHED' ? 'View' : 'Review & score'}
                       </Button>
                     </div>
                   </div>
@@ -194,7 +194,7 @@ export default function TeacherResultsPage() {
         !errorMessage && (
           <div className="rounded-3xl border border-dashed p-12 text-center text-muted-foreground">
             <HelpCircle className="mx-auto size-10 opacity-40 mb-3" />
-            <p>Nhập Session ID để xem danh sách bài làm cần duyệt của sinh viên.</p>
+            <p>Enter a session ID to see the student submissions to review.</p>
           </div>
         )
       )}

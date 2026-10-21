@@ -19,7 +19,7 @@ export function AuthLayout({ children, aside }: AuthLayoutProps) {
           <Button asChild variant="secondary" size="sm">
             <Link to="/">
               <ChevronLeft />
-              Trang chủ
+              Home
             </Link>
           </Button>
         </header>

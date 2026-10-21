@@ -36,7 +36,7 @@ export function FormField({ label, error, hint, type = 'text', ...inputProps }: 
             aria-pressed={revealed}
             className="absolute top-1/2 right-1.5 h-9 -translate-y-1/2 rounded-full bg-muted px-3 text-[13px] font-semibold text-foreground/75 hover:bg-[#eaebef] hover:text-foreground"
           >
-            {revealed ? 'Ẩn' : 'Hiện'}
+            {revealed ? 'Hide' : 'Show'}
           </button>
         )}
       </div>

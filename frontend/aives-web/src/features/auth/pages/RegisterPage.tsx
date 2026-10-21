@@ -18,19 +18,19 @@ const EMPTY: Values = { username: '', fullName: '', email: '', password: '', con
 function validate(v: Values): Partial<Record<Field, string>> {
   const errors: Partial<Record<Field, string>> = {}
 
-  if (!v.username.trim()) errors.username = 'Nhập tên đăng nhập.'
-  else if (/\s/.test(v.username.trim())) errors.username = 'Tên đăng nhập không chứa khoảng trắng.'
-  else if (v.username.trim().length < 3) errors.username = 'Tên đăng nhập cần ít nhất 3 ký tự.'
-  else if (v.username.trim().length > 50) errors.username = 'Tên đăng nhập tối đa 50 ký tự.'
+  if (!v.username.trim()) errors.username = 'Enter a username.'
+  else if (/\s/.test(v.username.trim())) errors.username = 'Username cannot contain spaces.'
+  else if (v.username.trim().length < 3) errors.username = 'Username must be at least 3 characters.'
+  else if (v.username.trim().length > 50) errors.username = 'Username can be at most 50 characters.'
 
-  if (!v.fullName.trim()) errors.fullName = 'Nhập họ và tên.'
-  else if (v.fullName.trim().length > 100) errors.fullName = 'Họ và tên tối đa 100 ký tự.'
+  if (!v.fullName.trim()) errors.fullName = 'Enter your full name.'
+  else if (v.fullName.trim().length > 100) errors.fullName = 'Full name can be at most 100 characters.'
 
   errors.email = validateEmail(v.email)
   errors.password = validatePassword(v.password)
 
-  if (!v.confirmPassword) errors.confirmPassword = 'Nhập lại mật khẩu.'
-  else if (v.confirmPassword !== v.password) errors.confirmPassword = 'Mật khẩu nhập lại không khớp.'
+  if (!v.confirmPassword) errors.confirmPassword = 'Re-enter your password.'
+  else if (v.confirmPassword !== v.password) errors.confirmPassword = 'Passwords do not match.'
 
   return Object.fromEntries(Object.entries(errors).filter(([, msg]) => msg)) as Partial<Record<Field, string>>
 }
@@ -72,8 +72,8 @@ export default function RegisterPage() {
       const apiError = toApiError(err)
       const fieldErrors: Partial<Record<Field, string>> = { ...apiError.fieldErrors }
       // A 409 names the conflicting field; show it there instead of in a banner.
-      if (apiError.status === 409 && apiError.message.includes('Tên đăng nhập')) fieldErrors.username = apiError.message
-      else if (apiError.status === 409 && apiError.message.includes('Email')) fieldErrors.email = apiError.message
+      if (apiError.rawMessage === 'Username already exists.') fieldErrors.username = apiError.message
+      else if (apiError.rawMessage === 'Email already exists.') fieldErrors.email = apiError.message
       else setFormError(apiError.message)
       setErrors(fieldErrors)
     } finally {
@@ -85,9 +85,9 @@ export default function RegisterPage() {
     <AuthLayout aside={<RegisterPanel />}>
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[26px]">
         <div className="flex flex-col gap-2.5">
-          <h1 className="font-heading text-[40px] leading-[1.1] font-medium tracking-tight">Tạo tài khoản sinh viên</h1>
+          <h1 className="font-heading text-[40px] leading-[1.1] font-medium tracking-tight">Create a student account</h1>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
-            Tài khoản giảng viên và quản trị viên do nhà trường cấp, không đăng ký tại đây.
+            Staff, examiner and admin accounts are issued by the school and cannot be registered here.
           </p>
         </div>
 
@@ -99,31 +99,31 @@ export default function RegisterPage() {
         )}
 
         <div className="flex flex-col gap-4">
-          <FormField label="Họ và tên" autoComplete="name" placeholder="Nguyễn Văn A" autoFocus {...bind('fullName')} />
+          <FormField label="Full name" autoComplete="name" placeholder="Nguyen Van A" autoFocus {...bind('fullName')} />
           <FormField
-            label="Tên đăng nhập"
+            label="Username"
             autoComplete="username"
             placeholder="student01"
-            hint="Viết liền, không dấu cách."
+            hint="One word, no spaces."
             {...bind('username')}
           />
-          <FormField label="Email" type="email" autoComplete="email" placeholder="ten@gmail.com" {...bind('email')} />
+          <FormField label="Email" type="email" autoComplete="email" placeholder="name@gmail.com" {...bind('email')} />
           <FormField
-            label="Mật khẩu"
+            label="Password"
             type="password"
             autoComplete="new-password"
             hint={PASSWORD_HINT}
             {...bind('password')}
           />
-          <FormField label="Nhập lại mật khẩu" type="password" autoComplete="new-password" {...bind('confirmPassword')} />
+          <FormField label="Confirm password" type="password" autoComplete="new-password" {...bind('confirmPassword')} />
         </div>
 
-        <SubmitButton pending={submitting}>{submitting ? 'Đang tạo tài khoản…' : 'Tạo tài khoản'}</SubmitButton>
+        <SubmitButton pending={submitting}>{submitting ? 'Creating account…' : 'Create account'}</SubmitButton>
 
         <p className="text-sm text-muted-foreground">
-          Đã có tài khoản?{' '}
+          Already have an account?{' '}
           <Link to="/login" className="font-semibold text-brand hover:text-brand-hover">
-            Đăng nhập
+            Sign in
           </Link>
         </p>
       </form>

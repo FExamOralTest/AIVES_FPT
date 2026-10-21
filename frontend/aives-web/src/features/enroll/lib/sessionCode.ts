@@ -19,6 +19,6 @@ export function toSessionCode(body: string): string {
 }
 
 export function validateCodeBody(body: string): string | undefined {
-  if (!body) return 'Nhập mã tham gia.'
-  if (body.length < SESSION_CODE_LENGTH) return `Mã tham gia gồm ${SESSION_CODE_LENGTH} ký tự sau "ESS-".`
+  if (!body) return 'Enter the join code.'
+  if (body.length < SESSION_CODE_LENGTH) return `The join code has ${SESSION_CODE_LENGTH} characters after "ESS-".`
 }

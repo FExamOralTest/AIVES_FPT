@@ -16,9 +16,9 @@ export function HowItWorksSection() {
       <Reveal className="mx-auto flex max-w-[1200px] flex-col items-center gap-12">
         <RevealItem index={-1}>
           <SectionHeading
-            label="Cách hoạt động"
-            title="Một buổi vấn đáp, bốn bước"
-            description="Từ lúc nhập mã kỳ thi đến khi điểm chính thức được công bố."
+            label="How it works"
+            title="One viva exam, four steps"
+            description="From entering your join code to receiving your official score."
           />
         </RevealItem>
         <ol className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-4">

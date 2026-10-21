@@ -9,13 +9,13 @@ interface QuestionCardProps {
 }
 
 const LEVEL_CONFIG: Record<number, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-  1: { label: 'Cơ bản', variant: 'secondary' },
-  2: { label: 'Trung bình', variant: 'default' },
-  3: { label: 'Nâng cao', variant: 'destructive' },
+  1: { label: 'Basic', variant: 'secondary' },
+  2: { label: 'Intermediate', variant: 'default' },
+  3: { label: 'Advanced', variant: 'destructive' },
 }
 
 export function QuestionCard({ question, questionNumber, totalQuestions }: QuestionCardProps) {
-  const levelInfo = LEVEL_CONFIG[question.level] ?? { label: `Cấp độ ${question.level}`, variant: 'outline' }
+  const levelInfo = LEVEL_CONFIG[question.level] ?? { label: `Level ${question.level}`, variant: 'outline' }
 
   return (
     <article className="relative overflow-hidden rounded-3xl border bg-card p-6 shadow-sm transition-all sm:p-8">
@@ -30,7 +30,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
             {questionNumber}
           </span>
           <span className="text-sm font-medium text-muted-foreground">
-            Câu hỏi {questionNumber} / {totalQuestions}
+            Question {questionNumber} / {totalQuestions}
           </span>
         </div>
 
@@ -38,7 +38,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
           {question.isFollowUp ? (
             <Badge variant="default" className="gap-1 bg-amber-500 text-white hover:bg-amber-600">
               <Sparkles className="size-3.5" />
-              Câu hỏi phụ từ AI
+              AI follow-up question
             </Badge>
           ) : (
             <Badge variant={levelInfo.variant} className="gap-1">
@@ -49,7 +49,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
 
           {question.maxScore != null && (
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
-              Tối đa: {question.maxScore}đ
+              Max: {question.maxScore} pts
             </span>
           )}
         </div>
@@ -58,7 +58,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
       <div className="mt-5">
         {question.isFollowUp && (
           <p className="mb-2 text-xs font-semibold tracking-wide uppercase text-amber-600 dark:text-amber-400">
-            AI cần làm rõ thêm câu trả lời của bạn:
+            The AI would like you to clarify your answer:
           </p>
         )}
         <h2 className="font-heading text-xl font-medium leading-relaxed tracking-tight text-foreground sm:text-2xl">
@@ -68,7 +68,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
 
       <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
         <HelpCircle className="size-4 shrink-0 text-brand" />
-        <span>Bật micro và phát biểu câu trả lời, hoặc nhập bằng văn bản nếu bạn gặp vấn đề âm thanh.</span>
+        <span>Turn on your microphone and speak your answer, or type it if you have audio problems.</span>
       </div>
     </article>
   )

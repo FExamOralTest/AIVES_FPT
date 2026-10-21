@@ -32,7 +32,7 @@ export default function LoginPage() {
     e.preventDefault()
     const next = {
       email: validateEmail(email),
-      password: password ? undefined : 'Nhập mật khẩu.',
+      password: password ? undefined : 'Enter your password.',
     }
     setErrors(next)
     setFormError(null)
@@ -44,7 +44,7 @@ export default function LoginPage() {
       navigate(state.from ?? ROLE_HOME[user.role], { replace: true })
     } catch (err) {
       const apiError = toApiError(err)
-      setFormError(apiError.status === 401 ? 'Email hoặc mật khẩu không đúng.' : apiError.message)
+      setFormError(apiError.status === 401 ? 'Incorrect email or password.' : apiError.message)
       setErrors(apiError.fieldErrors)
     } finally {
       setSubmitting(false)
@@ -55,13 +55,13 @@ export default function LoginPage() {
     <AuthLayout aside={<LoginPanel />}>
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-7">
         <div className="flex flex-col gap-2.5">
-          <h1 className="font-heading text-[40px] leading-[1.1] font-medium tracking-tight">Chào mừng trở lại</h1>
-          <p className="text-[15px] text-muted-foreground">Đăng nhập bằng email và mật khẩu của tài khoản AIVES.</p>
+          <h1 className="font-heading text-[40px] leading-[1.1] font-medium tracking-tight">Welcome back</h1>
+          <p className="text-[15px] text-muted-foreground">Sign in with the email and password of your AIVES account.</p>
         </div>
 
         {state.registeredEmail && !formError && (
           <Alert className="rounded-[14px] border-0 bg-brand-soft px-4 py-3.5 text-foreground">
-            <AlertDescription className="text-foreground">Đã tạo tài khoản. Nhập mật khẩu để đăng nhập.</AlertDescription>
+            <AlertDescription className="text-foreground">Account created. Enter your password to sign in.</AlertDescription>
           </Alert>
         )}
         {formError && (
@@ -77,14 +77,14 @@ export default function LoginPage() {
             type="email"
             name="email"
             autoComplete="email"
-            placeholder="ten@gmail.com"
+            placeholder="name@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={errors.email}
             autoFocus={!state.registeredEmail}
           />
           <FormField
-            label="Mật khẩu"
+            label="Password"
             type="password"
             name="password"
             autoComplete="current-password"
@@ -95,12 +95,12 @@ export default function LoginPage() {
           />
         </div>
 
-        <SubmitButton pending={submitting}>{submitting ? 'Đang đăng nhập…' : 'Đăng nhập'}</SubmitButton>
+        <SubmitButton pending={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</SubmitButton>
 
         <p className="text-sm text-muted-foreground">
-          Chưa có tài khoản?{' '}
+          Don't have an account?{' '}
           <Link to="/register" className="font-semibold text-brand hover:text-brand-hover">
-            Tạo tài khoản sinh viên
+            Create a student account
           </Link>
         </p>
       </form>

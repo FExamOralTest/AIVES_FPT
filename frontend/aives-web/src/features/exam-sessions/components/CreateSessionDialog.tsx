@@ -23,7 +23,7 @@ import type { ExamSession } from '../types'
 
 interface CreateSessionDialogProps {
   open: boolean
-  /** Preselect an exam, e.g. when coming from the exam detail's "Tạo ca thi" button. */
+  /** Preselect an exam, e.g. when coming from the exam detail's "Create a session" button. */
   initialExamId: number | null
   onClose: () => void
   onCreated: (session: ExamSession) => void
@@ -44,7 +44,7 @@ const SELECT_CLASS =
 
 function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialogProps, 'initialExamId' | 'onCreated'>) {
   const examSelectId = useId()
-  const { state: exams } = useApi(examsApi.listMine, '', 'Không tải được danh sách đề thi.')
+  const { state: exams } = useApi(examsApi.listMine, '', 'Could not load exams.')
 
   const [values, setValues] = useState<Record<Field, string>>(() => {
     const start = nextHalfHour()
@@ -79,19 +79,19 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
 
   function validate() {
     const next: Partial<Record<Field, string>> = {}
-    if (!values.examId) next.examId = 'Chọn đề thi.'
+    if (!values.examId) next.examId = 'Choose an exam.'
     const name = values.sessionName.trim()
-    if (!name) next.sessionName = 'Nhập tên ca thi.'
-    else if (name.length > 150) next.sessionName = 'Tên ca thi tối đa 150 ký tự.'
-    if (values.room.trim().length > 150) next.room = 'Phòng thi tối đa 150 ký tự.'
+    if (!name) next.sessionName = 'Enter a session name.'
+    else if (name.length > 150) next.sessionName = 'Session name can be at most 150 characters.'
+    if (values.room.trim().length > 150) next.room = 'Room can be at most 150 characters.'
     const start = new Date(values.start)
     const end = new Date(values.end)
-    if (Number.isNaN(start.getTime())) next.start = 'Chọn giờ bắt đầu.'
-    else if (start.getTime() < Date.now() - 5 * 60_000) next.start = 'Giờ bắt đầu không được ở quá khứ.'
-    if (Number.isNaN(end.getTime())) next.end = 'Chọn giờ kết thúc.'
-    else if (!next.start && end <= start) next.end = 'Giờ kết thúc phải sau giờ bắt đầu.'
+    if (Number.isNaN(start.getTime())) next.start = 'Choose a start time.'
+    else if (start.getTime() < Date.now() - 5 * 60_000) next.start = 'The start time cannot be in the past.'
+    if (Number.isNaN(end.getTime())) next.end = 'Choose an end time.'
+    else if (!next.start && end <= start) next.end = 'The end time must be after the start time.'
     const cap = Number(values.maxCapacity)
-    if (!/^\d+$/.test(values.maxCapacity) || cap < 1 || cap > 500) next.maxCapacity = 'Sức chứa từ 1 đến 500.'
+    if (!/^\d+$/.test(values.maxCapacity) || cap < 1 || cap > 500) next.maxCapacity = 'Capacity must be between 1 and 500.'
     return next
   }
 
@@ -129,8 +129,8 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
   return (
     <form onSubmit={handleSubmit} noValidate className="contents">
       <DialogHeader>
-        <DialogTitle>Tạo ca thi</DialogTitle>
-        <DialogDescription>Hệ thống tự sinh mã tham gia ESS-XXXXXXXX để gửi cho sinh viên.</DialogDescription>
+        <DialogTitle>Create exam session</DialogTitle>
+        <DialogDescription>The system generates an ESS-XXXXXXXX join code to send to students.</DialogDescription>
       </DialogHeader>
 
       {formError && (
@@ -143,7 +143,7 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor={examSelectId} className="text-sm font-semibold">
-            Đề thi
+            Exam
           </Label>
           <select
             id={examSelectId}
@@ -155,7 +155,7 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
             className={cn(SELECT_CLASS, errors.examId && 'border-destructive ring-3 ring-destructive/20')}
           >
             <option value="">
-              {exams.status === 'loading' ? 'Đang tải đề thi…' : examList.length ? 'Chọn đề thi' : 'Chưa có đề thi'}
+              {exams.status === 'loading' ? 'Loading exams…' : examList.length ? 'Choose an exam' : 'No exams yet'}
             </option>
             {examList.map((exam) => (
               <option key={exam.examId} value={exam.examId}>
@@ -169,35 +169,35 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
                 exams.message
               ) : exams.status === 'ready' && examList.length === 0 ? (
                 <>
-                  Bạn chưa có đề thi.{' '}
-                  <Link to="/teacher/exams" className="font-semibold text-brand">
-                    Tạo đề thi trước
+                  You have no exams yet.{' '}
+                  <Link to="/staff/exams" className="font-semibold text-brand">
+                    Create an exam first
                   </Link>
                   .
                 </>
               ) : (
-                'Chọn đề sẽ tự điền giờ kết thúc theo thời lượng của đề.'
+                'Choosing an exam fills in the end time from its duration.'
               ))}
           </p>
         </div>
 
         <FormField
-          label="Tên ca thi"
-          placeholder="Ca sáng - Nhóm 1"
+          label="Session name"
+          placeholder="Morning session - Group 1"
           value={values.sessionName}
           error={errors.sessionName}
           onChange={(e) => set('sessionName', e.target.value)}
         />
         <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
           <FormField
-            label="Phòng thi"
-            placeholder="Phòng 301, tòa E (không bắt buộc)"
+            label="Room"
+            placeholder="Room 301, Building E (optional)"
             value={values.room}
             error={errors.room}
             onChange={(e) => set('room', e.target.value)}
           />
           <FormField
-            label="Sức chứa"
+            label="Capacity"
             inputMode="numeric"
             value={values.maxCapacity}
             error={errors.maxCapacity}
@@ -206,14 +206,14 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
-            label="Bắt đầu"
+            label="Start"
             type="datetime-local"
             value={values.start}
             error={errors.start}
             onChange={(e) => set('start', e.target.value)}
           />
           <FormField
-            label="Kết thúc"
+            label="End"
             type="datetime-local"
             value={values.end}
             error={errors.end}
@@ -225,11 +225,11 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary">
-            Huỷ
+            Cancel
           </Button>
         </DialogClose>
         <Button type="submit" disabled={submitting}>
-          {submitting ? 'Đang tạo…' : 'Tạo ca thi'}
+          {submitting ? 'Creating…' : 'Create session'}
         </Button>
       </DialogFooter>
     </form>

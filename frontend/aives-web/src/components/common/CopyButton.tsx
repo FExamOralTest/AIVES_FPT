@@ -2,8 +2,8 @@ import { Check, Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
-/** Copies `value`; the label flips to "Đã sao chép" for a moment (announced via aria-live). */
-export function CopyButton({ value, label = 'Sao chép' }: { value: string; label?: string }) {
+/** Copies `value`; the label flips to "Copied" for a moment (announced via aria-live). */
+export function CopyButton({ value, label = 'Copy' }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function CopyButton({ value, label = 'Sao chép' }: { value: string; labe
   return (
     <Button type="button" variant="secondary" size="sm" onClick={copy}>
       {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-      <span aria-live="polite">{copied ? 'Đã sao chép' : label}</span>
+      <span aria-live="polite">{copied ? 'Copied' : label}</span>
     </Button>
   )
 }

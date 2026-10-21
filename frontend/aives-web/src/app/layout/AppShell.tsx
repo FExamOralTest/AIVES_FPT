@@ -15,7 +15,7 @@ export function AppShell({ role }: { role: UserRole }) {
 
   const home = ROLE_HOME[role]
   const links = [
-    { to: home, label: 'Tổng quan', icon: LayoutDashboard, end: true },
+    { to: home, label: 'Overview', icon: LayoutDashboard, end: true },
     ...featuresFor(role).map((f) => ({ to: `${home}/${f.path}`, label: f.title, icon: f.icon, end: false })),
   ]
 
@@ -35,7 +35,7 @@ export function AppShell({ role }: { role: UserRole }) {
           </span>
         </div>
 
-        <nav aria-label="Chức năng" className="overflow-x-auto px-4 pb-3 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:pb-0">
+        <nav aria-label="Features" className="overflow-x-auto px-4 pb-3 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:pb-0">
           <ul className="flex gap-1 lg:flex-col">
             {links.map(({ to, label, icon: Icon, end }) => (
               <li key={to}>
@@ -64,7 +64,7 @@ export function AppShell({ role }: { role: UserRole }) {
           <p className="truncate text-sm text-muted-foreground">{user?.email ?? user?.username}</p>
           <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={handleLogout} disabled={loggingOut}>
             <LogOut aria-hidden="true" />
-            {loggingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+            {loggingOut ? 'Signing out…' : 'Sign out'}
           </Button>
         </div>
       </aside>
@@ -75,7 +75,7 @@ export function AppShell({ role }: { role: UserRole }) {
           <span className="truncate text-sm font-medium">{user?.fullName}</span>
           <Button variant="ghost" size="sm" onClick={handleLogout} disabled={loggingOut}>
             <LogOut aria-hidden="true" />
-            {loggingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+            {loggingOut ? 'Signing out…' : 'Sign out'}
           </Button>
         </div>
         <main className="mx-auto max-w-[1100px] px-4 py-8 sm:px-8 lg:py-12">

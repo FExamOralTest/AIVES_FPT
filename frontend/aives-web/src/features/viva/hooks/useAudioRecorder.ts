@@ -134,7 +134,7 @@ export function useAudioRecorder(): AudioRecorderState {
       chunksRef.current = []
 
       if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Trình duyệt của bạn không hỗ trợ chức năng ghi âm (getUserMedia).')
+        throw new Error('Your browser does not support audio recording (getUserMedia).')
       }
 
       // Request microphone stream
@@ -149,13 +149,13 @@ export function useAudioRecorder(): AudioRecorderState {
         })
       } catch (mediaErr: any) {
         if (mediaErr?.name === 'NotAllowedError' || mediaErr?.name === 'PermissionDeniedError') {
-          throw new Error('Bạn đã chặn hoặc chưa cấp quyền truy cập Micro. Vui lòng nhấn biểu tượng cài đặt / ổ khóa trên thanh địa chỉ trình duyệt để cho phép Micro.')
+          throw new Error('Microphone access is blocked or not granted. Click the settings / lock icon in the address bar to allow the microphone.')
         } else if (mediaErr?.name === 'NotFoundError' || mediaErr?.name === 'DevicesNotFoundError') {
-          throw new Error('Không tìm thấy thiết bị Microphone trên máy tính của bạn.')
+          throw new Error('No microphone was found on your computer.')
         } else if (mediaErr?.name === 'NotReadableError' || mediaErr?.name === 'TrackStartError') {
-          throw new Error('Micro đang bị ứng dụng khác (Zoom, Teams, v.v.) chiếm quyền. Vui lòng tắt các ứng dụng đó và thử lại.')
+          throw new Error('Another app (Zoom, Teams, etc.) is using the microphone. Close it and try again.')
         } else {
-          throw new Error(mediaErr?.message || 'Không thể truy cập Microphone. Vui lòng kiểm tra quyền micro trên trình duyệt.')
+          throw new Error(mediaErr?.message || 'Cannot access the microphone. Check the microphone permission in your browser.')
         }
       }
 
@@ -287,7 +287,7 @@ export function useAudioRecorder(): AudioRecorderState {
         setRecordingTime((prev) => prev + 1)
       }, 1000)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Không thể khởi động ghi âm.'
+      const msg = err instanceof Error ? err.message : 'Could not start recording.'
       setError(msg)
       setIsStarting(false)
       setIsRecording(false)

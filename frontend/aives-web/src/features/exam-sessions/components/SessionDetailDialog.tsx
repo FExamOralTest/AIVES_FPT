@@ -34,16 +34,16 @@ export function SessionDetailDialog({ sessionId, onClose, onChanged }: SessionDe
 }
 
 const ACTION: Record<SessionStatus, { label: string; confirm?: string; icon: ReactNode; variant: 'default' | 'secondary' }> = {
-  IN_PROGRESS: { label: 'Bắt đầu ca thi', icon: <Play aria-hidden="true" />, variant: 'default' },
+  IN_PROGRESS: { label: 'Start session', icon: <Play aria-hidden="true" />, variant: 'default' },
   COMPLETED: {
-    label: 'Kết thúc ca thi',
-    confirm: 'Kết thúc ca thi? Sinh viên sẽ không vào thi được nữa. Không thể hoàn tác.',
+    label: 'End session',
+    confirm: 'End this session? Students will no longer be able to take the exam. This cannot be undone.',
     icon: <Square aria-hidden="true" />,
     variant: 'default',
   },
   CANCELLED: {
-    label: 'Huỷ ca thi',
-    confirm: 'Huỷ ca thi? Sinh viên không thể tham gia hay vào thi. Không thể hoàn tác.',
+    label: 'Cancel session',
+    confirm: 'Cancel this session? Students will not be able to join or take the exam. This cannot be undone.',
     icon: <XCircle aria-hidden="true" />,
     variant: 'secondary',
   },
@@ -51,8 +51,8 @@ const ACTION: Record<SessionStatus, { label: string; confirm?: string; icon: Rea
 }
 
 function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged: SessionDetailDialogProps['onChanged'] }) {
-  const detail = useApi(() => sessionsApi.get(sessionId), sessionId, 'Không tải được ca thi.')
-  const monitor = useApi(() => sessionsApi.monitor(sessionId), sessionId, 'Không tải được danh sách sinh viên.')
+  const detail = useApi(() => sessionsApi.get(sessionId), sessionId, 'Could not load the session.')
+  const monitor = useApi(() => sessionsApi.monitor(sessionId), sessionId, 'Could not load the student list.')
   const [confirming, setConfirming] = useState<SessionStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -61,8 +61,8 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
     return (
       <>
         <DialogHeader>
-          <DialogTitle>Ca thi</DialogTitle>
-          <DialogDescription>Đang tải…</DialogDescription>
+          <DialogTitle>Exam session</DialogTitle>
+          <DialogDescription>Loading…</DialogDescription>
         </DialogHeader>
         <div className="h-40 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
       </>
@@ -72,12 +72,12 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
     return (
       <>
         <DialogHeader>
-          <DialogTitle>Ca thi</DialogTitle>
+          <DialogTitle>Exam session</DialogTitle>
           <DialogDescription className="text-destructive">{detail.state.message}</DialogDescription>
         </DialogHeader>
         <Button variant="secondary" className="w-fit" onClick={detail.reload}>
           <RotateCw aria-hidden="true" />
-          Thử lại
+          Try again
         </Button>
       </>
     )
@@ -100,7 +100,7 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
       onChanged(updated)
       setConfirming(null)
     } catch (err) {
-      setActionError(toApiError(err, 'Không đổi được trạng thái ca thi.').message)
+      setActionError(toApiError(err, 'Could not change the session status.').message)
     } finally {
       setBusy(false)
     }
@@ -108,10 +108,10 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
 
   const transitions = SESSION_TRANSITIONS[session.status]
   const facts = [
-    { label: 'Đề thi', value: `${session.examTitle} (${session.examCode})` },
-    { label: 'Thời gian', value: formatTimeRange(start, end) },
-    { label: 'Phòng thi', value: session.room || 'Chưa có' },
-    { label: 'Đã tham gia', value: `${session.enrolledStudents}/${session.maxCapacity} sinh viên` },
+    { label: 'Exam', value: `${session.examTitle} (${session.examCode})` },
+    { label: 'Time', value: formatTimeRange(start, end) },
+    { label: 'Room', value: session.room || 'Not set' },
+    { label: 'Joined', value: `${session.enrolledStudents}/${session.maxCapacity} students` },
   ]
 
   return (
@@ -121,15 +121,15 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
           {SESSION_STATUS_LABEL[session.status]}
         </span>
         <DialogTitle>{session.sessionName}</DialogTitle>
-        <DialogDescription>Gửi mã tham gia dưới đây cho sinh viên.</DialogDescription>
+        <DialogDescription>Send the join code below to your students.</DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col items-start gap-3 rounded-2xl bg-brand-soft p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[13px] text-muted-foreground">Mã tham gia</p>
+          <p className="text-[13px] text-muted-foreground">Join code</p>
           <p className="font-mono text-2xl font-semibold tracking-[0.15em] sm:text-3xl">{session.sessionCode}</p>
         </div>
-        <CopyButton value={session.sessionCode} label="Sao chép mã" />
+        <CopyButton value={session.sessionCode} label="Copy code" />
       </div>
 
       <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
@@ -142,7 +142,7 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
       </dl>
 
       {transitions.length > 0 && (
-        <section aria-label="Đổi trạng thái" className="flex flex-col gap-3">
+        <section aria-label="Change status" className="flex flex-col gap-3">
           {confirming && (
             <p role="alert" className="rounded-[14px] bg-warning-soft px-4 py-3 text-sm text-warning">
               {ACTION[confirming].confirm}
@@ -166,13 +166,13 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
                   onClick={() => void changeStatus(target)}
                 >
                   {action.icon}
-                  {isConfirming ? `Xác nhận: ${action.label.toLowerCase()}` : action.label}
+                  {isConfirming ? `Confirm: ${action.label.toLowerCase()}` : action.label}
                 </Button>
               )
             })}
             {confirming && (
               <Button variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>
-                Không
+                No
               </Button>
             )}
           </div>
@@ -182,14 +182,14 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
       <section aria-labelledby="session-students">
         <h3 id="session-students" className="flex items-center gap-2 font-heading font-medium">
           <Users className="size-4" aria-hidden="true" />
-          Sinh viên đã tham gia
+          Students who joined
         </h3>
-        {monitor.state.status === 'loading' && <p className="mt-2 text-sm text-muted-foreground">Đang tải…</p>}
+        {monitor.state.status === 'loading' && <p className="mt-2 text-sm text-muted-foreground">Loading…</p>}
         {monitor.state.status === 'error' && <p className="mt-2 text-sm text-destructive">{monitor.state.message}</p>}
         {monitor.state.status === 'ready' &&
           (monitor.state.data.students.length === 0 ? (
             <p className="mt-2 rounded-[14px] border border-dashed p-4 text-sm text-muted-foreground">
-              Chưa có sinh viên nào nhập mã tham gia.
+              No students have entered the join code yet.
             </p>
           ) : (
             <ul className="mt-3 divide-y rounded-[14px] border">
@@ -200,7 +200,7 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
                     <p className="truncate text-muted-foreground">{s.studentEmail}</p>
                   </div>
                   <p className="text-muted-foreground">
-                    {s.enrolledAt ? `Tham gia ${formatDateTime(parseApiDate(s.enrolledAt))}` : ''}
+                    {s.enrolledAt ? `Joined ${formatDateTime(parseApiDate(s.enrolledAt))}` : ''}
                   </p>
                 </li>
               ))}
