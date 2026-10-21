@@ -2,6 +2,12 @@ import { http } from '@/lib/http/client'
 import type { ResultForReviewDto, ReviewResultRequest } from '../types'
 
 export const teacherResultsApi = {
+  /** Results in PENDING_REVIEW or REVIEWED, newest first. */
+  async listPending(): Promise<ResultForReviewDto[]> {
+    const { data } = await http.get<ResultForReviewDto[]>('/api/results/pending')
+    return data
+  },
+
   async listBySession(sessionId: number): Promise<ResultForReviewDto[]> {
     const { data } = await http.get<ResultForReviewDto[]>(`/api/results/session/${sessionId}`)
     return data

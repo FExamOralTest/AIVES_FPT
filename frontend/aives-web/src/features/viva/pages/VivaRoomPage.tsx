@@ -12,23 +12,24 @@ import {
   Volume2,
   X,
 } from 'lucide-react'
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { toApiError } from '@/lib/http/apiError'
 import { vivaApi } from '../api/vivaApi'
 import { QuestionCard } from '../components/QuestionCard'
+import { VivaSessionPicker } from '../components/VivaSessionPicker'
 import { VivaWaveform } from '../components/VivaWaveform'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
 import type { StartVivaSessionResponse, VivaQuestionDto } from '../types'
 
 export default function VivaRoomPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const sessionParam = searchParams.get('sessionId')
 
-  const [inputSessionId, setInputSessionId] = useState(sessionParam ?? '')
+  const [enteringId, setEnteringId] = useState<number | null>(null)
   const [session, setSession] = useState<StartVivaSessionResponse | null>(null)
   const [currentQuestion, setCurrentQuestion] = useState<VivaQuestionDto | null>(null)
   const [textAnswer, setTextAnswer] = useState('')
@@ -78,10 +79,11 @@ export default function VivaRoomPage() {
     const value = rawId.trim()
     const id = Number(value)
     if (!/^\d+$/.test(value) || !Number.isInteger(id) || id < 1 || id > 2147483647) {
-      setErrorMessage('The session ID must be a positive whole number, not the session name or an ESS-XXXXXXXX join code.')
+      setErrorMessage('This link does not point to a valid session. Choose a session from the list below.')
       return
     }
     setIsLoading(true)
+    setEnteringId(id)
     setErrorMessage(null)
     try {
       const data = await vivaApi.start(id)
@@ -92,20 +94,24 @@ export default function VivaRoomPage() {
       setErrorMessage(apiErr.message)
     } finally {
       setIsLoading(false)
+      setEnteringId(null)
     }
   }, [])
 
   useEffect(() => {
     if (sessionParam && !session && autoStartedSession.current !== sessionParam) {
       autoStartedSession.current = sessionParam
-      setInputSessionId(sessionParam)
       void handleStartSession(sessionParam)
     }
   }, [sessionParam, session, handleStartSession])
 
-  function handleEntrySubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!isLoading) void handleStartSession(inputSessionId)
+  // Picking a session puts it in the URL (so a reload returns to it) and starts it right away.
+  function handleEnter(sessionId: number) {
+    if (isLoading) return
+    const value = String(sessionId)
+    autoStartedSession.current = value
+    setSearchParams({ sessionId: value }, { replace: true })
+    void handleStartSession(value)
   }
 
   async function handleSubmitAnswer() {
@@ -177,11 +183,11 @@ export default function VivaRoomPage() {
     }
   }
 
-  // 1. Initial Screen: Enter session ID if not started
+  // 1. Initial screen: pick one of your sessions to enter
   if (!session) {
     return (
-      <div className="mx-auto max-w-xl py-6">
-        <header className="text-center sm:text-left">
+      <div className="mx-auto max-w-2xl py-6">
+        <header>
           <h1 className="font-heading text-3xl font-medium tracking-tight">AI viva room</h1>
           <p className="mt-2 text-muted-foreground">
             Take your viva exam online by voice. Get your microphone ready and find a quiet place.
@@ -195,45 +201,7 @@ export default function VivaRoomPage() {
               <AlertDescription>{errorMessage}</AlertDescription>
             </Alert>
           )}
-
-          <form onSubmit={handleEntrySubmit} noValidate className="flex flex-col gap-4">
-            <label htmlFor="session-id-input" className="text-sm font-semibold">
-              Session ID
-            </label>
-            <div className="flex gap-3">
-              <input
-                id="session-id-input"
-                type="text"
-                inputMode="numeric"
-                value={inputSessionId}
-                onChange={(e) => {
-                  setInputSessionId(e.target.value)
-                  setErrorMessage(null)
-                }}
-                aria-describedby="session-id-hint"
-                placeholder="Enter the ID shown after you joined"
-                className="h-12 w-full rounded-xl border border-input bg-background px-4 font-mono text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
-              />
-              <Button
-                type="submit"
-                disabled={isLoading || !inputSessionId.trim()}
-                className="h-12 px-6 shrink-0"
-              >
-                {isLoading ? 'Entering…' : 'Enter room'}
-              </Button>
-            </div>
-            <p id="session-id-hint" className="text-sm text-muted-foreground">
-              Use the numeric ID shown after you joined the session. It differs from the session name;
-              the ESS-XXXXXXXX code is only for the Join a session page.
-            </p>
-          </form>
-
-          <div className="mt-6 flex items-center justify-between border-t pt-5 text-sm text-muted-foreground">
-            <span>Not registered for a session?</span>
-            <Link to="/student/enroll" className="font-semibold text-brand hover:text-brand-hover">
-              Join a session now
-            </Link>
-          </div>
+          <VivaSessionPicker enteringId={enteringId} onEnter={handleEnter} />
         </div>
       </div>
     )
