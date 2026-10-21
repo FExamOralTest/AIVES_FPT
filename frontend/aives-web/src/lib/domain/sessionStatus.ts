@@ -1,10 +1,10 @@
 export type SessionStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 
 export const SESSION_STATUS_LABEL: Record<SessionStatus, string> = {
-  NOT_STARTED: 'Chưa bắt đầu',
-  IN_PROGRESS: 'Đang diễn ra',
-  COMPLETED: 'Đã kết thúc',
-  CANCELLED: 'Đã huỷ',
+  NOT_STARTED: 'Not started',
+  IN_PROGRESS: 'In progress',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
 }
 
 export const SESSION_STATUS_TONE: Record<SessionStatus, string> = {

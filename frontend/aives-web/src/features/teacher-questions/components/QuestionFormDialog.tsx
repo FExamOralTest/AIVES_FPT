@@ -59,12 +59,12 @@ export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, on
     if (locked || loading || pending) return
     const normalized = form.rubric.map((criterion) => criterion.description.trim().toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim())
     if (!form.questionText.trim() || !form.sampleAnswer.trim() || !form.learningOutcome.trim()) {
-      setError('Nhập câu hỏi, đáp án mẫu và chuẩn đầu ra.'); return
+      setError('Enter the question, model answer and learning outcome.'); return
     }
     if (form.rubric.some((criterion) => !criterion.description.trim() || !Number.isFinite(criterion.maxScore) || criterion.maxScore <= 0)
       || new Set(normalized).size !== normalized.length || !Number.isFinite(form.maxScore)
       || Math.abs(total - form.maxScore) > 0.000001) {
-      setError('Tiêu chí phải khác nhau, có điểm dương và tổng điểm bằng điểm tối đa.'); return
+      setError('Criteria must be distinct, have positive points, and add up to the max score.'); return
     }
     setPending(true)
     setError(null)
@@ -81,37 +81,37 @@ export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, on
     <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{readOnly ? 'Chi tiết câu hỏi' : questionId === undefined ? 'Thêm câu hỏi' : 'Sửa câu hỏi'}</DialogTitle>
-          <DialogDescription>{inUse ? 'Câu hỏi đã được sử dụng. Tạo câu hỏi mới để thay đổi nội dung.' : 'Đáp án mẫu, chuẩn đầu ra và rubric được dùng để chấm bài.'}</DialogDescription>
+          <DialogTitle>{readOnly ? 'Question details' : questionId === undefined ? 'Add question' : 'Edit question'}</DialogTitle>
+          <DialogDescription>{inUse ? 'This question is already used in an exam. Create a new question to change its content.' : 'The model answer, learning outcome and rubric are used for scoring.'}</DialogDescription>
         </DialogHeader>
-        {loading ? <p role="status">Đang tải câu hỏi…</p> : (
+        {loading ? <p role="status">Loading question…</p> : (
           <form onSubmit={submit} className="space-y-4">
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <fieldset disabled={locked || pending} className="space-y-4">
-              <label className="block text-sm">Câu hỏi<textarea aria-label="Câu hỏi" required maxLength={10000} rows={3} className={fieldClass} value={form.questionText} onChange={(event) => set('questionText', event.target.value)} /></label>
-              <label className="block text-sm">Chủ đề<input maxLength={1000} className={fieldClass} value={form.topic} onChange={(event) => set('topic', event.target.value)} /></label>
-              <label className="block text-sm">Đáp án mẫu<textarea aria-label="Đáp án mẫu" required maxLength={10000} rows={3} className={fieldClass} value={form.sampleAnswer} onChange={(event) => set('sampleAnswer', event.target.value)} /></label>
-              <label className="block text-sm">Chuẩn đầu ra<textarea aria-label="Chuẩn đầu ra" required maxLength={2000} rows={2} className={fieldClass} value={form.learningOutcome} onChange={(event) => set('learningOutcome', event.target.value)} /></label>
+              <label className="block text-sm">Question<textarea aria-label="Question" required maxLength={10000} rows={3} className={fieldClass} value={form.questionText} onChange={(event) => set('questionText', event.target.value)} /></label>
+              <label className="block text-sm">Topic<input maxLength={1000} className={fieldClass} value={form.topic} onChange={(event) => set('topic', event.target.value)} /></label>
+              <label className="block text-sm">Model answer<textarea aria-label="Model answer" required maxLength={10000} rows={3} className={fieldClass} value={form.sampleAnswer} onChange={(event) => set('sampleAnswer', event.target.value)} /></label>
+              <label className="block text-sm">Learning outcome<textarea aria-label="Learning outcome" required maxLength={2000} rows={2} className={fieldClass} value={form.learningOutcome} onChange={(event) => set('learningOutcome', event.target.value)} /></label>
               <div className="grid grid-cols-2 gap-4">
-                <label className="text-sm">Độ khó<select className={fieldClass} value={form.level} onChange={(event) => set('level', Number(event.target.value))}><option value={1}>Cơ bản</option><option value={2}>Trung bình</option><option value={3}>Nâng cao</option></select></label>
-                <label className="text-sm">Điểm tối đa<input required type="number" min="0.01" max="100" step="0.0001" className={fieldClass} value={form.maxScore} onChange={(event) => set('maxScore', Number(event.target.value))} /></label>
+                <label className="text-sm">Difficulty<select className={fieldClass} value={form.level} onChange={(event) => set('level', Number(event.target.value))}><option value={1}>Basic</option><option value={2}>Intermediate</option><option value={3}>Advanced</option></select></label>
+                <label className="text-sm">Max score<input required type="number" min="0.01" max="100" step="0.0001" className={fieldClass} value={form.maxScore} onChange={(event) => set('maxScore', Number(event.target.value))} /></label>
               </div>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isFollowUpAllowed} onChange={(event) => set('isFollowUpAllowed', event.target.checked)} />Cho phép câu hỏi phụ</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isFollowUpAllowed} onChange={(event) => set('isFollowUpAllowed', event.target.checked)} />Allow follow-up questions</label>
               <div className="space-y-3 rounded-xl border p-3">
-                <p className="text-sm font-medium">Rubric · Tổng điểm: {total}</p>
+                <p className="text-sm font-medium">Rubric · Total: {total}</p>
                 {form.rubric.map((criterion, index) => (
                   <div key={index} className="grid gap-2 sm:grid-cols-[1fr_6rem_auto]">
-                    <label className="text-xs">Tiêu chí {index + 1}<textarea aria-label={`Tiêu chí ${index + 1}`} required maxLength={2000} className={fieldClass} value={criterion.description} onChange={(event) => set('rubric', form.rubric.map((item, position) => position === index ? { ...item, description: event.target.value } : item))} /></label>
-                    <label className="text-xs">Điểm<input required type="number" min="0.0001" max="100" step="0.0001" className={fieldClass} value={criterion.maxScore} onChange={(event) => set('rubric', form.rubric.map((item, position) => position === index ? { ...item, maxScore: Number(event.target.value) } : item))} /></label>
-                    {!locked && <Button type="button" variant="ghost" disabled={form.rubric.length === 1} onClick={() => set('rubric', form.rubric.filter((_, position) => position !== index))} aria-label={`Xóa tiêu chí ${index + 1}`}>Xóa</Button>}
+                    <label className="text-xs">Criterion {index + 1}<textarea aria-label={`Criterion ${index + 1}`} required maxLength={2000} className={fieldClass} value={criterion.description} onChange={(event) => set('rubric', form.rubric.map((item, position) => position === index ? { ...item, description: event.target.value } : item))} /></label>
+                    <label className="text-xs">Points<input required type="number" min="0.0001" max="100" step="0.0001" className={fieldClass} value={criterion.maxScore} onChange={(event) => set('rubric', form.rubric.map((item, position) => position === index ? { ...item, maxScore: Number(event.target.value) } : item))} /></label>
+                    {!locked && <Button type="button" variant="ghost" disabled={form.rubric.length === 1} onClick={() => set('rubric', form.rubric.filter((_, position) => position !== index))} aria-label={`Remove criterion ${index + 1}`}>Remove</Button>}
                   </div>
                 ))}
-                {!locked && <Button type="button" variant="outline" disabled={form.rubric.length >= 20} onClick={() => set('rubric', [...form.rubric, { description: '', maxScore: 1 }])}>Thêm tiêu chí</Button>}
+                {!locked && <Button type="button" variant="outline" disabled={form.rubric.length >= 20} onClick={() => set('rubric', [...form.rubric, { description: '', maxScore: 1 }])}>Add criterion</Button>}
               </div>
             </fieldset>
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={pending} onClick={onClose}>Đóng</Button>
-              {!locked && <Button type="submit" disabled={pending}>{pending ? 'Đang lưu…' : 'Lưu câu hỏi'}</Button>}
+              <Button type="button" variant="outline" disabled={pending} onClick={onClose}>Close</Button>
+              {!locked && <Button type="submit" disabled={pending}>{pending ? 'Saving…' : 'Save question'}</Button>}
             </DialogFooter>
           </form>
         )}

@@ -50,6 +50,17 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
   const [isSaving, setIsSaving] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  // Per-answer outcome of "Retry scoring", shown under that answer instead of a blocking alert().
+  const [retryNotes, setRetryNotes] = useState<Record<number, { ok: boolean; text: string }>>({})
+
+  async function handleRetry(answerId: number, position: number) {
+    try {
+      await teacherResultsApi.retryAnswer(answerId, 'Examiner requested retry')
+      setRetryNotes((prev) => ({ ...prev, [answerId]: { ok: true, text: `Question ${position} was sent for re-scoring. Refresh in a few seconds.` } }))
+    } catch (err) {
+      setRetryNotes((prev) => ({ ...prev, [answerId]: { ok: false, text: `Could not retry: ${toApiError(err).message}` } }))
+    }
+  }
 
   async function handleSaveReview() {
     setIsSaving(true)
@@ -80,8 +91,8 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
     setIsPublishing(true)
     setErrorMessage(null)
     try {
-      // First ensure reviews are saved
-      await handleSaveReview()
+      // Save the edited scores first; publishing after a failed save would publish the old scores.
+      if (!(await handleSaveReview())) return
       const published = await teacherResultsApi.publish(result.resultId)
       onUpdated(published)
       onClose()
@@ -95,21 +106,21 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="relative my-8 flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl border bg-card shadow-2xl overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-labelledby="result-review-title" className="relative my-8 flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl border bg-card shadow-2xl overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between border-b px-6 py-5 sm:px-8">
           <div>
             <span className="text-xs font-semibold uppercase tracking-wider text-brand">
-              Chấm thi & Đánh giá
+              Review & score
             </span>
-            <h2 className="mt-0.5 font-heading text-xl font-medium sm:text-2xl">
+            <h2 id="result-review-title" className="mt-0.5 font-heading text-xl font-medium sm:text-2xl">
               {result.studentName} ({result.studentEmail})
             </h2>
             <p className="text-xs text-muted-foreground">{result.sessionName}</p>
           </div>
 
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
-            <X className="size-5" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full" aria-label="Close">
+            <X className="size-5" aria-hidden="true" />
           </Button>
         </header>
 
@@ -125,13 +136,13 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
           <section className="rounded-2xl border bg-gradient-to-br from-brand-soft/30 via-background to-card p-6">
             <h3 className="font-heading text-base font-semibold text-foreground flex items-center gap-2">
               <Award className="size-5 text-brand" />
-              Điểm tổng kết & Nhận xét chung
+              Final score & overall feedback
             </h3>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-[10rem_1fr]">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Điểm số (0 - 10)
+                  Score (0 - 10)
                 </label>
                 <input
                   type="number"
@@ -144,20 +155,20 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                 />
                 {result.aiScore != null && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    Điểm AI đề xuất: <span className="font-semibold">{result.aiScore.toFixed(1)}</span>
+                    AI-suggested score: <span className="font-semibold">{result.aiScore.toFixed(1)}</span>
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Nhận xét tổng thể của giảng viên
+                  Examiner's overall feedback
                 </label>
                 <textarea
                   rows={3}
                   value={overallFeedback}
                   onChange={(e) => setOverallFeedback(e.target.value)}
-                  placeholder="Nhập nhận xét tổng quan cho sinh viên..."
+                  placeholder="Write overall feedback for the student..."
                   className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 resize-none"
                 />
               </div>
@@ -167,7 +178,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
           {/* Individual Questions List */}
           <section className="space-y-4">
             <h3 className="font-heading text-base font-semibold">
-              Chi tiết các câu hỏi ({result.answers.length})
+              Answers ({result.answers.length})
             </h3>
 
             {result.answers.map((answer, index) => (
@@ -177,10 +188,10 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-sm text-brand">
-                    Câu {index + 1}
+                    Question {index + 1}
                     {answer.isFollowUp && (
                       <Badge variant="secondary" className="ml-2 text-xs bg-amber-100 text-amber-800">
-                        Câu hỏi phụ
+                        Follow-up
                       </Badge>
                     )}
                     {answer.status && (
@@ -193,10 +204,10 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                         }`}
                       >
                         {answer.status === 'EVALUATED'
-                          ? 'Đã chấm AI'
+                          ? 'AI scored'
                           : answer.status === 'ERROR'
-                          ? 'Lỗi xử lý'
-                          : 'Đang xử lý'}
+                          ? 'Processing error'
+                          : 'Processing'}
                       </Badge>
                     )}
                   </span>
@@ -204,7 +215,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                   {answer.aiScore != null && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Sparkles className="size-3.5 text-amber-500" />
-                      AI đề xuất: <b>{answer.aiScore.toFixed(1)} điểm</b>
+                      AI suggests: <b>{answer.aiScore.toFixed(1)} pts</b>
                     </span>
                   )}
                 </div>
@@ -217,35 +228,33 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                 {answer.status === 'ERROR' && (
                   <div className="flex items-center justify-between rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
                     <div>
-                      <p className="font-semibold">Xảy ra lỗi khi phân tích câu trả lời:</p>
-                      <p className="opacity-90">{answer.errorMessage || 'Không thể nhận diện giọng nói hoặc phân tích câu trả lời.'}</p>
+                      <p className="font-semibold">The answer could not be analysed:</p>
+                      <p className="opacity-90">{answer.errorMessage || 'Speech recognition or answer analysis failed.'}</p>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
                       className="border-destructive/40 text-destructive hover:bg-destructive hover:text-white shrink-0 text-xs h-8"
-                      onClick={async () => {
-                        try {
-                          await teacherResultsApi.retryAnswer(answer.answerId, 'Examiner requested retry')
-                          alert(`Đã gửi yêu cầu xử lý lại câu ${index + 1}. Vui lòng làm mới trang sau vài giây.`)
-                        } catch (e) {
-                          alert('Không thể thử lại: ' + (e as Error).message)
-                        }
-                      }}
+                      onClick={() => void handleRetry(answer.answerId, index + 1)}
                     >
-                      Thử chấm lại
+                      Retry scoring
                     </Button>
                   </div>
+                )}
+                {retryNotes[answer.answerId] && (
+                  <p role="status" className={retryNotes[answer.answerId].ok ? 'text-xs text-success' : 'text-xs text-destructive'}>
+                    {retryNotes[answer.answerId].text}
+                  </p>
                 )}
 
                 {/* Student Answer & Audio Player */}
                 <div className="rounded-xl bg-muted/60 p-4 text-xs space-y-2">
                   <span className="flex items-center gap-1.5 font-semibold text-muted-foreground">
                     <Volume2 className="size-3.5 text-brand" />
-                    Bản ghi câu trả lời của sinh viên:
+                    Student's answer:
                   </span>
                   <p className="text-foreground text-sm italic">
-                    "{answer.studentAnswer || answer.transcript || '(Không có nội dung)'}"
+                    "{answer.studentAnswer || answer.transcript || '(No content)'}"
                   </p>
 
                   {answer.audioUrl && (
@@ -256,7 +265,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
 
                   {answer.aiFeedback && (
                     <p className="border-t pt-2 text-muted-foreground">
-                      <span className="font-semibold text-foreground">AI Phân tích: </span>
+                      <span className="font-semibold text-foreground">AI analysis: </span>
                       {answer.aiFeedback}
                     </p>
                   )}
@@ -266,7 +275,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                 <div className="grid gap-3 sm:grid-cols-[8rem_1fr] border-t pt-3">
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground">
-                      Điểm câu này
+                      Score for this question
                     </label>
                     <input
                       type="number"
@@ -284,7 +293,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
 
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground">
-                      Ghi chú của giảng viên cho câu này
+                      Examiner's note for this question
                     </label>
                     <input
                       type="text"
@@ -295,7 +304,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                           [answer.answerId]: e.target.value,
                         }))
                       }
-                      placeholder="Ghi chú nhận xét..."
+                      placeholder="Add a note..."
                       className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-brand"
                     />
                   </div>
@@ -308,7 +317,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
         {/* Footer Actions */}
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-6 py-4 sm:px-8">
           <Button variant="ghost" onClick={onClose}>
-            Đóng
+            Close
           </Button>
 
           <div className="flex gap-3">
@@ -319,7 +328,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
               className="gap-2"
             >
               <Save className="size-4" />
-              {isSaving ? 'Đang lưu…' : 'Lưu bản nháp'}
+              {isSaving ? 'Saving…' : 'Save draft'}
             </Button>
 
             <Button
@@ -328,7 +337,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
               className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <CheckCircle2 className="size-4" />
-              {isPublishing ? 'Đang công bố…' : 'Phê duyệt & Công bố kết quả'}
+              {isPublishing ? 'Publishing…' : 'Approve & publish result'}
             </Button>
           </div>
         </footer>

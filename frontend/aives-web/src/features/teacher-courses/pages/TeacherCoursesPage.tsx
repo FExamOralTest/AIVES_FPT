@@ -111,7 +111,7 @@ export default function TeacherCoursesPage() {
   async function handleUploadSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedCourse || !uploadFile) {
-      setUploadError('Vui lòng chọn một file .md')
+      setUploadError('Please choose a .md file')
       return
     }
 
@@ -235,10 +235,10 @@ export default function TeacherCoursesPage() {
     <div className="mx-auto max-w-5xl py-6">
       <header className="mb-8">
         <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">
-          Môn học & Tài liệu chuẩn
+          Courses & documents
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Quản lý các môn học được phân công và tài liệu Markdown (.md) làm cơ sở cho AI sinh đề và câu hỏi vấn đáp.
+          Manage your assigned courses and the Markdown (.md) documents the AI uses to generate exams and viva questions.
         </p>
       </header>
 
@@ -250,18 +250,18 @@ export default function TeacherCoursesPage() {
       )}
 
       {isLoadingCourses ? (
-        <div className="py-12 text-center text-muted-foreground">Đang tải danh sách môn học…</div>
+        <div className="py-12 text-center text-muted-foreground">Loading courses…</div>
       ) : courses.length === 0 ? (
         <div className="rounded-3xl border border-dashed p-12 text-center text-muted-foreground">
           <BookOpen className="mx-auto size-12 opacity-40 mb-3" />
-          <p className="text-base font-medium">Bạn chưa được phân công phụ trách môn học nào.</p>
-          <p className="mt-1 text-sm">Vui lòng liên hệ Quản trị viên (Admin) để được gán môn học.</p>
+          <p className="text-base font-medium">You are not assigned to any course yet.</p>
+          <p className="mt-1 text-sm">Please contact an administrator to be assigned a course.</p>
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
           <aside className="space-y-2">
             <h2 className="font-heading text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
-              Môn học của bạn ({courses.length})
+              Your courses ({courses.length})
             </h2>
             <div className="space-y-1.5">
               {courses.map((c) => {
@@ -304,7 +304,7 @@ export default function TeacherCoursesPage() {
                   <div className="flex items-center gap-2">
                     <Button onClick={() => setIsUploadOpen(true)} className="gap-2 rounded-xl">
                       <Upload className="size-4" />
-                      Tải lên tài liệu (.md)
+                      Upload document (.md)
                     </Button>
                   </div>
                 </div>
@@ -323,7 +323,7 @@ export default function TeacherCoursesPage() {
                         ) : (
                           <AlertCircle className="size-5 text-muted-foreground" />
                         )}
-                        <span className="font-heading font-medium text-sm">Nội dung môn học (CONTENT)</span>
+                        <span className="font-heading font-medium text-sm">Course content (CONTENT)</span>
                       </div>
                       <Badge
                         variant={contentCount === 1 ? 'outline' : contentCount > 1 ? 'destructive' : 'secondary'}
@@ -334,10 +334,10 @@ export default function TeacherCoursesPage() {
                     </div>
                     <p className="mt-1.5 text-xs text-muted-foreground">
                       {contentCount === 1
-                        ? 'Đã tải lên 1 file Markdown nội dung bài giảng.'
+                        ? '1 course content Markdown file uploaded.'
                         : contentCount > 1
-                        ? 'Đang có nhiều hơn 1 file CONTENT. AI chỉ cần đúng 1 file CONTENT.'
-                        : 'Chưa có file nội dung môn học.'}
+                        ? 'There is more than 1 CONTENT file. The AI needs exactly 1 CONTENT file.'
+                        : 'No course content file yet.'}
                     </p>
                   </div>
 
@@ -355,7 +355,7 @@ export default function TeacherCoursesPage() {
                         ) : (
                           <AlertCircle className="size-5 text-muted-foreground" />
                         )}
-                        <span className="font-heading font-medium text-sm">Chuẩn đầu ra (LEARNING_OUTCOMES)</span>
+                        <span className="font-heading font-medium text-sm">Learning outcomes (LEARNING_OUTCOMES)</span>
                       </div>
                       <Badge
                         variant={outcomesCount === 1 ? 'outline' : outcomesCount > 1 ? 'destructive' : 'secondary'}
@@ -366,10 +366,10 @@ export default function TeacherCoursesPage() {
                     </div>
                     <p className="mt-1.5 text-xs text-muted-foreground">
                       {outcomesCount === 1
-                        ? 'Đã tải lên 1 file chuẩn đầu ra của môn.'
+                        ? '1 learning outcomes file uploaded.'
                         : outcomesCount > 1
-                        ? 'Đang có nhiều hơn 1 file LEARNING_OUTCOMES.'
-                        : 'Chưa có file chuẩn đầu ra.'}
+                        ? 'There is more than 1 LEARNING_OUTCOMES file.'
+                        : 'No learning outcomes file yet.'}
                     </p>
                   </div>
                 </div>
@@ -378,23 +378,23 @@ export default function TeacherCoursesPage() {
                     <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                     <div className="space-y-1">
                       <p className="font-medium">
-                        Lưu ý yêu cầu cấu hình tài liệu để AI sinh đề:
+                        Document requirements for AI question generation:
                       </p>
                       <p className="text-muted-foreground">
-                        Hệ thống yêu cầu <strong>đúng 1 file Nội dung (CONTENT)</strong> và <strong>1 file Chuẩn đầu ra (LEARNING_OUTCOMES)</strong>. Hiện tại có {contentCount} file Nội dung và {outcomesCount} file Chuẩn đầu ra. Bạn có thể sử dụng nút <strong>Sửa</strong> (chuyển loại) hoặc <strong>Xóa</strong> (bỏ file thừa) bên dưới.
+                        The system needs <strong>exactly 1 course content (CONTENT) file</strong> and <strong>1 learning outcomes (LEARNING_OUTCOMES) file</strong>. There are currently {contentCount} content and {outcomesCount} learning outcomes files. Use <strong>Edit</strong> (change the type) or <strong>Delete</strong> (remove extra files) below.
                       </p>
                     </div>
                   </div>
                 )}
                 <div className="mt-8 space-y-3">
                   <h3 className="font-heading text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Các tài liệu đã tải lên ({documents.length})
+                    Uploaded documents ({documents.length})
                   </h3>
 
                   {isLoadingDocs ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">Đang tải tài liệu…</div>
+                    <div className="py-6 text-center text-sm text-muted-foreground">Loading documents…</div>
                   ) : documents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">Chưa có tài liệu nào.</p>
+                    <p className="text-sm text-muted-foreground italic">No documents yet.</p>
                   ) : (
                     <div className="divide-y rounded-2xl border bg-muted/20">
                       {documents.map((doc) => (
@@ -412,13 +412,13 @@ export default function TeacherCoursesPage() {
                               </p>
                               <div className="flex flex-wrap items-center gap-2 mt-1">
                                 <span className="text-xs text-muted-foreground">
-                                  Tải lên lúc {formatDateTime(parseApiDate(doc.uploadedAt))}
+                                  Uploaded {formatDateTime(parseApiDate(doc.uploadedAt))}
                                 </span>
                                 <Badge
                                   variant={doc.docType === 'CONTENT' ? 'default' : 'secondary'}
                                   className="text-[10px] px-2 py-0"
                                 >
-                                  {doc.docType === 'CONTENT' ? 'Nội dung (CONTENT)' : 'Chuẩn đầu ra (LEARNING_OUTCOMES)'}
+                                  {doc.docType === 'CONTENT' ? 'Content (CONTENT)' : 'Learning outcomes (LEARNING_OUTCOMES)'}
                                 </Badge>
                               </div>
                             </div>
@@ -430,7 +430,7 @@ export default function TeacherCoursesPage() {
                               size="sm"
                               onClick={() => openPreviewModal(doc)}
                               className="h-8 gap-1.5 rounded-lg text-xs"
-                              title="Xem nội dung tài liệu"
+                              title="View document content"
                             >
                               <Eye className="size-3.5" />
                               <span className="hidden sm:inline">Xem</span>
@@ -440,20 +440,20 @@ export default function TeacherCoursesPage() {
                               size="sm"
                               onClick={() => openEditModal(doc)}
                               className="h-8 gap-1.5 rounded-lg text-xs hover:text-brand"
-                              title="Chỉnh sửa tài liệu"
+                              title="Edit document"
                             >
                               <Edit3 className="size-3.5" />
-                              <span className="hidden sm:inline">Sửa</span>
+                              <span className="hidden sm:inline">Edit</span>
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => openDeleteModal(doc)}
                               className="h-8 gap-1.5 rounded-lg text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              title="Xóa tài liệu"
+                              title="Delete document"
                             >
                               <Trash2 className="size-3.5" />
-                              <span className="hidden sm:inline">Xóa</span>
+                              <span className="hidden sm:inline">Delete</span>
                             </Button>
                           </div>
                         </div>
@@ -464,14 +464,14 @@ export default function TeacherCoursesPage() {
                 {isReadyForAi && (
                   <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-brand/20 bg-brand-soft/30 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h4 className="font-heading font-medium text-brand">Sẵn sàng sinh câu hỏi AI</h4>
+                      <h4 className="font-heading font-medium text-brand">Ready for AI question generation</h4>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Tài liệu môn học đã hợp lệ (1 CONTENT, 1 LEARNING_OUTCOMES). Bạn có thể sử dụng AI để tự động trích xuất ngân hàng câu hỏi.
+                        The course documents are valid (1 CONTENT, 1 LEARNING_OUTCOMES). You can now use AI to build the question bank.
                       </p>
                     </div>
                     <Button asChild size="sm" className="shrink-0 gap-1 rounded-xl">
-                      <Link to={`/teacher/questions?courseId=${selectedCourse.courseId}`}>
-                        Đến ngân hàng câu hỏi
+                      <Link to={`/staff/questions?courseId=${selectedCourse.courseId}`}>
+                        Go to question bank
                         <ArrowRight className="size-4" />
                       </Link>
                     </Button>
@@ -486,7 +486,7 @@ export default function TeacherCoursesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-lg rounded-3xl border bg-card p-6 shadow-2xl sm:p-8">
             <header className="flex items-center justify-between border-b pb-4">
-              <h2 className="font-heading text-lg font-medium">Tải lên tài liệu Markdown</h2>
+              <h2 className="font-heading text-lg font-medium">Upload Markdown document</h2>
               <Button variant="ghost" size="icon" onClick={() => setIsUploadOpen(false)} className="rounded-full">
                 <X className="size-5" />
               </Button>
@@ -502,7 +502,7 @@ export default function TeacherCoursesPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Loại tài liệu
+                  Document type
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -514,7 +514,7 @@ export default function TeacherCoursesPage() {
                         : 'border-input hover:bg-muted'
                     }`}
                   >
-                    Nội dung (CONTENT)
+                    Content (CONTENT)
                   </button>
                   <button
                     type="button"
@@ -525,14 +525,14 @@ export default function TeacherCoursesPage() {
                         : 'border-input hover:bg-muted'
                     }`}
                   >
-                    Chuẩn đầu ra (LEARNING_OUTCOMES)
+                    Learning outcomes (LEARNING_OUTCOMES)
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Chọn file Markdown (.md)
+                  Choose a Markdown file (.md)
                 </label>
                 <input
                   type="file"
@@ -544,11 +544,11 @@ export default function TeacherCoursesPage() {
 
               <div className="flex justify-end gap-3 border-t pt-5">
                 <Button variant="ghost" type="button" onClick={() => setIsUploadOpen(false)}>
-                  Hủy
+                  Cancel
                 </Button>
                 <Button type="submit" disabled={isUploading || !uploadFile} className="gap-2">
                   <Upload className="size-4" />
-                  {isUploading ? 'Đang tải lên…' : 'Tải lên ngay'}
+                  {isUploading ? 'Uploading…' : 'Upload'}
                 </Button>
               </div>
             </form>
@@ -560,7 +560,7 @@ export default function TeacherCoursesPage() {
           <div className="relative w-full max-w-lg rounded-3xl border bg-card p-6 shadow-2xl sm:p-8">
             <header className="flex items-center justify-between border-b pb-4">
               <div>
-                <h2 className="font-heading text-lg font-medium">Chỉnh sửa tài liệu</h2>
+                <h2 className="font-heading text-lg font-medium">Edit document</h2>
                 <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">{editingDoc.fileName}</p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setEditingDoc(null)} className="rounded-full">
@@ -578,7 +578,7 @@ export default function TeacherCoursesPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Loại tài liệu
+                  Document type
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -590,7 +590,7 @@ export default function TeacherCoursesPage() {
                         : 'border-input hover:bg-muted'
                     }`}
                   >
-                    Nội dung (CONTENT)
+                    Content (CONTENT)
                   </button>
                   <button
                     type="button"
@@ -601,14 +601,14 @@ export default function TeacherCoursesPage() {
                         : 'border-input hover:bg-muted'
                     }`}
                   >
-                    Chuẩn đầu ra (LEARNING_OUTCOMES)
+                    Learning outcomes (LEARNING_OUTCOMES)
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Tên file hiển thị
+                  Display file name
                 </label>
                 <input
                   type="text"
@@ -621,10 +621,10 @@ export default function TeacherCoursesPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                  Tải lên file thay thế (.md) - Tùy chọn
+                  Upload a replacement file (.md) – optional
                 </label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Để trống nếu bạn chỉ muốn đổi loại tài liệu hoặc đổi tên file.
+                  Leave empty if you only want to change the type or the file name.
                 </p>
                 <input
                   type="file"
@@ -636,10 +636,10 @@ export default function TeacherCoursesPage() {
 
               <div className="flex justify-end gap-3 border-t pt-5">
                 <Button variant="ghost" type="button" onClick={() => setEditingDoc(null)}>
-                  Hủy
+                  Cancel
                 </Button>
                 <Button type="submit" disabled={isEditing} className="gap-2">
-                  {isEditing ? 'Đang lưu…' : 'Lưu thay đổi'}
+                  {isEditing ? 'Saving…' : 'Save changes'}
                 </Button>
               </div>
             </form>
@@ -654,7 +654,7 @@ export default function TeacherCoursesPage() {
                 <div className="rounded-xl bg-destructive/10 p-2.5">
                   <Trash2 className="size-5" />
                 </div>
-                <h2 className="font-heading text-lg font-medium text-foreground">Xác nhận xóa tài liệu</h2>
+                <h2 className="font-heading text-lg font-medium text-foreground">Delete document?</h2>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setDeletingDoc(null)} className="rounded-full">
                 <X className="size-5" />
@@ -670,7 +670,7 @@ export default function TeacherCoursesPage() {
               )}
 
               <p className="text-sm text-foreground">
-                Bạn có chắc chắn muốn xóa file tài liệu sau khỏi môn học?
+                Are you sure you want to remove this document from the course?
               </p>
 
               <div className="rounded-2xl border bg-muted/40 p-4">
@@ -679,17 +679,17 @@ export default function TeacherCoursesPage() {
                   <span className="font-medium text-sm text-foreground break-all">{deletingDoc.fileName}</span>
                 </div>
                 <Badge variant="outline" className="mt-2 text-xs">
-                  {deletingDoc.docType === 'CONTENT' ? 'Nội dung (CONTENT)' : 'Chuẩn đầu ra (LEARNING_OUTCOMES)'}
+                  {deletingDoc.docType === 'CONTENT' ? 'Content (CONTENT)' : 'Learning outcomes (LEARNING_OUTCOMES)'}
                 </Badge>
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Hành động này không thể hoàn tác. Các câu hỏi đã sinh từ trước trong ngân hàng câu hỏi vẫn được bảo lưu.
+                This cannot be undone. Questions already generated in the question bank are kept.
               </p>
 
               <div className="flex justify-end gap-3 border-t pt-5">
                 <Button variant="ghost" type="button" onClick={() => setDeletingDoc(null)}>
-                  Hủy
+                  Cancel
                 </Button>
                 <Button
                   variant="destructive"
@@ -698,7 +698,7 @@ export default function TeacherCoursesPage() {
                   className="gap-2"
                 >
                   <Trash2 className="size-4" />
-                  {isDeleting ? 'Đang xóa…' : 'Xóa tài liệu'}
+                  {isDeleting ? 'Deleting…' : 'Delete document'}
                 </Button>
               </div>
             </div>
@@ -713,7 +713,7 @@ export default function TeacherCoursesPage() {
                 <h2 className="font-heading text-lg font-medium truncate">{previewDoc.fileName}</h2>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="secondary" className="text-xs">
-                    {previewDoc.docType === 'CONTENT' ? 'Nội dung bài giảng' : 'Chuẩn đầu ra'}
+                    {previewDoc.docType === 'CONTENT' ? 'Course content' : 'Learning outcomes'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
                     {formatDateTime(parseApiDate(previewDoc.uploadedAt))}
@@ -729,7 +729,7 @@ export default function TeacherCoursesPage() {
                   className="gap-1.5 rounded-xl text-xs"
                 >
                   <Download className="size-3.5" />
-                  Tải về
+                  Download
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => { previewRequest.current++; setPreviewDoc(null) }} className="rounded-full">
                   <X className="size-5" />
@@ -739,16 +739,16 @@ export default function TeacherCoursesPage() {
 
             <div className="mt-4 flex-1 overflow-auto rounded-2xl border bg-muted/30 p-4 font-mono text-xs text-foreground leading-relaxed whitespace-pre-wrap select-text max-h-[50vh]">
               {isLoadingPreview ? (
-                <div className="py-12 text-center text-muted-foreground font-sans text-sm">Đang tải nội dung…</div>
+                <div className="py-12 text-center text-muted-foreground font-sans text-sm">Loading content…</div>
               ) : previewError ? <p role="alert" className="text-destructive">{previewError}</p> : previewContent ? (
                 previewContent
               ) : (
-                <div className="py-12 text-center text-muted-foreground font-sans text-sm">Tài liệu không có nội dung văn bản.</div>
+                <div className="py-12 text-center text-muted-foreground font-sans text-sm">This document has no text content.</div>
               )}
             </div>
 
             <div className="mt-4 flex justify-end border-t pt-4">
-              <Button onClick={() => { previewRequest.current++; setPreviewDoc(null) }}>Đóng</Button>
+              <Button onClick={() => { previewRequest.current++; setPreviewDoc(null) }}>Close</Button>
             </div>
           </div>
         </div>

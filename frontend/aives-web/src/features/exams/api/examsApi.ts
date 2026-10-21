@@ -25,9 +25,4 @@ export const examsApi = {
   async delete(examId: number): Promise<void> {
     await http.delete(`/api/exams/${examId}`)
   },
-
-  async updateQuestions(examId: number, questions: { questionId: number; questionScore: number }[]): Promise<Exam> {
-    const { data } = await http.put<Exam>(`/api/exams/${examId}/questions`, { questions })
-    return data
-  },
 }

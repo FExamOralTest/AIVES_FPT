@@ -17,17 +17,17 @@ export function HeroSection() {
             #ThiVanDapAI
           </Badge>
           <h1 className="max-w-[13ch] font-heading text-5xl leading-[1.08] font-medium tracking-[-0.03em] sm:text-[64px]">
-            Thi vấn đáp cùng giám khảo AI
+            Viva exams with an AI examiner
           </h1>
           <p className="max-w-[30rem] text-[17px] leading-relaxed text-muted-foreground">
-            Nhập mã kỳ thi, nghe câu hỏi và trả lời bằng giọng nói. AI chấm theo đúng nội dung môn học, giảng viên duyệt
-            rồi mới công bố điểm.
+            Enter your join code, listen to the questions and answer by voice. The AI scores against the course content,
+            and an examiner reviews before the score is published.
           </p>
           <div className="flex items-center gap-1.5">
             <Button asChild>
-              <Link to="/register">Tạo tài khoản sinh viên</Link>
+              <Link to="/register">Create a student account</Link>
             </Button>
-            <Button asChild size="icon" aria-label="Tạo tài khoản sinh viên">
+            <Button asChild size="icon" aria-label="Create a student account">
               <Link to="/register">
                 <ArrowUpRight />
               </Link>
@@ -54,7 +54,7 @@ export function HeroSection() {
 
           <img
             src={studentImg}
-            alt="Sinh viên cầm sách và balo, mỉm cười"
+            alt="Smiling student holding books and a backpack"
             className="absolute bottom-0 left-1/2 h-[92%] w-auto max-w-none -translate-x-[46%]"
             width={460}
             height={551}
@@ -65,24 +65,24 @@ export function HeroSection() {
               <Mic className="size-4" />
             </span>
             <div className="flex flex-col">
-              <span className="text-[13px] font-semibold">Trả lời bằng giọng nói</span>
-              <span className="text-[11px] opacity-85">Tự chuyển thành transcript</span>
+              <span className="text-[13px] font-semibold">Answer by voice</span>
+              <span className="text-[11px] opacity-85">Automatically transcribed</span>
             </div>
           </div>
 
           <div className="absolute top-[210px] right-6 hidden w-[220px] flex-col gap-2.5 rounded-[18px] bg-white px-4 py-3.5 shadow-[0_20px_40px_-20px_rgba(17,17,20,0.35)] sm:flex">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-muted-foreground">Giám khảo AI, câu 2/5</span>
+              <span className="text-[11px] font-semibold text-muted-foreground">AI examiner, question 2/5</span>
               <span className="size-[7px] rounded-full bg-brand" />
             </div>
-            <span className="text-[13px] leading-snug font-medium">Vì sao em dùng interface thay vì kế thừa?</span>
+            <span className="text-[13px] leading-snug font-medium">Why use an interface instead of inheritance?</span>
             <Waveform className="h-[26px] gap-0.5" barClassName="w-[3px]" />
           </div>
 
           <div className={`absolute bottom-12 left-6 flex flex-col gap-0.5 rounded-2xl bg-brand px-[18px] py-3.5 text-white ${chipShadow}`}>
-            <span className="self-start rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold">Kết quả</span>
+            <span className="self-start rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold">Result</span>
             <span className="font-heading text-[26px] leading-tight font-semibold">8.5 / 10</span>
-            <span className="text-[11px] opacity-85">Chờ giảng viên duyệt</span>
+            <span className="text-[11px] opacity-85">Waiting for examiner review</span>
           </div>
         </div>
       </div>

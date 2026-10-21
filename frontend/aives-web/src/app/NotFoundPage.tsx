@@ -6,10 +6,10 @@ export default function NotFoundPage() {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-5 px-4 text-center">
       <LogoMark className="size-12" />
-      <h1 className="font-heading text-3xl font-medium">Không tìm thấy trang này</h1>
-      <p className="text-muted-foreground">Đường dẫn có thể đã thay đổi hoặc không tồn tại.</p>
+      <h1 className="font-heading text-3xl font-medium">Page not found</h1>
+      <p className="text-muted-foreground">The link may have changed or no longer exists.</p>
       <Button asChild>
-        <Link to="/">Về trang chủ</Link>
+        <Link to="/">Back to home</Link>
       </Button>
     </main>
   )

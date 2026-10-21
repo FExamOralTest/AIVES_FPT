@@ -5,10 +5,10 @@ import { featuresFor } from '../features'
 import { StatusBadge } from '../layout/StatusBadge'
 
 const ROLE_INTRO: Record<UserRole, string> = {
-  ADMIN: 'Tạo và quản lý môn học, phân quyền tài khoản trong hệ thống.',
-  STAFF: 'Quản lý học liệu môn học, ngân hàng câu hỏi, tạo đề và giám sát ca thi.',
-  EXAMINER: 'Thẩm định điểm số, nghe lại ghi âm giọng nói của sinh viên, duyệt và công bố bảng điểm chính thức.',
-  STUDENT: 'Nhập mã tham gia để vào buổi vấn đáp và xem kết quả đã được công bố.',
+  ADMIN: 'Create and manage courses, and control account roles across the system.',
+  STAFF: 'Manage course documents and the question bank, build exams and monitor exam sessions.',
+  EXAMINER: 'Review scores, replay student voice answers, approve and publish official results.',
+  STUDENT: 'Enter a join code to take a viva exam and see your published results.',
 }
 
 
@@ -18,19 +18,19 @@ export default function RoleHomePage({ role }: { role: UserRole }) {
 
   const features = featuresFor(role)
   const profile = [
-    { label: 'Tên đăng nhập', value: user.username },
-    { label: 'Email', value: user.email ?? 'Chưa có' },
-    { label: 'Vai trò', value: ROLE_LABEL[user.role] },
+    { label: 'Username', value: user.username },
+    { label: 'Email', value: user.email ?? 'Not set' },
+    { label: 'Role', value: ROLE_LABEL[user.role] },
   ]
 
   return (
     <>
-      <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">Xin chào, {user.fullName}</h1>
+      <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">Hello, {user.fullName}</h1>
       <p className="mt-3 max-w-xl text-[17px] text-muted-foreground">{ROLE_INTRO[role]}</p>
 
       <section aria-labelledby="features-heading" className="mt-10">
         <h2 id="features-heading" className="font-heading text-lg font-medium">
-          Chức năng
+          Features
         </h2>
         <ul className="mt-4 grid gap-4 sm:grid-cols-2">
           {features.map(({ path, title, summary, status, icon: Icon }) => (
@@ -50,7 +50,7 @@ export default function RoleHomePage({ role }: { role: UserRole }) {
                   <p className="mt-1 text-sm text-muted-foreground">{summary}</p>
                 </div>
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-                  Mở trang
+                  Open
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                 </span>
               </Link>
@@ -61,7 +61,7 @@ export default function RoleHomePage({ role }: { role: UserRole }) {
 
       <section aria-labelledby="profile-heading" className="mt-10 max-w-xl rounded-3xl bg-muted p-6 sm:p-8">
         <h2 id="profile-heading" className="font-heading text-lg font-medium">
-          Thông tin tài khoản
+          Account details
         </h2>
         <dl className="mt-4 divide-y divide-border">
           {profile.map((row) => (

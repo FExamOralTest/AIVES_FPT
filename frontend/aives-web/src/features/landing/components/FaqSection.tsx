@@ -8,7 +8,7 @@ export function FaqSection() {
     <section id="faq" className="scroll-mt-6 px-4 pt-28 sm:px-6">
       <Reveal className="mx-auto flex max-w-[800px] flex-col items-center gap-10">
         <RevealItem index={-1}>
-          <SectionHeading label="Hỏi đáp" title="Câu hỏi thường gặp" />
+          <SectionHeading label="FAQ" title="Frequently asked questions" />
         </RevealItem>
         <Accordion type="single" collapsible className="gap-3">
           {FAQS.map((faq, i) => (

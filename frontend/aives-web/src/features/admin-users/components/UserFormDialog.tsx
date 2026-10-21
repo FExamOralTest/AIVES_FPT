@@ -94,14 +94,14 @@ function UserForm({ mode, isSelf, onSaved }: { mode: UserFormMode; isSelf: boole
   function validate(): Partial<Record<Field, string>> {
     const v = values
     const next: Partial<Record<Field, string>> = {}
-    if (!v.fullName.trim()) next.fullName = 'Nhập họ và tên.'
-    else if (v.fullName.trim().length > 100) next.fullName = 'Họ và tên tối đa 100 ký tự.'
+    if (!v.fullName.trim()) next.fullName = 'Enter a full name.'
+    else if (v.fullName.trim().length > 100) next.fullName = 'Full name can be at most 100 characters.'
     if (isCreate) {
       const username = v.username.trim()
-      if (!username) next.username = 'Nhập tên đăng nhập.'
-      else if (/\s/.test(username)) next.username = 'Tên đăng nhập không chứa khoảng trắng.'
-      else if (username.length < 3) next.username = 'Tên đăng nhập cần ít nhất 3 ký tự.'
-      else if (username.length > 50) next.username = 'Tên đăng nhập tối đa 50 ký tự.'
+      if (!username) next.username = 'Enter a username.'
+      else if (/\s/.test(username)) next.username = 'Username cannot contain spaces.'
+      else if (username.length < 3) next.username = 'Username must be at least 3 characters.'
+      else if (username.length > 50) next.username = 'Username can be at most 50 characters.'
     }
     next.email = validateEmail(v.email)
     // Editing: an empty password means "keep the current one".
@@ -148,11 +148,11 @@ function UserForm({ mode, isSelf, onSaved }: { mode: UserFormMode; isSelf: boole
   return (
     <form onSubmit={handleSubmit} noValidate className="contents">
       <DialogHeader>
-        <DialogTitle>{isCreate ? 'Thêm người dùng' : 'Sửa người dùng'}</DialogTitle>
+        <DialogTitle>{isCreate ? 'Add user' : 'Edit user'}</DialogTitle>
         <DialogDescription>
           {isCreate
-            ? 'Tạo tài khoản và gửi tên đăng nhập, mật khẩu cho người dùng.'
-            : `Tên đăng nhập: ${original?.username}. Để trống mật khẩu nếu không muốn đổi.`}
+            ? 'Create the account, then send the username and password to the user.'
+            : `Username: ${original?.username}. Leave the password empty to keep it unchanged.`}
         </DialogDescription>
       </DialogHeader>
 
@@ -164,21 +164,21 @@ function UserForm({ mode, isSelf, onSaved }: { mode: UserFormMode; isSelf: boole
       )}
 
       <div className="flex flex-col gap-4">
-        <FormField label="Họ và tên" autoComplete="off" placeholder="Nguyễn Văn A" autoFocus {...bind('fullName')} />
+        <FormField label="Full name" autoComplete="off" placeholder="Nguyen Van A" autoFocus {...bind('fullName')} />
         {isCreate && (
           <FormField
-            label="Tên đăng nhập"
+            label="Username"
             autoComplete="off"
             placeholder="teacher01"
-            hint="Viết liền, không dấu cách. Không đổi được sau khi tạo."
+            hint="One word, no spaces. Cannot be changed later."
             {...bind('username')}
           />
         )}
-        <FormField label="Email" type="email" autoComplete="off" placeholder="ten@aives.edu.vn" {...bind('email')} />
+        <FormField label="Email" type="email" autoComplete="off" placeholder="name@aives.edu.vn" {...bind('email')} />
 
         <div className="flex flex-col gap-2">
           <Label htmlFor={roleId} className="text-sm font-semibold">
-            Vai trò
+            Role
           </Label>
           <select
             id={roleId}
@@ -200,13 +200,13 @@ function UserForm({ mode, isSelf, onSaved }: { mode: UserFormMode; isSelf: boole
             ))}
           </select>
           <p id={`${roleId}-note`} className={cn('text-[13px]', errors.role ? 'text-destructive' : 'text-muted-foreground')}>
-            {errors.role ?? (isSelf ? 'Bạn không thể tự đổi vai trò của chính mình.' : 'Quyết định các chức năng người dùng được truy cập.')}
+            {errors.role ?? (isSelf ? 'You cannot change your own role.' : 'Decides which features the user can access.')}
           </p>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <FormField
-            label={isCreate ? 'Mật khẩu' : 'Mật khẩu mới'}
+            label={isCreate ? 'Password' : 'New password'}
             type="password"
             autoComplete="new-password"
             hint={PASSWORD_HINT}
@@ -218,7 +218,7 @@ function UserForm({ mode, isSelf, onSaved }: { mode: UserFormMode; isSelf: boole
             className="inline-flex w-fit items-center gap-1.5 rounded-full text-[13px] font-semibold text-brand hover:text-brand-hover"
           >
             <Wand2 className="size-3.5" aria-hidden="true" />
-            Tạo mật khẩu ngẫu nhiên
+            Generate a random password
           </button>
         </div>
       </div>
@@ -226,11 +226,11 @@ function UserForm({ mode, isSelf, onSaved }: { mode: UserFormMode; isSelf: boole
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary">
-            Huỷ
+            Cancel
           </Button>
         </DialogClose>
         <Button type="submit" disabled={submitting}>
-          {submitting ? 'Đang lưu…' : isCreate ? 'Tạo tài khoản' : 'Lưu thay đổi'}
+          {submitting ? 'Saving…' : isCreate ? 'Create account' : 'Save changes'}
         </Button>
       </DialogFooter>
     </form>

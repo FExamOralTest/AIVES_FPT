@@ -36,7 +36,7 @@ export default function StudentResultsPage() {
 
   async function fetchResult(id: number) {
     if (!id || isNaN(id)) {
-      setErrorMessage('Vui lòng nhập ID ca thi hợp lệ.')
+      setErrorMessage('Please enter a valid session ID.')
       return
     }
     setIsLoading(true)
@@ -57,10 +57,10 @@ export default function StudentResultsPage() {
     <div className="mx-auto max-w-4xl py-6">
       <header className="mb-8">
         <h1 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl">
-          Kết quả thi vấn đáp
+          Viva exam results
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Xem điểm số chính thức, nhận xét của giảng viên và chi tiết bài thi sau khi được công bố.
+          See your official score, the examiner's feedback and exam details once they are published.
         </p>
 
         {/* Search Session Bar */}
@@ -71,7 +71,7 @@ export default function StudentResultsPage() {
               type="number"
               value={sessionIdInput}
               onChange={(e) => setSessionIdInput(e.target.value)}
-              placeholder="Nhập Session ID ca thi..."
+              placeholder="Enter the session ID..."
               className="h-11 w-full rounded-xl border border-input bg-background pl-10 pr-4 text-sm outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
             />
           </div>
@@ -80,7 +80,7 @@ export default function StudentResultsPage() {
             disabled={isLoading || !sessionIdInput}
             className="h-11 px-5"
           >
-            {isLoading ? 'Đang tải…' : 'Tra cứu'}
+            {isLoading ? 'Loading…' : 'Look up'}
           </Button>
         </div>
       </header>
@@ -110,12 +110,12 @@ export default function StudentResultsPage() {
                 {result.isPublished ? (
                   <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 px-3 py-1">
                     <CheckCircle2 className="size-3.5" />
-                    Đã công bố chính thức
+                    Officially published
                   </Badge>
                 ) : (
                   <Badge variant="secondary" className="gap-1 px-3 py-1 bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300">
                     <Clock className="size-3.5" />
-                    Chờ giảng viên duyệt
+                    Awaiting examiner review
                   </Badge>
                 )}
               </div>
@@ -130,30 +130,30 @@ export default function StudentResultsPage() {
                     {result.finalScore != null ? Number(result.finalScore).toFixed(1) : '--'}
                   </span>
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-1">
-                    Điểm tổng kết
+                    Final score
                   </span>
                 </div>
 
                 <div>
                   <h3 className="flex items-center gap-2 font-heading font-medium text-foreground">
                     <MessageSquare className="size-4 text-brand" />
-                    Đánh giá từ Giảng viên
+                    Examiner feedback
                   </h3>
                   <p className="mt-2 text-sm text-foreground/90 leading-relaxed italic bg-muted/50 p-4 rounded-xl border">
-                    "{result.finalFeedback || 'Chưa có nhận xét tổng quát.'}"
+                    "{result.finalFeedback || 'No overall feedback yet.'}"
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
                     {result.submittedAt && (
                       <span className="flex items-center gap-1.5">
                         <Calendar className="size-3.5" />
-                        Nộp bài: {formatDateTime(parseApiDate(result.submittedAt))}
+                        Submitted: {formatDateTime(parseApiDate(result.submittedAt))}
                       </span>
                     )}
                     {result.publishedAt && (
                       <span className="flex items-center gap-1.5">
                         <CheckCircle2 className="size-3.5 text-emerald-600" />
-                        Công bố: {formatDateTime(parseApiDate(result.publishedAt))}
+                        Published: {formatDateTime(parseApiDate(result.publishedAt))}
                       </span>
                     )}
                   </div>
@@ -162,14 +162,14 @@ export default function StudentResultsPage() {
             ) : (
               <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-6 dark:border-amber-900/50 dark:bg-amber-950/20">
                 <h3 className="font-heading font-medium text-amber-900 dark:text-amber-200">
-                  Bài thi đang được chấm điểm
+                  Your exam is being reviewed
                 </h3>
                 <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
-                  {result.message || 'Hệ thống AI đã chấm sơ bộ. Giảng viên đang tiến hành nghe lại câu trả lời và xem xét điểm số trước khi công bố.'}
+                  {result.message || 'The AI has made a first assessment. The examiner is listening to your answers and reviewing the scores before publishing.'}
                 </p>
                 {result.submittedAt && (
                   <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
-                    Thời gian nộp bài: {formatDateTime(parseApiDate(result.submittedAt))}
+                    Submitted: {formatDateTime(parseApiDate(result.submittedAt))}
                   </p>
                 )}
               </div>
@@ -179,7 +179,7 @@ export default function StudentResultsPage() {
           {/* Breakdown Per Question (Only when published) */}
           {result.isPublished && result.answers?.length > 0 && (
             <section className="space-y-4">
-              <h3 className="font-heading text-xl font-medium">Chi tiết từng câu hỏi</h3>
+              <h3 className="font-heading text-xl font-medium">Question by question</h3>
 
               {result.answers.map((answer, index) => (
                 <article
@@ -188,17 +188,17 @@ export default function StudentResultsPage() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="flex items-center gap-2 text-sm font-semibold text-brand">
-                      Câu {index + 1}
+                      Question {index + 1}
                       {answer.isFollowUp && (
                         <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                          Câu hỏi phụ
+                          Follow-up
                         </Badge>
                       )}
                     </span>
 
                     {answer.finalScore != null && (
                       <span className="rounded-full bg-brand-soft px-3 py-1 font-mono text-sm font-bold text-brand">
-                        {Number(answer.finalScore).toFixed(1)} điểm
+                        {Number(answer.finalScore).toFixed(1)} pts
                       </span>
                     )}
                   </div>
@@ -211,10 +211,10 @@ export default function StudentResultsPage() {
                   <div className="mt-4 rounded-2xl bg-muted/60 p-4 text-sm">
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                       <Volume2 className="size-3.5 text-brand" />
-                      Câu trả lời của bạn:
+                      Your answer:
                     </span>
                     <p className="text-foreground leading-relaxed">
-                      {answer.studentAnswer || answer.transcript || '(Không có bản ghi văn bản)'}
+                      {answer.studentAnswer || answer.transcript || '(No transcript)'}
                     </p>
 
                     {answer.audioUrl && (
@@ -227,7 +227,7 @@ export default function StudentResultsPage() {
                   {/* Teacher's comment on question */}
                   {answer.teacherComment && (
                     <div className="mt-3 rounded-xl border border-dashed border-brand/30 bg-brand-soft/20 p-3 text-xs text-foreground">
-                      <span className="font-semibold text-brand">Nhận xét của giảng viên: </span>
+                      <span className="font-semibold text-brand">Examiner's comment: </span>
                       {answer.teacherComment}
                     </div>
                   )}
@@ -241,7 +241,7 @@ export default function StudentResultsPage() {
       {!result && !isLoading && !errorMessage && (
         <div className="rounded-3xl border border-dashed p-12 text-center text-muted-foreground">
           <HelpCircle className="mx-auto size-10 opacity-40 mb-3" />
-          <p>Nhập Session ID ở trên để kiểm tra kết quả thi của bạn.</p>
+          <p>Enter a session ID above to check your exam result.</p>
         </div>
       )}
     </div>

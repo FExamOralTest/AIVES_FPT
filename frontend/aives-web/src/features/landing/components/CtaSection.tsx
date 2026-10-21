@@ -10,16 +10,16 @@ export function CtaSection() {
           <div aria-hidden="true" className="absolute -top-30 -right-20 size-[260px] rounded-full bg-sun" />
           <div className="relative flex max-w-xl flex-col gap-3">
             <h2 className="font-heading text-3xl leading-tight font-medium tracking-tight sm:text-[40px]">
-              Có mã kỳ thi rồi? Tạo tài khoản để vào thi.
+              Got a join code? Create an account to take your exam.
             </h2>
-            <p className="text-base opacity-90">Chỉ cần email và mật khẩu.</p>
+            <p className="text-base opacity-90">All you need is an email and a password.</p>
           </div>
           <div className="relative flex flex-wrap items-center gap-1.5">
             <Button asChild>
-              <Link to="/register">Tạo tài khoản sinh viên</Link>
+              <Link to="/register">Create a student account</Link>
             </Button>
             <Button asChild variant="light">
-              <Link to="/login">Đăng nhập</Link>
+              <Link to="/login">Sign in</Link>
             </Button>
           </div>
         </RevealItem>

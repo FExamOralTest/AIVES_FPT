@@ -5,21 +5,21 @@ export type StudentSessionState = 'waiting' | 'ready' | 'inProgress' | 'complete
 export type SessionFilter = 'all' | 'upcoming' | 'active' | 'completed' | 'closed'
 
 export const SESSION_FILTERS: { value: SessionFilter; label: string }[] = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'upcoming', label: 'Chờ bắt đầu' },
-  { value: 'active', label: 'Có thể vào thi' },
-  { value: 'completed', label: 'Đã hoàn thành' },
-  { value: 'closed', label: 'Đã đóng / hủy' },
+  { value: 'all', label: 'All' },
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'active', label: 'Open now' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'closed', label: 'Closed / cancelled' },
 ]
 
 export const STUDENT_SESSION_STATES: Record<StudentSessionState, { label: string; tone: string; filter: SessionFilter }> = {
-  waiting: { label: 'Chờ bắt đầu', tone: 'bg-muted text-foreground', filter: 'upcoming' },
-  ready: { label: 'Sẵn sàng vào thi', tone: 'bg-success-soft text-success', filter: 'active' },
-  inProgress: { label: 'Đang làm bài', tone: 'bg-success-soft text-success', filter: 'active' },
-  completed: { label: 'Chờ công bố', tone: 'bg-warning-soft text-warning', filter: 'completed' },
-  published: { label: 'Đã công bố kết quả', tone: 'bg-brand-soft text-brand', filter: 'completed' },
-  closed: { label: 'Đã đóng', tone: 'bg-muted text-muted-foreground', filter: 'closed' },
-  cancelled: { label: 'Đã hủy', tone: 'bg-[#fef1f0] text-destructive', filter: 'closed' },
+  waiting: { label: 'Not started', tone: 'bg-muted text-foreground', filter: 'upcoming' },
+  ready: { label: 'Ready to start', tone: 'bg-success-soft text-success', filter: 'active' },
+  inProgress: { label: 'In progress', tone: 'bg-success-soft text-success', filter: 'active' },
+  completed: { label: 'Awaiting result', tone: 'bg-warning-soft text-warning', filter: 'completed' },
+  published: { label: 'Result published', tone: 'bg-brand-soft text-brand', filter: 'completed' },
+  closed: { label: 'Closed', tone: 'bg-muted text-muted-foreground', filter: 'closed' },
+  cancelled: { label: 'Cancelled', tone: 'bg-[#fef1f0] text-destructive', filter: 'closed' },
 }
 
 export function getStudentSessionState(session: StudentSessionEnrollment, now: number): StudentSessionState {

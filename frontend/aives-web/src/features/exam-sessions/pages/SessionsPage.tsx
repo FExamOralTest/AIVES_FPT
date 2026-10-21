@@ -15,9 +15,9 @@ import type { ExamSession, ExamSessionSummary } from '../types'
 export default function SessionsPage() {
   const { user } = useAuth()
   const teacherId = user?.userId ?? 0
-  const { state, reload, update } = useApi(() => sessionsApi.listMine(teacherId), teacherId, 'Không tải được danh sách ca thi.')
+  const { state, reload, update } = useApi(() => sessionsApi.listMine(teacherId), teacherId, 'Could not load exam sessions.')
   const [params, setParams] = useSearchParams()
-  // "Tạo ca thi cho đề này" on an exam links here with ?examId=…, opening the form preselected.
+  // "Create a session for this exam" on an exam links here with ?examId=…, opening the form preselected.
   const linkedExamId = Number(params.get('examId')) || null
   const [creating, setCreating] = useState(linkedExamId !== null)
   const [viewingId, setViewingId] = useState<number | null>(null)
@@ -43,18 +43,18 @@ export default function SessionsPage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-medium tracking-tight">Ca thi</h1>
+          <h1 className="font-heading text-3xl font-medium tracking-tight">Exam sessions</h1>
           <p className="mt-1.5 max-w-2xl text-muted-foreground">
-            Lên lịch ca thi từ đề thi, gửi mã tham gia cho sinh viên, bắt đầu và kết thúc ca thi.
+            Schedule sessions from your exams, send the join code to students, and start or end each session.
           </p>
         </div>
         <Button onClick={() => setCreating(true)}>
           <Plus aria-hidden="true" />
-          Tạo ca thi
+          Create session
         </Button>
       </header>
 
-      <section aria-label="Danh sách ca thi" className="mt-6">
+      <section aria-label="Session list" className="mt-6">
         {state.status === 'loading' && (
           <ul aria-busy="true" className="flex flex-col gap-3">
             {[0, 1, 2].map((i) => (
@@ -69,7 +69,7 @@ export default function SessionsPage() {
             <p className="max-w-sm text-muted-foreground">{state.message}</p>
             <Button variant="secondary" size="sm" onClick={reload}>
               <RotateCw aria-hidden="true" />
-              Thử lại
+              Try again
             </Button>
           </div>
         )}
@@ -77,13 +77,13 @@ export default function SessionsPage() {
         {state.status === 'ready' && sessions.length === 0 && (
           <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-6 py-14 text-center">
             <CalendarClock className="size-8 text-muted-foreground" aria-hidden="true" />
-            <p className="font-heading text-lg font-medium">Chưa có ca thi nào</p>
+            <p className="font-heading text-lg font-medium">No exam sessions yet</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Tạo ca thi từ một đề thi để nhận mã tham gia gửi cho sinh viên.
+              Create a session from an exam to get a join code for your students.
             </p>
             <Button onClick={() => setCreating(true)}>
               <Plus aria-hidden="true" />
-              Tạo ca thi
+              Create session
             </Button>
           </div>
         )}
@@ -137,7 +137,7 @@ function SessionRow({ session, onOpen }: { session: ExamSessionSummary; onOpen: 
           )}
           <span className="flex items-center gap-1.5">
             <Users className="size-4" aria-hidden="true" />
-            {session.enrolledStudents} sinh viên
+            {session.enrolledStudents} students
           </span>
         </span>
       </div>

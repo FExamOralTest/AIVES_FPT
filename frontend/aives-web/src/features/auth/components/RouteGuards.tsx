@@ -7,7 +7,7 @@ function FullPageLoader() {
   return (
     <div role="status" className="flex min-h-svh items-center justify-center gap-3 text-muted-foreground">
       <span className="size-3 animate-pulse rounded-full bg-brand motion-reduce:animate-none" />
-      Đang kiểm tra phiên đăng nhập…
+      Checking your session…
     </div>
   )
 }

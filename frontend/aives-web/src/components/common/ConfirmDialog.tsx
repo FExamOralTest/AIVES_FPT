@@ -21,8 +21,8 @@ export function ConfirmDialog({ open, title, description, pending, error, onClos
         </DialogHeader>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
-          <Button variant="outline" disabled={pending} onClick={onClose}>Hủy</Button>
-          <Button variant="destructive" disabled={pending} onClick={onConfirm}>{pending ? 'Đang xóa…' : 'Xác nhận xóa'}</Button>
+          <Button variant="outline" disabled={pending} onClick={onClose}>Cancel</Button>
+          <Button variant="destructive" disabled={pending} onClick={onConfirm}>{pending ? 'Deleting…' : 'Confirm delete'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
