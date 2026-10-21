@@ -24,6 +24,10 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   'You do not have permission to create a session for this exam.': 'You did not create this exam.',
   'This question is already in use. Create a new question instead.':
     'This question is already used in an exam. Create a new question to change its content.',
+  'Only pending questions can be approved.': 'This question has already been reviewed. Refresh the list to see its status.',
+  'Only pending questions can be rejected.': 'This question has already been reviewed. Refresh the list to see its status.',
+  'A rejection reason is required.': 'Enter a reason for rejecting this question.',
+  'You are not assigned to this course.': 'You are not assigned to this course, so you cannot review its questions.',
   'This course already has a document of this type. Replace the existing document instead.':
     'This course already has a document of this type. Replace the existing one instead.',
 }

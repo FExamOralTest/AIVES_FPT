@@ -1,5 +1,13 @@
 import { http } from '@/lib/http/client'
-import type { GenerateQuestionsRequest, GenerateQuestionsResponse, QuestionItemDto, QuestionPage, QuestionQuery, WriteQuestionInput } from '../types'
+import type {
+  GenerateQuestionsRequest,
+  GenerateQuestionsResponse,
+  QuestionApprovalStatus,
+  QuestionItemDto,
+  QuestionPage,
+  QuestionQuery,
+  WriteQuestionInput,
+} from '../types'
 
 export const teacherQuestionsApi = {
   async getQuestions(courseId: number, query: QuestionQuery = {}): Promise<QuestionPage> {
@@ -7,13 +15,31 @@ export const teacherQuestionsApi = {
     return data
   },
 
-  async getAllQuestions(courseId: number): Promise<QuestionItemDto[]> {
-    const first = await this.getQuestions(courseId, { page: 1, pageSize: 100 })
+  async getAllQuestions(courseId: number, status?: QuestionApprovalStatus): Promise<QuestionItemDto[]> {
+    const first = await this.getQuestions(courseId, { page: 1, pageSize: 100, status })
     const items = [...first.items]
     for (let page = 2; page <= first.totalPages; page++) {
-      items.push(...(await this.getQuestions(courseId, { page, pageSize: 100 })).items)
+      items.push(...(await this.getQuestions(courseId, { page, pageSize: 100, status })).items)
     }
     return items
+  },
+
+  /** How many questions are in each review state (three 1-item page requests; the API has no counts endpoint). */
+  async countByStatus(courseId: number): Promise<Record<QuestionApprovalStatus, number>> {
+    const statuses: QuestionApprovalStatus[] = ['PENDING_REVIEW', 'APPROVED', 'REJECTED']
+    const pages = await Promise.all(statuses.map((status) => this.getQuestions(courseId, { page: 1, pageSize: 1, status })))
+    return { PENDING_REVIEW: pages[0].totalCount, APPROVED: pages[1].totalCount, REJECTED: pages[2].totalCount }
+  },
+
+  /** Only PENDING_REVIEW questions can be approved or rejected (409 otherwise). */
+  async approve(courseId: number, questionId: number): Promise<QuestionItemDto> {
+    const { data } = await http.post<QuestionItemDto>(`/api/courses/${courseId}/questions/${questionId}/approve`)
+    return data
+  },
+
+  async reject(courseId: number, questionId: number, reason: string): Promise<QuestionItemDto> {
+    const { data } = await http.post<QuestionItemDto>(`/api/courses/${courseId}/questions/${questionId}/reject`, { reason })
+    return data
   },
 
   async get(courseId: number, questionId: number): Promise<QuestionItemDto> {
