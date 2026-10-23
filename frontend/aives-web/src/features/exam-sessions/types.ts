@@ -37,6 +37,26 @@ export interface CreateSessionInput {
   maxCapacity: number
 }
 
+/** PUT /api/staff/sessions/{id}: the exam cannot change; an empty room clears it. */
+export interface UpdateSessionInput {
+  sessionName: string
+  room: string
+  /** ISO UTC strings. */
+  startTime: string
+  endTime: string
+  maxCapacity: number
+}
+
+export type EnrollOutcome = 'added' | 'already_enrolled' | 'not_student' | 'not_found'
+
+/** POST /api/staff/sessions/{id}/enrollments: one entry per requested student ID. */
+export interface BulkEnrollResult {
+  addedCount: number
+  skippedCount: number
+  currentEnrollment: number
+  results: { studentId: number; status: EnrollOutcome; reason: string | null }[]
+}
+
 export interface StudentProgress {
   sessionEnrollmentId: number
   studentId: number
