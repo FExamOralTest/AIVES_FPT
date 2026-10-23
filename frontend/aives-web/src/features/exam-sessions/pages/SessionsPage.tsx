@@ -8,7 +8,7 @@ import { formatTimeRange, parseApiDate } from '@/lib/format/date'
 import { useApi } from '@/lib/http/useApi'
 import { cn } from '@/lib/utils'
 import { sessionsApi } from '../api/sessionsApi'
-import { CreateSessionDialog } from '../components/CreateSessionDialog'
+import { CreateSessionDialog } from '../components/SessionFormDialog'
 import { SessionDetailDialog } from '../components/SessionDetailDialog'
 import type { ExamSession, ExamSessionSummary } from '../types'
 
@@ -35,6 +35,11 @@ export default function SessionsPage() {
 
   function handleChanged(session: ExamSession) {
     update((list) => list.map((s) => (s.sessionId === session.sessionId ? toSummary(session) : s)))
+  }
+
+  function handleDeleted(sessionId: number) {
+    update((list) => list.filter((s) => s.sessionId !== sessionId))
+    setViewingId(null)
   }
 
   const sessions = state.status === 'ready' ? state.data : []
@@ -100,7 +105,10 @@ export default function SessionsPage() {
       </section>
 
       <CreateSessionDialog open={creating} initialExamId={linkedExamId} onClose={closeCreate} onCreated={handleCreated} />
-      <SessionDetailDialog sessionId={viewingId} onClose={() => setViewingId(null)} onChanged={handleChanged} />
+      <SessionDetailDialog sessionId={viewingId} onClose={() => setViewingId(null)}
+        onChanged={handleChanged}
+        onDeleted={handleDeleted}
+      />
     </>
   )
 }

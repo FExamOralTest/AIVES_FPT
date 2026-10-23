@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { examsApi, type Exam } from '@/features/exams'
+import { parseApiDate } from '@/lib/format/date'
 import { toApiError } from '@/lib/http/apiError'
 import { useApi } from '@/lib/http/useApi'
 import { cn } from '@/lib/utils'
@@ -32,7 +33,7 @@ interface CreateSessionDialogProps {
 export function CreateSessionDialog({ open, initialExamId, onClose, onCreated }: CreateSessionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>{open && <CreateSessionForm initialExamId={initialExamId} onCreated={onCreated} />}</DialogContent>
+      <DialogContent>{open && <SessionForm initialExamId={initialExamId} onSaved={onCreated} />}</DialogContent>
     </Dialog>
   )
 }
@@ -42,11 +43,37 @@ type Field = 'examId' | 'sessionName' | 'room' | 'start' | 'end' | 'maxCapacity'
 const SELECT_CLASS =
   'h-12 w-full rounded-[14px] border border-input bg-background px-4 text-[15px] outline-none focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand/15'
 
-function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialogProps, 'initialExamId' | 'onCreated'>) {
+interface SessionFormProps {
+  /** Edit this session instead of creating one; its exam cannot be changed. */
+  session?: ExamSession
+  initialExamId?: number | null
+  onSaved: (session: ExamSession) => void
+  /** Edit mode renders inside the detail dialog, so Cancel goes back to it instead of closing. */
+  onCancel?: () => void
+}
+
+/** Create (no `session`) or edit form; render it inside a DialogContent. */
+export function SessionForm({ session, initialExamId = null, onSaved, onCancel }: SessionFormProps) {
   const examSelectId = useId()
-  const { state: exams } = useApi(examsApi.listMine, '', 'Could not load exams.')
+  const isEdit = Boolean(session)
+  // Edit mode shows the session's own exam, which may belong to another staff member.
+  const { state: exams } = useApi(
+    () => (isEdit ? Promise.resolve([]) : examsApi.listMine()),
+    isEdit ? 'edit' : 'create',
+    'Could not load exams.',
+  )
 
   const [values, setValues] = useState<Record<Field, string>>(() => {
+    if (session) {
+      return {
+        examId: String(session.examId),
+        sessionName: session.sessionName,
+        room: session.room ?? '',
+        start: toLocalInput(parseApiDate(session.startTime)),
+        end: toLocalInput(parseApiDate(session.endTime)),
+        maxCapacity: String(session.maxCapacity),
+      }
+    }
     const start = nextHalfHour()
     return {
       examId: initialExamId ? String(initialExamId) : '',
@@ -57,6 +84,7 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
       maxCapacity: '50',
     }
   })
+  const [initialStart] = useState(values.start)
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -87,11 +115,16 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
     const start = new Date(values.start)
     const end = new Date(values.end)
     if (Number.isNaN(start.getTime())) next.start = 'Choose a start time.'
-    else if (start.getTime() < Date.now() - 5 * 60_000) next.start = 'The start time cannot be in the past.'
+    // When editing, an unchanged start that has already passed is fine (e.g. only fixing the room).
+    else if (values.start !== initialStart || !isEdit) {
+      if (start.getTime() < Date.now() - 5 * 60_000) next.start = 'The start time cannot be in the past.'
+    }
     if (Number.isNaN(end.getTime())) next.end = 'Choose an end time.'
     else if (!next.start && end <= start) next.end = 'The end time must be after the start time.'
     const cap = Number(values.maxCapacity)
     if (!/^\d+$/.test(values.maxCapacity) || cap < 1 || cap > 500) next.maxCapacity = 'Capacity must be between 1 and 500.'
+    else if (session && cap < session.enrolledStudents)
+      next.maxCapacity = `Capacity cannot be below the ${session.enrolledStudents} students already enrolled.`
     return next
   }
 
@@ -103,17 +136,27 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
     if (Object.keys(next).length) return
 
     setSubmitting(true)
+    // datetime-local is local time; the backend compares against UTC.
+    const startTime = new Date(values.start).toISOString()
+    const endTime = new Date(values.end).toISOString()
     try {
-      onCreated(
-        await sessionsApi.create({
-          examId: Number(values.examId),
-          sessionName: values.sessionName.trim(),
-          room: values.room.trim() || undefined,
-          // datetime-local is local time; the backend compares against UTC.
-          startTime: new Date(values.start).toISOString(),
-          endTime: new Date(values.end).toISOString(),
-          maxCapacity: Number(values.maxCapacity),
-        }),
+      onSaved(
+        session
+          ? await sessionsApi.update(session.sessionId, {
+              sessionName: values.sessionName.trim(),
+              room: values.room.trim(),
+              startTime,
+              endTime,
+              maxCapacity: Number(values.maxCapacity),
+            })
+          : await sessionsApi.create({
+              examId: Number(values.examId),
+              sessionName: values.sessionName.trim(),
+              room: values.room.trim() || undefined,
+              startTime,
+              endTime,
+              maxCapacity: Number(values.maxCapacity),
+            }),
       )
     } catch (err) {
       const apiError = toApiError(err)
@@ -129,8 +172,12 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
   return (
     <form onSubmit={handleSubmit} noValidate className="contents">
       <DialogHeader>
-        <DialogTitle>Create exam session</DialogTitle>
-        <DialogDescription>The system generates an ESS-XXXXXXXX join code to send to students.</DialogDescription>
+        <DialogTitle>{isEdit ? 'Edit exam session' : 'Create exam session'}</DialogTitle>
+        <DialogDescription>
+          {isEdit
+            ? 'Change the name, room, time or capacity. The exam and join code stay the same.'
+            : 'The system generates an ESS-XXXXXXXX join code to send to students.'}
+        </DialogDescription>
       </DialogHeader>
 
       {formError && (
@@ -141,6 +188,14 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
       )}
 
       <div className="flex flex-col gap-4">
+        {session ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold">Exam</p>
+            <p className="rounded-[14px] bg-muted px-4 py-3 text-[15px]">
+              {session.examTitle} ({session.examCode})
+            </p>
+          </div>
+        ) : (
         <div className="flex flex-col gap-2">
           <Label htmlFor={examSelectId} className="text-sm font-semibold">
             Exam
@@ -180,6 +235,7 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
               ))}
           </p>
         </div>
+        )}
 
         <FormField
           label="Session name"
@@ -223,13 +279,19 @@ function CreateSessionForm({ initialExamId, onCreated }: Pick<CreateSessionDialo
       </div>
 
       <DialogFooter>
-        <DialogClose asChild>
-          <Button type="button" variant="secondary">
+        {onCancel ? (
+          <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-        </DialogClose>
+        ) : (
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">
+              Cancel
+            </Button>
+          </DialogClose>
+        )}
         <Button type="submit" disabled={submitting}>
-          {submitting ? 'Creating…' : 'Create session'}
+          {isEdit ? (submitting ? 'Saving…' : 'Save changes') : submitting ? 'Creating…' : 'Create session'}
         </Button>
       </DialogFooter>
     </form>
