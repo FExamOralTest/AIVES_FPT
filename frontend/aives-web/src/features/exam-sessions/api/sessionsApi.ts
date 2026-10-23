@@ -3,6 +3,9 @@ import { http } from '@/lib/http/client'
 import type {
   BulkEnrollResult,
   CreateSessionInput,
+  DistributeExamsResponse,
+  DistributeSlotsRequest,
+  DistributeSlotsResponse,
   ExamSession,
   ExamSessionSummary,
   SessionMonitor,
@@ -49,12 +52,58 @@ export const sessionsApi = {
     await http.delete(`/api/staff/sessions/${sessionId}`)
   },
 
-  async addStudents(sessionId: number, studentIds: number[]): Promise<BulkEnrollResult> {
-    const { data } = await http.post<BulkEnrollResult>(`/api/staff/sessions/${sessionId}/enrollments`, { studentIds })
+  async addStudents(
+    sessionId: number,
+    payload: { studentIds?: number[]; identifiers?: string[] } | number[]
+  ): Promise<BulkEnrollResult> {
+    const body = Array.isArray(payload) ? { studentIds: payload } : payload
+    const { data } = await http.post<BulkEnrollResult>(`/api/staff/sessions/${sessionId}/enrollments`, body)
+    return data
+  },
+
+  /** Tự động nhập toàn bộ sinh viên đã ghi danh vào môn học của ca thi. */
+  async enrollCourseStudents(sessionId: number): Promise<BulkEnrollResult> {
+    const { data } = await http.post<BulkEnrollResult>(
+      `/api/staff/sessions/${sessionId}/enroll-course-students`
+    )
     return data
   },
 
   async removeStudent(sessionId: number, studentId: number): Promise<void> {
     await http.delete(`/api/staff/sessions/${sessionId}/enrollments/${studentId}`)
+  },
+
+  async distributeExams(
+    sessionId: number,
+    request?: { randomSeed?: number; strategy?: string }
+  ): Promise<DistributeExamsResponse> {
+    const { data } = await http.post<DistributeExamsResponse>(
+      `/api/staff/sessions/${sessionId}/distribute-exams`,
+      request ?? {}
+    )
+    return data
+  },
+
+  async assignStudentExam(sessionId: number, studentId: number, examId: number): Promise<void> {
+    await http.put(`/api/staff/sessions/${sessionId}/enrollments/${studentId}/assign-exam`, {
+      examId,
+    })
+  },
+
+  async distributeSlots(
+    sessionId: number,
+    request?: DistributeSlotsRequest
+  ): Promise<DistributeSlotsResponse> {
+    const { data } = await http.post<DistributeSlotsResponse>(
+      `/api/staff/sessions/${sessionId}/distribute-slots`,
+      request ?? {}
+    )
+    return data
+  },
+
+  async assignStudentSlot(sessionId: number, studentId: number, slotId: number): Promise<void> {
+    await http.put(`/api/staff/sessions/${sessionId}/enrollments/${studentId}/assign-slot`, {
+      slotId,
+    })
   },
 }

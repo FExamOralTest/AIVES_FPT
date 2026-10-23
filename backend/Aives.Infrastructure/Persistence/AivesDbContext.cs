@@ -21,9 +21,15 @@ public partial class AivesDbContext : DbContext
 
     public virtual DbSet<Exam> Exams { get; set; }
 
+    public virtual DbSet<ExamPeriod> ExamPeriods { get; set; }
+
     public virtual DbSet<ExamQuestion> ExamQuestions { get; set; }
 
     public virtual DbSet<ExamSession> ExamSessions { get; set; }
+
+    public virtual DbSet<ExamSessionExam> ExamSessionExams { get; set; }
+
+    public virtual DbSet<ExamSessionSlot> ExamSessionSlots { get; set; }
 
     public virtual DbSet<MarkdownDocument> MarkdownDocuments { get; set; }
 
@@ -42,6 +48,7 @@ public partial class AivesDbContext : DbContext
     {
         modelBuilder
             .HasPostgresEnum("doc_type", new[] { "CONTENT", "LEARNING_OUTCOMES" })
+            .HasPostgresEnum("exam_period_status", new[] { "DRAFT", "ACTIVE", "COMPLETED", "CANCELLED" })
             .HasPostgresEnum("exam_status", new[] { "DRAFT", "SCHEDULED", "OPEN", "CLOSED", "CANCELLED" })
             .HasPostgresEnum("session_status", new[] { "NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED" })
             .HasPostgresEnum("submission_status", new[] { "PENDING_REVIEW", "SUBMITTED", "REVIEWED", "PUBLISHED", "CANCELLED" })
@@ -225,6 +232,37 @@ public partial class AivesDbContext : DbContext
                 .HasConstraintName("exam_questions_question_id_fkey");
         });
 
+        modelBuilder.Entity<ExamPeriod>(entity =>
+        {
+            entity.HasKey(e => e.PeriodId).HasName("exam_periods_pkey");
+
+            entity.ToTable("exam_periods");
+
+            entity.Property(e => e.PeriodId)
+                .UseIdentityAlwaysColumn()
+                .HasColumnName("period_id");
+            entity.Property(e => e.CourseId).HasColumnName("course_id");
+            entity.Property(e => e.PeriodName)
+                .HasMaxLength(150)
+                .HasColumnName("period_name");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.StartDate).HasColumnName("start_date");
+            entity.Property(e => e.EndDate).HasColumnName("end_date");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Course).WithMany(p => p.ExamPeriods)
+                .HasForeignKey(d => d.CourseId)
+                .HasConstraintName("exam_periods_course_id_fkey");
+
+            entity.HasOne(d => d.CreatedByNavigation).WithMany(p => p.ExamPeriods)
+                .HasForeignKey(d => d.CreatedBy)
+                .HasConstraintName("exam_periods_created_by_fkey");
+        });
+
         modelBuilder.Entity<ExamSession>(entity =>
         {
             entity.HasKey(e => e.SessionId).HasName("exam_sessions_pkey");
@@ -240,7 +278,15 @@ public partial class AivesDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("created_at");
             entity.Property(e => e.EndTime).HasColumnName("end_time");
-            entity.Property(e => e.ExamId).HasColumnName("exam_id");
+            entity.Property(e => e.ExamId)
+                .IsRequired(false)
+                .HasColumnName("exam_id");
+            entity.Property(e => e.CourseId)
+                .IsRequired(false)
+                .HasColumnName("course_id");
+            entity.Property(e => e.PeriodId)
+                .IsRequired(false)
+                .HasColumnName("period_id");
             entity.Property(e => e.MaxCapacity)
                 .HasDefaultValue(50)
                 .HasColumnName("max_capacity");
@@ -260,13 +306,80 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.StartTime).HasColumnName("start_time");
             entity.Property(e => e.Status).HasColumnName("status");
 
+            entity.HasOne(d => d.Course).WithMany(p => p.ExamSessions)
+                .HasForeignKey(d => d.CourseId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false)
+                .HasConstraintName("exam_sessions_course_id_fkey");
+
+            entity.HasOne(d => d.Period).WithMany(p => p.ExamSessions)
+                .HasForeignKey(d => d.PeriodId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false)
+                .HasConstraintName("exam_sessions_period_id_fkey");
+
             entity.HasOne(d => d.Exam).WithMany(p => p.ExamSessions)
                 .HasForeignKey(d => d.ExamId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false)
                 .HasConstraintName("exam_sessions_exam_id_fkey");
 
             entity.HasOne(d => d.ScheduledByNavigation).WithMany(p => p.ExamSessions)
                 .HasForeignKey(d => d.ScheduledBy)
                 .HasConstraintName("exam_sessions_scheduled_by_fkey");
+        });
+
+        modelBuilder.Entity<ExamSessionExam>(entity =>
+        {
+            entity.HasKey(e => new { e.SessionId, e.ExamId }).HasName("session_exams_pkey");
+
+            entity.ToTable("session_exams");
+
+            entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.ExamId).HasColumnName("exam_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Session).WithMany(p => p.SessionExams)
+                .HasForeignKey(d => d.SessionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("session_exams_session_id_fkey");
+
+            entity.HasOne(d => d.Exam).WithMany(p => p.SessionExams)
+                .HasForeignKey(d => d.ExamId)
+                .HasConstraintName("session_exams_exam_id_fkey");
+        });
+
+        modelBuilder.Entity<ExamSessionSlot>(entity =>
+        {
+            entity.HasKey(e => e.SlotId).HasName("session_slots_pkey");
+
+            entity.ToTable("session_slots");
+
+            entity.HasIndex(e => new { e.SessionId, e.SlotIndex }, "session_slots_session_slot_key").IsUnique();
+
+            entity.Property(e => e.SlotId)
+                .UseIdentityAlwaysColumn()
+                .HasColumnName("slot_id");
+            entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.SlotIndex).HasColumnName("slot_index");
+            entity.Property(e => e.SlotName)
+                .HasMaxLength(100)
+                .HasColumnName("slot_name");
+            entity.Property(e => e.StartTime).HasColumnName("start_time");
+            entity.Property(e => e.EndTime).HasColumnName("end_time");
+            entity.Property(e => e.MaxCapacity)
+                .HasDefaultValue(10)
+                .HasColumnName("max_capacity");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Session).WithMany(p => p.Slots)
+                .HasForeignKey(d => d.SessionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("session_slots_session_id_fkey");
         });
 
         modelBuilder.Entity<MarkdownDocument>(entity =>
@@ -392,6 +505,9 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.ReviewedAt).HasColumnName("reviewed_at");
             entity.Property(e => e.ReviewedBy).HasColumnName("reviewed_by");
             entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.ExamId)
+                .IsRequired(false)
+                .HasColumnName("exam_id");
             entity.Property(e => e.Status).HasColumnName("status");
             entity.Property(e => e.StudentId).HasColumnName("student_id");
             entity.Property(e => e.SubmittedAt)
@@ -408,10 +524,15 @@ public partial class AivesDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("results_published_by_fkey");
 
-
             entity.HasOne(d => d.Session).WithMany(p => p.Results)
                 .HasForeignKey(d => d.SessionId)
                 .HasConstraintName("results_session_id_fkey");
+
+            entity.HasOne(d => d.Exam).WithMany(p => p.Results)
+                .HasForeignKey(d => d.ExamId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false)
+                .HasConstraintName("results_exam_id_fkey");
 
             entity.HasOne(d => d.Student).WithMany(p => p.ResultStudents)
                 .HasForeignKey(d => d.StudentId)
@@ -439,6 +560,12 @@ public partial class AivesDbContext : DbContext
                 .HasColumnName("enrolled_at");
             entity.Property(e => e.LastActivityAt).HasColumnName("last_activity_at");
             entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.AssignedExamId)
+                .IsRequired(false)
+                .HasColumnName("assigned_exam_id");
+            entity.Property(e => e.AssignedSlotId)
+                .IsRequired(false)
+                .HasColumnName("assigned_slot_id");
             entity.Property(e => e.StartedAt).HasColumnName("started_at");
             entity.Property(e => e.Status).HasColumnName("status");
             entity.Property(e => e.StudentId).HasColumnName("student_id");
@@ -446,6 +573,18 @@ public partial class AivesDbContext : DbContext
             entity.HasOne(d => d.Session).WithMany(p => p.SessionEnrollments)
                 .HasForeignKey(d => d.SessionId)
                 .HasConstraintName("session_enrollments_session_id_fkey");
+
+            entity.HasOne(d => d.AssignedExam).WithMany(p => p.AssignedEnrollments)
+                .HasForeignKey(d => d.AssignedExamId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false)
+                .HasConstraintName("session_enrollments_assigned_exam_id_fkey");
+
+            entity.HasOne(d => d.AssignedSlot).WithMany(p => p.SessionEnrollments)
+                .HasForeignKey(d => d.AssignedSlotId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false)
+                .HasConstraintName("session_enrollments_assigned_slot_id_fkey");
 
             entity.HasOne(d => d.Student).WithMany(p => p.SessionEnrollments)
                 .HasForeignKey(d => d.StudentId)

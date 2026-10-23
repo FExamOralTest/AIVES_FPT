@@ -8,6 +8,7 @@ public class StudentSessionEnrollmentDto
     public int SessionId { get; set; }
     public string SessionName { get; set; } = string.Empty;
     public string ExamTitle { get; set; } = string.Empty;
+    public string ExamCode { get; set; } = string.Empty;
     public string CourseName { get; set; } = string.Empty;
     public string? Room { get; set; }
     public DateTime StartTime { get; set; }
@@ -16,4 +17,8 @@ public class StudentSessionEnrollmentDto
     public SessionStatus SessionStatus { get; set; }
     public SessionStatus EnrollmentStatus { get; set; }
     public bool IsPublished { get; set; }
+    public int? AssignedSlotId { get; set; }
+    public string? AssignedSlotName { get; set; }
+    public DateTime? SlotStartTime { get; set; }
+    public DateTime? SlotEndTime { get; set; }
 }

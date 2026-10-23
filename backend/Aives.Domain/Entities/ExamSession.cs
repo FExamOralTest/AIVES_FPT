@@ -9,7 +9,11 @@ public partial class ExamSession
 {
     public int SessionId { get; set; }
 
-    public int ExamId { get; set; }
+    public int? ExamId { get; set; }
+
+    public int? CourseId { get; set; }
+
+    public int? PeriodId { get; set; }
 
     public int ScheduledBy { get; set; }
 
@@ -30,7 +34,15 @@ public partial class ExamSession
     public int MaxCapacity { get; set; } = 50;
     public int CurrentEnrollment { get; set; } = 0;
 
-    public virtual Exam Exam { get; set; } = null!;
+    public virtual Course? Course { get; set; }
+
+    public virtual Exam? Exam { get; set; }
+
+    public virtual ExamPeriod? Period { get; set; }
+
+    public virtual ICollection<ExamSessionExam> SessionExams { get; set; } = new List<ExamSessionExam>();
+
+    public virtual ICollection<ExamSessionSlot> Slots { get; set; } = new List<ExamSessionSlot>();
 
     public virtual ICollection<Result> Results { get; set; } = new List<Result>();
 
@@ -38,3 +50,4 @@ public partial class ExamSession
 
     public virtual ICollection<SessionEnrollment> SessionEnrollments { get; set; } = new List<SessionEnrollment>();
 }
+

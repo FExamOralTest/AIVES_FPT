@@ -68,11 +68,35 @@ public class VivaSessionService : IVivaSessionService
         if (session.Status != SessionStatus.IN_PROGRESS || now < session.StartTime)
             throw new InvalidOperationException("Ca thi chưa mở. Vui lòng chờ đến giờ thi và giảng viên mở ca.");
 
+        var assignedSlot = enrollment.AssignedSlot
+            ?? (enrollment.AssignedSlotId.HasValue
+                ? session.Slots?.FirstOrDefault(s => s.SlotId == enrollment.AssignedSlotId.Value)
+                : null);
+
+        if (assignedSlot != null)
+        {
+            if (now < assignedSlot.StartTime)
+            {
+                var diff = assignedSlot.StartTime - now;
+                var minutesRemaining = Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes));
+                throw new InvalidOperationException(
+                    $"Chưa đến khung giờ thi của kíp bạn ({assignedSlot.SlotName}: {assignedSlot.StartTime:HH:mm} - {assignedSlot.EndTime:HH:mm}). Vui lòng quay lại sau {minutesRemaining} phút.");
+            }
+
+            if (now >= assignedSlot.EndTime)
+            {
+                throw new InvalidOperationException(
+                    $"Khung giờ thi của kíp bạn ({assignedSlot.SlotName}: {assignedSlot.StartTime:HH:mm} - {assignedSlot.EndTime:HH:mm}) đã kết thúc.");
+            }
+        }
+
         // Mark enrollment as IN_PROGRESS
         enrollment.Status = SessionStatus.IN_PROGRESS;
         enrollment.StartedAt ??= DateTime.UtcNow;
         enrollment.LastActivityAt = DateTime.UtcNow;
         enrollment.CurrentQuestionIndex ??= 0;
+
+        var assignedExamId = await ResolveAssignedExamIdAsync(session, enrollment);
         await _sessionRepository.SaveChangesAsync();
 
         // Get or initialize Result record
@@ -83,14 +107,20 @@ public class VivaSessionService : IVivaSessionService
             {
                 SessionId = sessionId,
                 StudentId = studentId,
+                ExamId = assignedExamId,
                 Status = SubmissionStatus.PENDING_REVIEW,
                 SubmittedAt = DateTime.UtcNow
             };
             await _resultRepository.CreateAsync(result);
         }
+        else if (result.ExamId == null)
+        {
+            result.ExamId = assignedExamId;
+            await _resultRepository.UpdateAsync(result);
+        }
 
-        var exam = await _examRepository.GetByIdWithQuestionsAsync(session.ExamId)
-            ?? throw new KeyNotFoundException($"Đề thi ID {session.ExamId} không tồn tại.");
+        var exam = await _examRepository.GetByIdWithQuestionsAsync(assignedExamId)
+            ?? throw new KeyNotFoundException($"Đề thi ID {assignedExamId} không tồn tại.");
 
         var examQuestions = exam.ExamQuestions.OrderBy(q => q.QuestionId).ToList();
         var totalQuestions = examQuestions.Count;
@@ -117,6 +147,12 @@ public class VivaSessionService : IVivaSessionService
         {
             SessionId = session.SessionId,
             SessionName = session.SessionName,
+            AssignedExamId = assignedExamId,
+            AssignedExamCode = exam.ExamCode,
+            AssignedSlotId = enrollment.AssignedSlotId,
+            AssignedSlotName = assignedSlot?.SlotName,
+            SlotStartTime = assignedSlot?.StartTime,
+            SlotEndTime = assignedSlot?.EndTime,
             ExamTitle = exam.Title,
             DurationMinutes = exam.DurationMinutes,
             TotalQuestions = totalQuestions,
@@ -137,7 +173,9 @@ public class VivaSessionService : IVivaSessionService
         if (enrollment.Status == SessionStatus.COMPLETED)
             throw new InvalidOperationException("Sinh viên đã kết thúc ca thi này.");
 
-        var exam = await _examRepository.GetByIdWithQuestionsAsync(session.ExamId)
+        var assignedExamId = await ResolveAssignedExamIdAsync(session, enrollment);
+
+        var exam = await _examRepository.GetByIdWithQuestionsAsync(assignedExamId)
             ?? throw new KeyNotFoundException("Đề thi không tồn tại.");
 
         var examQuestions = exam.ExamQuestions.OrderBy(q => q.QuestionId).ToList();
@@ -172,6 +210,8 @@ public class VivaSessionService : IVivaSessionService
         if (enrollment.Status == SessionStatus.COMPLETED)
             throw new InvalidOperationException("Ca thi đã hoàn thành, không thể nộp thêm câu trả lời.");
 
+        var assignedExamId = await ResolveAssignedExamIdAsync(session, enrollment);
+
         var result = await _resultRepository.GetBySessionAndStudentAsync(sessionId, studentId);
         if (result == null)
         {
@@ -179,10 +219,16 @@ public class VivaSessionService : IVivaSessionService
             {
                 SessionId = sessionId,
                 StudentId = studentId,
+                ExamId = assignedExamId,
                 Status = SubmissionStatus.PENDING_REVIEW,
                 SubmittedAt = DateTime.UtcNow
             };
             result = await _resultRepository.CreateAsync(result);
+        }
+        else if (result.ExamId == null)
+        {
+            result.ExamId = assignedExamId;
+            await _resultRepository.UpdateAsync(result);
         }
 
         var question = await _questionRepository.GetByIdAsync(request.QuestionId)
@@ -198,7 +244,7 @@ public class VivaSessionService : IVivaSessionService
         {
             var extension = Path.GetExtension(request.AudioFile.FileName);
             if (string.IsNullOrWhiteSpace(extension)) extension = ".webm";
-            var objectKey = $"exams/{session.ExamId}/sessions/{sessionId}/students/{studentId}/q_{request.QuestionId}_{DateTime.UtcNow.Ticks}{extension}";
+            var objectKey = $"exams/{assignedExamId}/sessions/{sessionId}/students/{studentId}/q_{request.QuestionId}_{DateTime.UtcNow.Ticks}{extension}";
             storedObjectKey = objectKey;
 
             using var memoryStream = new MemoryStream();
@@ -276,7 +322,7 @@ public class VivaSessionService : IVivaSessionService
         }
         await _sessionRepository.SaveChangesAsync();
 
-        var exam = await _examRepository.GetByIdWithQuestionsAsync(session.ExamId)
+        var exam = await _examRepository.GetByIdWithQuestionsAsync(assignedExamId)
             ?? throw new KeyNotFoundException("Đề thi không tồn tại.");
 
         var examQuestions = exam.ExamQuestions.OrderBy(q => q.QuestionId).ToList();
@@ -470,7 +516,32 @@ public class VivaSessionService : IVivaSessionService
             ? "Bài thi đã được nộp và AI đã hoàn thành chấm sơ bộ. Vui lòng đợi giảng viên duyệt kết quả."
             : "Bài thi đã được lưu nhưng AI chưa chấm được. Có thể thử lại hoặc đợi giảng viên chấm và duyệt.",
         SubmittedAt = result.SubmittedAt!.Value,
-        AiScore = result.AiScore,
+        AiScore = result.Status == SubmissionStatus.PUBLISHED ? result.FinalScore ?? result.AiScore : null,
         AiEvaluationStatus = result.AiEvaluationStatus?.ToString()
     };
+
+    private async Task<int> ResolveAssignedExamIdAsync(ExamSession session, SessionEnrollment enrollment)
+    {
+        if (enrollment.AssignedExamId.HasValue)
+            return enrollment.AssignedExamId.Value;
+
+        int assignedId;
+        if (session.SessionExams != null && session.SessionExams.Count > 0)
+        {
+            var examIds = session.SessionExams.Select(se => se.ExamId).ToList();
+            assignedId = examIds[Random.Shared.Next(examIds.Count)];
+        }
+        else if (session.ExamId.HasValue)
+        {
+            assignedId = session.ExamId.Value;
+        }
+        else
+        {
+            throw new InvalidOperationException("Ca thi này chưa được cấu hình bộ đề thi.");
+        }
+
+        enrollment.AssignedExamId = assignedId;
+        await _sessionRepository.SaveChangesAsync();
+        return assignedId;
+    }
 }

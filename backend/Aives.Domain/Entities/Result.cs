@@ -39,14 +39,17 @@ public partial class Result
  
     public int? PublishedBy { get; set; }
 
+    public int? ExamId { get; set; }
+
     public virtual ICollection<Answer> Answers { get; set; } = new List<Answer>();
 
     public virtual User? ReviewedByNavigation { get; set; }
 
     public virtual User? PublishedByNavigation { get; set; }
 
-
     public virtual ExamSession Session { get; set; } = null!;
 
     public virtual User Student { get; set; } = null!;
+
+    public virtual Exam? Exam { get; set; }
 }

@@ -26,7 +26,11 @@ export function getStudentSessionState(session: StudentSessionEnrollment, now: n
   if (session.isPublished) return 'published'
   if (session.enrollmentStatus === 'COMPLETED') return 'completed'
   if (session.sessionStatus === 'CANCELLED' || session.enrollmentStatus === 'CANCELLED') return 'cancelled'
-  if (session.sessionStatus === 'COMPLETED' || now >= parseApiDate(session.endTime).getTime()) return 'closed'
-  if (session.sessionStatus !== 'IN_PROGRESS' || now < parseApiDate(session.startTime).getTime()) return 'waiting'
+
+  const effectiveEnd = session.slotEndTime ? parseApiDate(session.slotEndTime).getTime() : parseApiDate(session.endTime).getTime()
+  const effectiveStart = session.slotStartTime ? parseApiDate(session.slotStartTime).getTime() : parseApiDate(session.startTime).getTime()
+
+  if (session.sessionStatus === 'COMPLETED' || now >= effectiveEnd) return 'closed'
+  if (session.sessionStatus !== 'IN_PROGRESS' || now < effectiveStart) return 'waiting'
   return session.enrollmentStatus === 'IN_PROGRESS' ? 'inProgress' : 'ready'
 }

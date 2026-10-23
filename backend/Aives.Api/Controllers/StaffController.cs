@@ -130,6 +130,17 @@ public class StaffController : ControllerBase
             return Ok(await _staff.AddStudentsToSessionAsync(sessionId, request, id));
         });
 
+    /// <summary>Tự động thêm toàn bộ sinh viên đã ghi danh môn học của ca thi.</summary>
+    [HttpPost("sessions/{sessionId:int}/enroll-course-students")]
+    [ProducesResponseType(typeof(StaffBulkEnrollResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> EnrollCourseStudents(int sessionId) => ExecuteAsync(async () =>
+    {
+        var id = CallerId ?? throw new UnauthorizedAccessException();
+        return Ok(await _staff.ImportCourseStudentsToSessionAsync(sessionId, id));
+    });
+
     /// <summary>Xoá sinh viên khỏi ca thi (chỉ khi ca chưa IN_PROGRESS).</summary>
     [HttpDelete("sessions/{sessionId:int}/enrollments/{studentId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -151,6 +162,56 @@ public class StaffController : ControllerBase
         var id = CallerId ?? throw new UnauthorizedAccessException();
         return Ok(await _staff.GetSessionMonitorAsync(sessionId, id));
     });
+
+    /// <summary>Trộn và phân bổ ngẫu nhiên, cân bằng các bộ đề cho sinh viên trong ca thi.</summary>
+    [HttpPost("sessions/{sessionId:int}/distribute-exams")]
+    [ProducesResponseType(typeof(DistributeExamsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> DistributeExams(int sessionId, [FromBody] DistributeExamsRequest? request)
+        => ExecuteAsync(async () =>
+        {
+            var id = CallerId ?? throw new UnauthorizedAccessException();
+            return Ok(await _staff.DistributeExamsAsync(sessionId, request ?? new DistributeExamsRequest(), id));
+        });
+
+    /// <summary>Gán đề thi cụ thể cho một sinh viên trong ca thi.</summary>
+    [HttpPut("sessions/{sessionId:int}/enrollments/{studentId:int}/assign-exam")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> AssignStudentExam(int sessionId, int studentId, [FromBody] StaffAssignExamRequest request)
+        => ExecuteAsync(async () =>
+        {
+            var id = CallerId ?? throw new UnauthorizedAccessException();
+            await _staff.AssignStudentExamAsync(sessionId, studentId, request, id);
+            return NoContent();
+        });
+
+    /// <summary>Trộn và phân bổ cân bằng sinh viên vào các kíp thi (time slots) và tự động chia đề thi.</summary>
+    [HttpPost("sessions/{sessionId:int}/distribute-slots")]
+    [ProducesResponseType(typeof(DistributeSlotsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> DistributeSlots(int sessionId, [FromBody] DistributeSlotsRequest? request)
+        => ExecuteAsync(async () =>
+        {
+            var id = CallerId ?? throw new UnauthorizedAccessException();
+            return Ok(await _staff.DistributeSlotsAsync(sessionId, request ?? new DistributeSlotsRequest(), id));
+        });
+
+    /// <summary>Gán kíp thi cụ thể cho một sinh viên trong ca thi.</summary>
+    [HttpPut("sessions/{sessionId:int}/enrollments/{studentId:int}/assign-slot")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> AssignStudentSlot(int sessionId, int studentId, [FromBody] StaffAssignSlotRequest request)
+        => ExecuteAsync(async () =>
+        {
+            var id = CallerId ?? throw new UnauthorizedAccessException();
+            await _staff.AssignStudentSlotAsync(sessionId, studentId, request, id);
+            return NoContent();
+        });
 
     // ═════════════════════════════════════════════════════════════
     //  Error mapping — đồng nhất với các controller khác

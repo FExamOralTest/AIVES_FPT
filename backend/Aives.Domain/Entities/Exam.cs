@@ -32,4 +32,10 @@ public partial class Exam
     public virtual ICollection<ExamQuestion> ExamQuestions { get; set; } = new List<ExamQuestion>();
 
     public virtual ICollection<ExamSession> ExamSessions { get; set; } = new List<ExamSession>();
+
+    public virtual ICollection<ExamSessionExam> SessionExams { get; set; } = new List<ExamSessionExam>();
+
+    public virtual ICollection<SessionEnrollment> AssignedEnrollments { get; set; } = new List<SessionEnrollment>();
+
+    public virtual ICollection<Result> Results { get; set; } = new List<Result>();
 }

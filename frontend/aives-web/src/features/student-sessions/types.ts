@@ -5,6 +5,7 @@ export interface StudentSessionEnrollment {
   sessionId: number
   sessionName: string
   examTitle: string
+  examCode?: string
   courseName: string
   room: string | null
   startTime: string
@@ -13,4 +14,8 @@ export interface StudentSessionEnrollment {
   sessionStatus: SessionStatus
   enrollmentStatus: SessionStatus
   isPublished: boolean
+  assignedSlotId?: number | null
+  assignedSlotName?: string | null
+  slotStartTime?: string | null
+  slotEndTime?: string | null
 }

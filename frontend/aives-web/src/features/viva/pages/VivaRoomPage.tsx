@@ -310,9 +310,21 @@ export default function VivaRoomPage() {
       {/* Header bar: Info & Timer */}
       <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border bg-card/60 p-4 backdrop-blur-md sm:p-6">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-brand">
-            {session.examTitle}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-brand">
+              {session.examTitle}
+            </span>
+            {session.assignedExamCode && (
+              <span className="rounded-md bg-brand-soft px-2 py-0.5 font-mono text-xs font-semibold text-brand">
+                Mã đề: {session.assignedExamCode}
+              </span>
+            )}
+            {session.assignedSlotName && (
+              <span className="rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 px-2 py-0.5 text-xs font-medium">
+                {session.assignedSlotName}
+              </span>
+            )}
+          </div>
           <h1 className="mt-0.5 font-heading text-xl font-medium text-foreground sm:text-2xl">
             {session.sessionName}
           </h1>

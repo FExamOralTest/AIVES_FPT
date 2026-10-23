@@ -23,16 +23,35 @@ public class ExamSessionService : IExamSessionService
         CreateExamSessionRequest request, int teacherId)
         => _unitOfWork.ExecuteAsync(async () =>
         {
+            var examIds = request.ExamIds?.Distinct().ToList() ?? new List<int>();
+            if (examIds.Count == 0 && request.ExamId.HasValue && request.ExamId.Value > 0)
+                examIds.Add(request.ExamId.Value);
 
-            var exam = await _examRepository.GetByIdWithQuestionsAsync(request.ExamId)
-                ?? throw new KeyNotFoundException($"Exam with ID {request.ExamId} not found.");
+            if (examIds.Count == 0)
+                throw new ArgumentException("At least one exam must be selected for the session.");
 
-            if (exam.CreatedBy != teacherId)
-                throw new UnauthorizedAccessException(
-                    "You do not have permission to create a session for this exam.");
+            var exams = new List<Exam>();
+            int courseId = request.CourseId ?? 0;
 
-            if (exam.ExamQuestions is null || exam.ExamQuestions.Count == 0)
-                throw new InvalidOperationException("Add questions to the exam before creating a session.");
+            foreach (var id in examIds)
+            {
+                var exam = await _examRepository.GetByIdWithQuestionsAsync(id)
+                    ?? throw new KeyNotFoundException($"Exam with ID {id} not found.");
+
+                if (exam.CreatedBy != teacherId)
+                    throw new UnauthorizedAccessException(
+                        $"You do not have permission to create a session for exam {exam.ExamCode}.");
+
+                if (exam.ExamQuestions is null || exam.ExamQuestions.Count == 0)
+                    throw new InvalidOperationException($"Add questions to exam {exam.ExamCode} before creating a session.");
+
+                if (courseId == 0)
+                    courseId = exam.CourseId;
+                else if (exam.CourseId != courseId)
+                    throw new InvalidOperationException("All exams in a session must belong to the same course.");
+
+                exams.Add(exam);
+            }
 
             if (request.StartTime >= request.EndTime)
                 throw new InvalidOperationException(
@@ -45,7 +64,9 @@ public class ExamSessionService : IExamSessionService
 
             var session = new ExamSession
             {
-                ExamId = request.ExamId,
+                CourseId = courseId,
+                ExamId = examIds[0],
+                PeriodId = request.PeriodId,
                 ScheduledBy = teacherId,
                 SessionName = request.SessionName,
                 Room = request.Room,
@@ -59,12 +80,13 @@ public class ExamSessionService : IExamSessionService
             };
 
             var created = await _sessionRepository.CreateAsync(session);
+            await _sessionRepository.SetSessionExamsAsync(created.SessionId, examIds);
             await _sessionRepository.SaveChangesAsync();
 
             var fullSession = await _sessionRepository.GetByIdAsync(created.SessionId)
                 ?? throw new InvalidOperationException("Session was created but could not be retrieved.");
 
-            return MapToSessionDto(fullSession, exam);
+            return MapToSessionDto(fullSession, exams[0]);
         });
     public async Task<IEnumerable<ExamSessionSummaryDto>> GetSessionsByTeacherAsync(int teacherId)
     {
@@ -128,10 +150,29 @@ public class ExamSessionService : IExamSessionService
         if (existing != null)
             throw new InvalidOperationException("You are already enrolled in this session.");
 
+        int? assignedExamId = null;
+        if (session.SessionExams != null && session.SessionExams.Count > 0)
+        {
+            var examIds = session.SessionExams.Select(se => se.ExamId).ToList();
+            var counts = session.SessionEnrollments
+                .Where(e => e.AssignedExamId.HasValue && examIds.Contains(e.AssignedExamId.Value))
+                .GroupBy(e => e.AssignedExamId!.Value)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var minCount = examIds.Select(id => counts.GetValueOrDefault(id, 0)).Min();
+            var candidates = examIds.Where(id => counts.GetValueOrDefault(id, 0) == minCount).ToList();
+            assignedExamId = candidates[Random.Shared.Next(candidates.Count)];
+        }
+        else if (session.ExamId.HasValue)
+        {
+            assignedExamId = session.ExamId.Value;
+        }
+
         var enrollment = new SessionEnrollment
         {
             SessionId = session.SessionId,
             StudentId = studentId,
+            AssignedExamId = assignedExamId,
             Status = SessionStatus.NOT_STARTED,
             EnrolledAt = DateTime.UtcNow
         };
@@ -142,7 +183,9 @@ public class ExamSessionService : IExamSessionService
         await _sessionRepository.UpdateAsync(session);
         await _sessionRepository.SaveChangesAsync();
 
-        var exam = await _examRepository.GetByIdAsync(session.ExamId);
+        var exam = assignedExamId.HasValue
+            ? await _examRepository.GetByIdAsync(assignedExamId.Value)
+            : (session.ExamId.HasValue ? await _examRepository.GetByIdAsync(session.ExamId.Value) : null);
 
         return new EnrollSessionResponse
         {
@@ -191,24 +234,40 @@ public class ExamSessionService : IExamSessionService
         if (session.ScheduledBy != teacherId)
             throw new UnauthorizedAccessException("Not your session.");
 
-        var exam = await _examRepository.GetByIdAsync(session.ExamId);
+        var exam = session.ExamId.HasValue ? await _examRepository.GetByIdAsync(session.ExamId.Value) : null;
+        if (exam == null && session.SessionExams?.Count > 0)
+        {
+            exam = session.SessionExams.First().Exam;
+        }
+
+        var sessionExams = session.SessionExams?.Select(se => new SessionExamSummaryDto
+        {
+            ExamId = se.ExamId,
+            ExamCode = se.Exam?.ExamCode ?? "",
+            Title = se.Exam?.Title ?? "",
+            TotalQuestions = se.Exam?.ExamQuestions?.Count ?? se.Exam?.MaxQuestions ?? 0,
+            DurationMinutes = se.Exam?.DurationMinutes ?? 0,
+            AssignedStudentsCount = session.SessionEnrollments.Count(en => en.AssignedExamId == se.ExamId)
+        }).ToList() ?? new List<SessionExamSummaryDto>();
 
         return new SessionMonitorDto
         {
             SessionId = session.SessionId,
             SessionName = session.SessionName,
-            ExamTitle = exam?.Title ?? "",
-            ExamCode = exam?.ExamCode ?? "",
+            ExamTitle = exam?.Title ?? (sessionExams.Count > 0 ? $"{sessionExams.Count} bộ đề thi" : ""),
+            ExamCode = exam?.ExamCode ?? (sessionExams.Count > 0 ? string.Join(", ", sessionExams.Select(x => x.ExamCode)) : ""),
             SessionCode = session.SessionCode,
             StartTime = session.StartTime,
             EndTime = session.EndTime,
             Status = session.Status?.ToString() ?? "",
             MaxCapacity = session.MaxCapacity,
             CurrentEnrollment = session.CurrentEnrollment,
+            Exams = sessionExams,
             Students = session.SessionEnrollments.Select(e =>
             {
                 var studentResult = session.Results.FirstOrDefault(r => r.StudentId == e.StudentId);
                 var answeredCount = studentResult?.Answers?.Count ?? 0;
+                var studentExam = e.AssignedExam ?? (e.AssignedExamId.HasValue ? session.SessionExams?.FirstOrDefault(se => se.ExamId == e.AssignedExamId)?.Exam : null) ?? session.Exam;
                 return new StudentProgressDto
                 {
                     SessionEnrollmentId = e.SessionEnrollmentId,
@@ -220,8 +279,11 @@ public class ExamSessionService : IExamSessionService
                     StartedAt = e.StartedAt,
                     LastActivityAt = e.LastActivityAt,
                     CurrentQuestionIndex = e.CurrentQuestionIndex ?? 0,
-                    TotalQuestions = session.Exam?.MaxQuestions ?? 0,
-                    AnsweredQuestions = answeredCount
+                    TotalQuestions = studentExam?.MaxQuestions ?? session.Exam?.MaxQuestions ?? 0,
+                    AnsweredQuestions = answeredCount,
+                    AssignedExamId = e.AssignedExamId,
+                    AssignedExamCode = studentExam?.ExamCode,
+                    AssignedExamTitle = studentExam?.Title
                 };
             }).ToList()
         };
@@ -269,12 +331,17 @@ public class ExamSessionService : IExamSessionService
 
     private static ExamSessionDto MapToSessionDto(ExamSession session, Domain.Entities.Exam? exam)
     {
+        var primaryExam = exam ?? session.Exam ?? session.SessionExams?.FirstOrDefault()?.Exam;
         return new ExamSessionDto
         {
             SessionId = session.SessionId,
-            ExamId = session.ExamId,
-            ExamTitle = exam?.Title ?? session.Exam?.Title ?? string.Empty,
-            ExamCode = exam?.ExamCode ?? session.Exam?.ExamCode ?? string.Empty,
+            ExamId = session.ExamId ?? primaryExam?.ExamId,
+            ExamTitle = primaryExam?.Title ?? string.Empty,
+            ExamCode = primaryExam?.ExamCode ?? string.Empty,
+            CourseId = session.CourseId ?? primaryExam?.CourseId,
+            CourseName = session.Course?.CourseName ?? primaryExam?.Course?.CourseName ?? string.Empty,
+            PeriodId = session.PeriodId,
+            PeriodName = session.Period?.PeriodName,
             SessionName = session.SessionName,
             Room = session.Room,
             StartTime = session.StartTime,
@@ -286,20 +353,45 @@ public class ExamSessionService : IExamSessionService
             CreatedAt = session.CreatedAt,
             EnrolledStudents = session.SessionEnrollments?.Count ?? 0,
             SessionCode = session.SessionCode,
-            MaxCapacity = session.MaxCapacity
+            MaxCapacity = session.MaxCapacity,
+            Exams = session.SessionExams?.Select(se => new SessionExamSummaryDto
+            {
+                ExamId = se.ExamId,
+                ExamCode = se.Exam?.ExamCode ?? string.Empty,
+                Title = se.Exam?.Title ?? string.Empty,
+                DurationMinutes = se.Exam?.DurationMinutes ?? 0,
+                TotalQuestions = se.Exam?.ExamQuestions?.Count ?? se.Exam?.MaxQuestions ?? 0,
+                AssignedStudentsCount = session.SessionEnrollments?.Count(e => e.AssignedExamId == se.ExamId) ?? 0
+            }).ToList() ?? new List<SessionExamSummaryDto>()
         };
     }
 
-    private static ExamSessionSummaryDto MapToSessionSummaryDto(ExamSession session) => new()
+    private static ExamSessionSummaryDto MapToSessionSummaryDto(ExamSession session)
     {
-        SessionId = session.SessionId,
-        SessionName = session.SessionName,
-        ExamTitle = session.Exam?.Title ?? string.Empty,
-        ExamCode = session.Exam?.ExamCode ?? string.Empty,
-        Room = session.Room,
-        StartTime = session.StartTime,
-        EndTime = session.EndTime,
-        Status = session.Status?.ToString() ?? SessionStatus.NOT_STARTED.ToString(),
-        EnrolledStudents = session.SessionEnrollments?.Count ?? 0
-    };
+        var primaryExam = session.Exam ?? session.SessionExams?.FirstOrDefault()?.Exam;
+        return new ExamSessionSummaryDto
+        {
+            SessionId = session.SessionId,
+            SessionName = session.SessionName,
+            ExamId = session.ExamId ?? primaryExam?.ExamId,
+            ExamTitle = primaryExam?.Title ?? string.Empty,
+            ExamCode = primaryExam?.ExamCode ?? string.Empty,
+            CourseId = session.CourseId ?? primaryExam?.CourseId,
+            CourseName = session.Course?.CourseName ?? primaryExam?.Course?.CourseName ?? string.Empty,
+            Room = session.Room,
+            StartTime = session.StartTime,
+            EndTime = session.EndTime,
+            Status = session.Status?.ToString() ?? SessionStatus.NOT_STARTED.ToString(),
+            EnrolledStudents = session.SessionEnrollments?.Count ?? 0,
+            Exams = session.SessionExams?.Select(se => new SessionExamSummaryDto
+            {
+                ExamId = se.ExamId,
+                ExamCode = se.Exam?.ExamCode ?? string.Empty,
+                Title = se.Exam?.Title ?? string.Empty,
+                DurationMinutes = se.Exam?.DurationMinutes ?? 0,
+                TotalQuestions = se.Exam?.ExamQuestions?.Count ?? se.Exam?.MaxQuestions ?? 0,
+                AssignedStudentsCount = session.SessionEnrollments?.Count(e => e.AssignedExamId == se.ExamId) ?? 0
+            }).ToList() ?? new List<SessionExamSummaryDto>()
+        };
+    }
 }
