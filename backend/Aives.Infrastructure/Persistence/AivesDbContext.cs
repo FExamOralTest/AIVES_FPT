@@ -190,6 +190,9 @@ public partial class AivesDbContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("exam_code");
             entity.Property(e => e.ExamStatus).HasColumnName("exam_status");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
             entity.Property(e => e.MaxQuestions)
                 .HasDefaultValue(10)
                 .HasColumnName("max_questions");

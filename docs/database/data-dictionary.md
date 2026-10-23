@@ -1,389 +1,393 @@
 # AIVES — Data Dictionary
 
-> **Version:** 2.1 · **Date:** 2026-10-20 · **Scope:** SWD392 — AIVES FPT
+> **Version:** 2.2 · **Date:** 2026-10-23 · **Scope:** SWD392 — AIVES FPT
 > **Source of truth:** `Aives.Domain.Entities/*` + `Aives.Infrastructure/Persistence/AivesDbContext.cs` + `Aives.Domain/Enums/*`
 > **Database:** PostgreSQL 16 (Neon Serverless) · EF Core 8 · `UseIdentityAlwaysColumn()` PKs · enum types backed by native Postgres enums via `NpgsqlUpperCaseTranslator`.
 >
-> Mọi cột trong tài liệu này **khớp 100%** với `OnModelCreating` trong `AivesDbContext.cs`. Khi schema thay đổi, sửa doc + code trong cùng một PR.
+> Every column in this document matches `OnModelCreating` in `AivesDbContext.cs` 100%. When the schema changes, update the doc + code in the same PR.
 >
-> **Verify date:** 2026-10-20 — `git log -1` = `89f50b9` (merge PR #41: Faster-Whisper STT + R2 audio cho AI service). PR #41 chỉ thay đổi `ai-service/`, không động schema. Doc cập nhật.
+> **Verify date:** 2026-10-23 — latest migration is `20261023104325_AddExamIsActive`, which adds the soft-delete flag `exams.is_active`. Previous verification was on 2026-10-20 against `89f50b9` (merge PR #41: Faster-Whisper STT + R2 audio for the AI service), which touched only `ai-service/` and did not alter the schema.
 
 ---
 
-## Mục lục
+## Table of Contents
 
-1. [Quy ước chung](#1-quy-ước-chung)
+1. [General conventions](#1-general-conventions)
 2. [ER overview](#2-er-overview)
-3. [users](#3-bảng-users)
-4. [courses](#4-bảng-courses)
-5. [enrollments](#5-bảng-enrollments)
-6. [markdown_documents](#6-bảng-markdown_documents)
-7. [question_bank](#7-bảng-question_bank)
-8. [question_rubric_criteria](#8-bảng-question_rubric_criteria)
-9. [exams](#9-bảng-exams)
-10. [exam_questions](#10-bảng-exam_questions)
-11. [exam_sessions](#11-bảng-exam_sessions)
-12. [session_enrollments](#12-bảng-session_enrollments)
-13. [results](#13-bảng-results)
-14. [answers](#14-bảng-answers)
-15. [audit_logs](#15-bảng-audit_logs)
+3. [users](#3-table-users)
+4. [courses](#4-table-courses)
+5. [enrollments](#5-table-enrollments)
+6. [markdown_documents](#6-table-markdown_documents)
+7. [question_bank](#7-table-question_bank)
+8. [question_rubric_criteria](#8-table-question_rubric_criteria)
+9. [exams](#9-table-exams)
+10. [exam_questions](#10-table-exam_questions)
+11. [exam_sessions](#11-table-exam_sessions)
+12. [session_enrollments](#12-table-session_enrollments)
+13. [results](#13-table-results)
+14. [answers](#14-table-answers)
+15. [audit_logs](#15-table-audit_logs)
 16. [Enums](#16-enums-postgres-native-types)
-17. [Index & Constraint tổng hợp](#17-chỉ-mục--ràng-buộc-tổng-hợp)
-18. [Hangfire tables](#18-bảng-hệ-thống-do-hangfire-tạo)
-19. [ON DELETE rules](#19-quy-tắc-on-delete)
+17. [Index & Constraint summary](#17-index--constraint-summary)
+18. [Hangfire tables](#18-system-tables-created-by-hangfire)
+19. [ON DELETE rules](#19-on-delete-rules)
 
 ---
 
-## 1. Quy ước chung
+## 1. General conventions
 
-| Mục | Quy ước |
+| Item | Convention |
 |---|---|
-| Tên bảng | **snake_case**, số ít cho thực thể (`users`, `course`), số nhiều cho quan hệ (`enrollments`, `exam_questions`). Ngoại lệ: `question_bank` (số ít theo code). |
-| Khoá chính | `INT GENERATED ALWAYS AS IDENTITY`, tên `*_id`. `audit_logs.log_id` là `BIGINT`. |
-| Cột | snake_case (`course_id`, `created_at`). |
-| Enum | Native Postgres enum tên UPPER, giá trị UPPER (xem [§16](#16-enums-postgres-native-types)). |
-| Timestamp | `*_at` (nullable) mặc định `CURRENT_TIMESTAMP` (UTC, Postgres timezone). |
+| Table naming | **snake_case**, singular for entities (`users`, `course`), plural for relationships (`enrollments`, `exam_questions`). Exception: `question_bank` (singular, following the code). |
+| Primary key | `INT GENERATED ALWAYS AS IDENTITY`, named `*_id`. `audit_logs.log_id` is `BIGINT`. |
+| Columns | snake_case (`course_id`, `created_at`). |
+| Enum | Native Postgres enum with UPPER name and UPPER values (see [§16](#16-enums-postgres-native-types)). |
+| Timestamp | `*_at` (nullable), defaulting to `CURRENT_TIMESTAMP` (UTC, Postgres timezone). |
 | JSONB | `ai_analysis` (answers, results), `audit_logs.old_value`, `audit_logs.new_value`. |
-| Check | `question_rubric_criteria` có 2 check (xem [§8](#8-bảng-question_rubric_criteria)). |
-| Unique | Khai báo trong `OnModelCreating` (xem [§17](#17-chỉ-mục--ràng-buộc-tổng-hợp)). |
-| Soft delete | **Không có** — dùng cột trạng thái. |
-| Audit | Mọi thao tác sensitive bắt buộc ghi `audit_logs`. |
+| Check | `question_rubric_criteria` has 2 check constraints (see [§8](#8-table-question_rubric_criteria)). |
+| Unique | Declared in `OnModelCreating` (see [§17](#17-index--constraint-summary)). |
+| Soft delete | **Partial** — only `exams` uses a real soft-delete flag (`exams.is_active`). All other tables use a status column instead. |
+| Audit | Every sensitive operation must write to `audit_logs`. |
 
-## 3. Bảng: `users`
+## 3. Table: `users`
 
-Tài khoản hệ thống cho 4 vai trò (Admin / Staff / Examiner / Student).
+System accounts for the 4 roles (Admin / Staff / Examiner / Student).
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `user_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
-| `username` | `VARCHAR(50)` | NO | — | Unique, đăng nhập |
-| `full_name` | `VARCHAR(100)` | NO | — | Họ tên hiển thị |
-| `email` | `VARCHAR(100)` | YES | — | Unique khi có |
+| `username` | `VARCHAR(50)` | NO | — | Unique, used to log in |
+| `full_name` | `VARCHAR(100)` | NO | — | Display name |
+| `email` | `VARCHAR(100)` | YES | — | Unique when present |
 | `password_hash` | `VARCHAR(255)` | NO | — | BCrypt hash |
-| `role` | `user_role` (enum) | NO | — | Vai trò — [§16](#16-enums-postgres-native-types) |
+| `role` | `user_role` (enum) | NO | — | Role — [§16](#16-enums-postgres-native-types) |
 | `created_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
 
-**Constraint:** PK `users_pkey`; UNIQUE `users_username_key`, `users_email_key`.
+**Constraints:** PK `users_pkey`; UNIQUE `users_username_key`, `users_email_key`.
 
 **Rule:**
-- Admin seed tự động bởi `DatabaseSeeder.SeedAdminAsync` ở lần boot đầu.
+- The Admin seed is created automatically by `DatabaseSeeder.SeedAdminAsync` on first boot.
 
-## 4. Bảng: `courses`
+## 4. Table: `courses`
 
-Đơn vị môn học — gốc cho mọi quan hệ downstream.
+Course unit — the root of every downstream relationship.
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `course_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
-| `course_code` | `VARCHAR(20)` | NO | — | Mã môn (vd `SWD392`), unique |
-| `course_name` | `VARCHAR(150)` | NO | — | Tên hiển thị |
+| `course_code` | `VARCHAR(20)` | NO | — | Course code (e.g. `SWD392`), unique |
+| `course_name` | `VARCHAR(150)` | NO | — | Display name |
 | `teacher_id` | `INT` | YES | — | FK→`users.user_id`, ON DELETE `SET NULL` |
 | `created_by` | `INT` | YES | — | FK→`users.user_id`, ON DELETE `SET NULL` |
 | `created_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
 
-**Constraint:** PK `courses_pkey`; UNIQUE `courses_course_code_key`; FK `courses_teacher_id_fkey`, `courses_created_by_fkey`.
+**Constraints:** PK `courses_pkey`; UNIQUE `courses_course_code_key`; FK `courses_teacher_id_fkey`, `courses_created_by_fkey`.
 
-## 5. Bảng: `enrollments`
+## 5. Table: `enrollments`
 
-Student đăng ký học một Course (dài hạn, khác `session_enrollments` cho buổi thi).
+A student registers for a course (long-term, unlike `session_enrollments` which is for a single exam session).
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `enrollment_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
 | `student_id` | `INT` | NO | — | FK→`users.user_id` |
 | `course_id` | `INT` | NO | — | FK→`courses.course_id` |
 | `enrolled_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
 
-**Constraint:** PK `enrollments_pkey`; UNIQUE `unique_student_course (student_id, course_id)`; IDX `idx_enrollments_course`, `idx_enrollments_student`.
+**Constraints:** PK `enrollments_pkey`; UNIQUE `unique_student_course (student_id, course_id)`; IDX `idx_enrollments_course`, `idx_enrollments_student`.
 
-## 6. Bảng: `markdown_documents`
+## 6. Table: `markdown_documents`
 
-Tài liệu `.md` Teacher upload cho Course. **Mỗi Course có tối đa 2 file**: 1 CONTENT + 1 LEARNING_OUTCOMES (BR-04).
+`.md` documents that a Teacher uploads for a Course. **Each Course has at most 2 files**: 1 CONTENT + 1 LEARNING_OUTCOMES (BR-04).
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `document_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
 | `course_id` | `INT` | NO | — | FK→`courses.course_id` |
 | `uploaded_by` | `INT` | NO | — | FK→`users.user_id` |
-| `file_name` | `VARCHAR(255)` | NO | — | Tên file gốc |
+| `file_name` | `VARCHAR(255)` | NO | — | Original file name |
 | `doc_type` | `doc_type` (enum) | NO | — | `CONTENT` \| `LEARNING_OUTCOMES` |
-| `content` | `TEXT` | NO | — | Nội dung markdown (lưu trực tiếp, không upload R2) |
+| `content` | `TEXT` | NO | — | Markdown content (stored inline, not uploaded to R2) |
 | `uploaded_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
 
-**Constraint:** PK `markdown_documents_pkey`; IDX `idx_markdown_documents_course`.
+**Constraints:** PK `markdown_documents_pkey`; IDX `idx_markdown_documents_course`.
 
-**Rule:** validate `.md`, size theo giới hạn; mỗi `course` chỉ 1 `CONTENT` + 1 `LEARNING_OUTCOMES`.
+**Rule:** validate the `.md` extension and the size limit; each `course` gets only 1 `CONTENT` + 1 `LEARNING_OUTCOMES`.
 
-## 7. Bảng: `question_bank`
+## 7. Table: `question_bank`
 
-Ngân hàng câu hỏi AI sinh hoặc Teacher thêm tay, gắn với Course.
+Question bank containing AI-generated questions plus manually added ones from a Teacher, attached to a Course.
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `question_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
 | `course_id` | `INT` | NO | — | FK→`courses.course_id` |
 | `document_id` | `INT` | YES | — | FK→`markdown_documents.document_id`, ON DELETE `SET NULL` |
-| `question_text` | `TEXT` | NO | — | Nội dung câu hỏi |
-| `topic` | `TEXT` | YES | — | Chủ đề / chương |
-| `sample_answer` | `TEXT` | YES | — | Câu trả lời mẫu tham khảo |
-| `learning_outcome` | `VARCHAR(2000)` | YES | — | Mapping LO |
-| `max_score` | `REAL` | YES | `1.0` | Điểm tối đa mặc định |
-| `level` | `INT` | NO | — | Độ khó |
-| `expected_keywords` | `TEXT[]` | YES | — | Mảng từ khoá (EF map `List<string>`) |
-| `is_follow_up_allowed` | `BOOLEAN` | YES | `TRUE` | Cho phép câu follow-up |
-| `approval_status` | `VARCHAR(20)` | NO | `'PENDING_REVIEW'` | `QuestionApprovalStatus` lưu string: `PENDING_REVIEW`/`APPROVED`/`REJECTED` |
-| `reviewed_by` | `INT` | YES | — | FK logic → `users.user_id` (Examiner) |
+| `question_text` | `TEXT` | NO | — | Question body |
+| `topic` | `TEXT` | YES | — | Topic / chapter |
+| `sample_answer` | `TEXT` | YES | — | Reference sample answer |
+| `learning_outcome` | `VARCHAR(2000)` | YES | — | LO mapping |
+| `max_score` | `REAL` | YES | `1.0` | Default maximum score |
+| `level` | `INT` | NO | — | Difficulty level |
+| `expected_keywords` | `TEXT[]` | YES | — | Keyword array (EF maps `List<string>`) |
+| `is_follow_up_allowed` | `BOOLEAN` | YES | `TRUE` | Whether follow-up questions are allowed |
+| `approval_status` | `VARCHAR(20)` | NO | `'PENDING_REVIEW'` | `QuestionApprovalStatus` stored as string: `PENDING_REVIEW`/`APPROVED`/`REJECTED` |
+| `reviewed_by` | `INT` | YES | — | Logical FK → `users.user_id` (Examiner) |
 | `reviewed_at` | `TIMESTAMP` | YES | — | |
-| `rejection_reason` | `VARCHAR(2000)` | YES | — | Lý do reject |
+| `rejection_reason` | `VARCHAR(2000)` | YES | — | Reason for rejection |
 | `created_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
 
-**Constraint:** PK `question_bank_pkey`; IDX `idx_question_bank_course`; FK `question_bank_course_id_fkey`, `question_bank_document_id_fkey`.
+**Constraints:** PK `question_bank_pkey`; IDX `idx_question_bank_course`; FK `question_bank_course_id_fkey`, `question_bank_document_id_fkey`.
 
-**Workflow duyệt:** `PENDING_REVIEW` (AI sinh) → `APPROVED` (Examiner) / `REJECTED` (+reason).
+**Approval workflow:** `PENDING_REVIEW` (AI-generated) → `APPROVED` (Examiner) / `REJECTED` (+ reason).
 
-## 8. Bảng: `question_rubric_criteria`
+## 8. Table: `question_rubric_criteria`
 
-Tiêu chí chấm điểm chi tiết cho câu hỏi.
+Detailed grading criteria for a question.
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `criterion_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
 | `question_id` | `INT` | NO | — | FK→`question_bank.question_id`, ON DELETE `CASCADE` |
-| `position` | `INT` | NO | — | Thứ tự hiển thị |
-| `description` | `VARCHAR(2000)` | NO | — | Mô tả tiêu chí |
-| `max_score` | `NUMERIC(8,4)` | NO | — | Điểm tối đa |
+| `position` | `INT` | NO | — | Display order |
+| `description` | `VARCHAR(2000)` | NO | — | Criterion description |
+| `max_score` | `NUMERIC(8,4)` | NO | — | Maximum score |
 
 **Check constraints:**
 - `ck_question_rubric_score`: `max_score > 0 AND max_score <= 100`
 - `ck_question_rubric_position`: `position >= 0 AND position < 20`
 
-**Constraint:** PK `question_rubric_criteria_pkey`; IDX `idx_question_rubric_question`; FK `question_rubric_question_id_fkey` (CASCADE).
+**Constraints:** PK `question_rubric_criteria_pkey`; IDX `idx_question_rubric_question`; FK `question_rubric_question_id_fkey` (CASCADE).
 
-## 9. Bảng: `exams`
+## 9. Table: `exams`
 
-Đề thi — cấu hình cho một Course. Sinh `exam_code` để Student nhập khi vào thi.
+An exam — the configuration for a Course. It generates an `exam_code` that students enter to start a test.
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `exam_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
 | `course_id` | `INT` | NO | — | FK→`courses.course_id` |
 | `created_by` | `INT` | NO | — | FK→`users.user_id` (Teacher) |
-| `title` | `VARCHAR(255)` | NO | — | Tiêu đề bài thi |
-| `exam_code` | `VARCHAR(50)` | NO | — | Unique, Student nhập để vào thi |
-| `duration_minutes` | `INT` | NO | — | Thời lượng (phút) |
-| `max_questions` | `INT` | NO | `10` | Số câu tối đa AI sẽ sinh / chọn |
+| `title` | `VARCHAR(255)` | NO | — | Exam title |
+| `exam_code` | `VARCHAR(50)` | NO | — | Unique, entered by the student to join the exam |
+| `duration_minutes` | `INT` | NO | — | Duration in minutes |
+| `max_questions` | `INT` | NO | `10` | Maximum number of questions the AI will generate / select |
 | `exam_status` | `exam_status` (enum) | YES | — | `DRAFT`/`SCHEDULED`/`OPEN`/`CLOSED`/`CANCELLED` (Postgres native enum) |
+| `is_active` | `BOOLEAN` | NO | `TRUE` | Soft-delete flag. `FALSE` hides the exam from default reads (see the `includeInactive` query param on `GET /api/admin/exams`) while keeping the row in the DB |
 | `created_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
 
-**Constraint:** PK `exams_pkey`; UNIQUE `exams_exam_code_key`; FK `exams_course_id_fkey`, `exams_created_by_fkey`.
+**Constraints:** PK `exams_pkey`; UNIQUE `exams_exam_code_key`; FK `exams_course_id_fkey`, `exams_created_by_fkey`.
 
-## 10. Bảng: `exam_questions`
+**Rule:** soft-delete is an UPDATE to `is_active = FALSE`, never a physical DELETE, so sessions and results that reference the exam remain intact.
 
-Bảng nối N-N giữa `exams` và `question_bank` + điểm riêng cho từng câu trong đề.
+## 10. Table: `exam_questions`
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+N-N join table between `exams` and `question_bank`, holding the per-question score within the exam.
+
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `exam_id` | `INT` | NO | — | PK (composite), FK→`exams.exam_id` |
 | `question_id` | `INT` | NO | — | PK (composite), FK→`question_bank.question_id` |
-| `question_score` | `REAL` | NO | — | Điểm câu này trong bài thi |
+| `question_score` | `REAL` | NO | — | Score of this question within the exam |
 
-**Constraint:** PK `exam_questions_pkey (exam_id, question_id)`; FK `exam_questions_exam_id_fkey`, `exam_questions_question_id_fkey`.
+**Constraints:** PK `exam_questions_pkey (exam_id, question_id)`; FK `exam_questions_exam_id_fkey`, `exam_questions_question_id_fkey`.
 
-## 11. Bảng: `exam_sessions`
+## 11. Table: `exam_sessions`
 
-Một **buổi thi cụ thể** thuộc về một Exam (vd: ca 1 lúc 9h, ca 2 lúc 14h). Student enroll bằng `session_code` (P0).
+A **concrete exam sitting** belonging to an Exam (e.g. session 1 at 9am, session 2 at 2pm). Students enroll with a `session_code` (P0).
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `session_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
 | `exam_id` | `INT` | NO | — | FK→`exams.exam_id` |
 | `scheduled_by` | `INT` | NO | — | FK→`users.user_id` (Staff/Teacher) |
-| `session_name` | `VARCHAR(150)` | NO | — | Tên buổi thi |
-| `room` | `VARCHAR(150)` | YES | — | Phòng thi |
-| `start_time` | `TIMESTAMP` | NO | — | Giờ bắt đầu |
-| `end_time` | `TIMESTAMP` | NO | — | Giờ kết thúc |
+| `session_name` | `VARCHAR(150)` | NO | — | Session name |
+| `room` | `VARCHAR(150)` | YES | — | Exam room |
+| `start_time` | `TIMESTAMP` | NO | — | Start time |
+| `end_time` | `TIMESTAMP` | NO | — | End time |
 | `status` | `session_status` (enum) | YES | — | `NOT_STARTED`/`IN_PROGRESS`/`COMPLETED`/`CANCELLED` |
 | `created_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
-| `session_code` | `VARCHAR(50)` | NO | — | Unique, Student nhập để enroll |
-| `max_capacity` | `INT` | NO | `50` | Số SV tối đa |
-| `current_enrollment` | `INT` | NO | `0` | Counter denormalized |
+| `session_code` | `VARCHAR(50)` | NO | — | Unique, entered by the student to enroll |
+| `max_capacity` | `INT` | NO | `50` | Maximum number of students |
+| `current_enrollment` | `INT` | NO | `0` | Denormalized counter |
 
-**Constraint:** PK `exam_sessions_pkey`; UNIQUE `exam_sessions_session_code_key`; FK `exam_sessions_exam_id_fkey`, `exam_sessions_scheduled_by_fkey`.
+**Constraints:** PK `exam_sessions_pkey`; UNIQUE `exam_sessions_session_code_key`; FK `exam_sessions_exam_id_fkey`, `exam_sessions_scheduled_by_fkey`.
 
-**Rule:** `current_enrollment <= max_capacity` (kiểm ở service layer); `start_time < end_time` (validate app layer).
+**Rule:** `current_enrollment <= max_capacity` (checked in the service layer); `start_time < end_time` (validated in the app layer).
 
-## 12. Bảng: `session_enrollments`
+## 12. Table: `session_enrollments`
 
-Student enroll vào một session cụ thể (khác `enrollments` cho cả course).
+A student enrolls in a specific session (as opposed to `enrollments`, which covers the whole course).
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `session_enrollment_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
 | `session_id` | `INT` | NO | — | FK→`exam_sessions.session_id` |
 | `student_id` | `INT` | NO | — | FK→`users.user_id` |
-| `status` | `session_status` (enum) | YES | — | Trạng thái SV trong buổi thi (reuse enum theo code) |
+| `status` | `session_status` (enum) | YES | — | Student's status within the session (enum reused, following the code) |
 | `enrolled_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
-| `started_at` | `TIMESTAMP` | YES | — | Bắt đầu làm bài thực tế |
-| `last_activity_at` | `TIMESTAMP` | YES | — | Heartbeat cho auto-save / disconnect watchdog |
-| `current_question_index` | `INT` | YES | — | Vị trí câu hiện tại (0-based) |
+| `started_at` | `TIMESTAMP` | YES | — | When the student actually started working |
+| `last_activity_at` | `TIMESTAMP` | YES | — | Heartbeat for auto-save / disconnect watchdog |
+| `current_question_index` | `INT` | YES | — | Current question position (0-based) |
 
-**Constraint:** PK `session_enrollments_pkey`; UNIQUE `unique_student_session (student_id, session_id)`; IDX `idx_session_enrollments_session`, `idx_session_enrollments_student`.
+**Constraints:** PK `session_enrollments_pkey`; UNIQUE `unique_student_session (student_id, session_id)`; IDX `idx_session_enrollments_session`, `idx_session_enrollments_student`.
 
-## 13. Bảng: `results`
+## 13. Table: `results`
 
-Kết quả **tổng** của một Student trong một Session. 1 result ↔ 1 student ↔ 1 session, gồm nhiều `answers` con.
+The **overall** result for one Student in one Session. 1 result ↔ 1 student ↔ 1 session, containing many child `answers`.
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `result_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
 | `session_id` | `INT` | NO | — | FK→`exam_sessions.session_id` |
 | `student_id` | `INT` | NO | — | FK→`users.user_id` |
-| `ai_score` | `REAL` | YES | — | Tổng điểm AI chấm |
-| `ai_feedback` | `TEXT` | YES | — | Feedback ngắn từ AI |
-| `ai_analysis` | `JSONB` | YES | — | Phân tích chi tiết (câu mạnh/yếu) |
-| `ai_evaluation_status` | `VARCHAR(20)` | YES | — | `AiEvaluationStatus` lưu string: `PENDING`/`SUCCEEDED`/`FAILED` |
-| `ai_evaluation_error` | `TEXT` | YES | — | Lỗi nếu AI chấm hỏng |
-| `final_score` | `REAL` | YES | — | Điểm cuối (Teacher override hoặc = ai_score) |
-| `final_feedback` | `TEXT` | YES | — | Feedback cuối |
+| `ai_score` | `REAL` | YES | — | Total AI-assigned score |
+| `ai_feedback` | `TEXT` | YES | — | Short AI feedback |
+| `ai_analysis` | `JSONB` | YES | — | Detailed analysis (strong/weak questions) |
+| `ai_evaluation_status` | `VARCHAR(20)` | YES | — | `AiEvaluationStatus` stored as string: `PENDING`/`SUCCEEDED`/`FAILED` |
+| `ai_evaluation_error` | `TEXT` | YES | — | Error if AI grading failed |
+| `final_score` | `REAL` | YES | — | Final score (Teacher override, or = ai_score) |
+| `final_feedback` | `TEXT` | YES | — | Final feedback |
 | `status` | `submission_status` (enum) | YES | — | `PENDING_REVIEW`/`SUBMITTED`/`REVIEWED`/`PUBLISHED`/`CANCELLED` |
 | `submitted_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | |
-| `reviewed_at` | `TIMESTAMP` | YES | — | Teacher bấm "Review xong" |
+| `reviewed_at` | `TIMESTAMP` | YES | — | Teacher clicked "Review complete" |
 | `reviewed_by` | `INT` | YES | — | FK→`users.user_id`, ON DELETE `SET NULL` |
-| `published_at` | `TIMESTAMP` | YES | — | Teacher bấm "Publish" |
+| `published_at` | `TIMESTAMP` | YES | — | Teacher clicked "Publish" |
 | `published_by` | `INT` | YES | — | FK→`users.user_id`, ON DELETE `SET NULL` |
 
-**Constraint:** PK `results_pkey`; UNIQUE `unique_result_student_session (student_id, session_id)`; IDX `idx_results_session`, `idx_results_student`.
+**Constraints:** PK `results_pkey`; UNIQUE `unique_result_student_session (student_id, session_id)`; IDX `idx_results_session`, `idx_results_student`.
 
-**Vòng đời `status`:**
+**`status` lifecycle:**
 ```
-PENDING_REVIEW (Student vừa nộp / AI chưa xong)
+PENDING_REVIEW (student just submitted / AI not finished)
         │
-        ▼  AI xong + Teacher chưa xem
+        ▼  AI done + Teacher has not reviewed
   SUBMITTED
         │
-        ▼ Teacher review
+        ▼ Teacher reviews
   REVIEWED
         │
-        ▼ Teacher publish
-  PUBLISHED     hoặc CANCELLED (admin huỷ)
+        ▼ Teacher publishes
+  PUBLISHED     or CANCELLED (cancelled by admin)
 ```
-Student chỉ thấy kết quả khi `status = PUBLISHED` (xem FE 3.7).
 
-## 14. Bảng: `answers`
+Students only see their result when `status = PUBLISHED` (see FE 3.7).
 
-Một câu trả lời trong một Result — chứa audio lưu R2, transcript, điểm AI, điểm Teacher.
+## 14. Table: `answers`
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+A single answer within a Result — holds the R2 audio, transcript, AI score, and Teacher score.
+
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `answer_id` | `INT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
-| `status` | `VARCHAR(20)` | NO | `'PROCESSING'` | `AnswerStatus` lưu string: `PROCESSING`/`EVALUATED`/`ERROR` |
+| `status` | `VARCHAR(20)` | NO | `'PROCESSING'` | `AnswerStatus` stored as string: `PROCESSING`/`EVALUATED`/`ERROR` |
 | `result_id` | `INT` | NO | — | FK→`results.result_id` |
 | `question_id` | `INT` | NO | — | FK→`question_bank.question_id` |
-| `student_answer` | `TEXT` | YES | — | Transcript do AI service trả (BR-15) |
-| `transcript` | `TEXT` | YES | — | Bản thô từ STT (khác `student_answer` sau khi AI clean) |
-| `audio_url` | `TEXT` | YES | — | URL legacy / full URL (nếu cần) |
-| `object_key` | `VARCHAR(500)` | YES | — | S3/R2 Object Key để sinh presigned URL (BR-15). Vd: `exams/1/sessions/5/students/10/q_3_1729000000.webm`. Từ PR #41 AI service dùng key này để tự download qua `transcribe-object`. |
+| `student_answer` | `TEXT` | YES | — | Transcript returned by the AI service (BR-15) |
+| `transcript` | `TEXT` | YES | — | Raw output from STT (differs from `student_answer` after AI cleanup) |
+| `audio_url` | `TEXT` | YES | — | Legacy / full URL (if needed) |
+| `object_key` | `VARCHAR(500)` | YES | — | S3/R2 object key used to generate a presigned URL (BR-15). E.g. `exams/1/sessions/5/students/10/q_3_1729000000.webm`. Since PR #41 the AI service uses this key to download on its own via `transcribe-object`. |
 | `job_id` | `VARCHAR(100)` | YES | — | Hangfire job id (BR-17) |
-| `attempt_count` | `INT` | NO | `0` | Số lần retry (max 3 theo BR-17) |
-| `error_message` | `TEXT` | YES | — | Lỗi STT/AI (khi `status = ERROR`) |
-| `duration_seconds` | `REAL` | YES | — | Độ dài audio từ Faster-Whisper |
-| `detected_language` | `VARCHAR(20)` | YES | — | Ngôn ngữ phát hiện (vd `vi`, `en`) |
-| `is_follow_up` | `BOOLEAN` | YES | `FALSE` | Có phải câu follow-up |
-| `ai_score` | `REAL` | YES | — | Điểm AI cho câu này |
-| `ai_feedback` | `TEXT` | YES | — | Feedback ngắn AI |
-| `ai_analysis` | `JSONB` | YES | — | Phân tích chi tiết AI |
-| `final_score` | `REAL` | YES | — | Điểm cuối (Teacher override hoặc = ai_score) |
-| `teacher_comment` | `TEXT` | YES | — | Nhận xét riêng của Teacher |
-| `answered_at` | `TIMESTAMP` | YES | — | Thời điểm Student nộp |
+| `attempt_count` | `INT` | NO | `0` | Retry count (max 3 per BR-17) |
+| `error_message` | `TEXT` | YES | — | STT/AI error (when `status = ERROR`) |
+| `duration_seconds` | `REAL` | YES | — | Audio length from Faster-Whisper |
+| `detected_language` | `VARCHAR(20)` | YES | — | Detected language (e.g. `vi`, `en`) |
+| `is_follow_up` | `BOOLEAN` | YES | `FALSE` | Whether this is a follow-up question |
+| `ai_score` | `REAL` | YES | — | AI score for this question |
+| `ai_feedback` | `TEXT` | YES | — | Short AI feedback |
+| `ai_analysis` | `JSONB` | YES | — | Detailed AI analysis |
+| `final_score` | `REAL` | YES | — | Final score (Teacher override, or = ai_score) |
+| `teacher_comment` | `TEXT` | YES | — | Teacher's own comment |
+| `answered_at` | `TIMESTAMP` | YES | — | Timestamp when the student submitted |
 
-**Constraint:** PK `answers_pkey`; UNIQUE `unique_result_question (result_id, question_id)` (mỗi câu trong result chỉ 1 lần trả lời); IDX `idx_answers_result`; FK `answers_result_id_fkey`, `answers_question_id_fkey`.
+**Constraints:** PK `answers_pkey`; UNIQUE `unique_result_question (result_id, question_id)` (each question is answered only once per result); IDX `idx_answers_result`; FK `answers_result_id_fkey`, `answers_question_id_fkey`.
 
-**State machine `status`:**
+**`status` state machine:**
 ```
-PROCESSING (Upload xong, Hangfire job đang chạy)
+PROCESSING (upload done, Hangfire job running)
     │
-    ├──► EVALUATED (AI chấm xong, có ai_score)
+    ├──► EVALUATED (AI grading finished, has ai_score)
     │
-    └──► ERROR (STT/AI lỗi, retry hoặc finalize với error_message)
+    └──► ERROR (STT/AI failed, retry or finalize with error_message)
 ```
 
-## 15. Bảng: `audit_logs`
+## 15. Table: `audit_logs`
 
-Nhật ký kiểm toán cho mọi hành động nhạy cảm: review score, publish result, retry answer (BR-15).
+Audit trail for every sensitive action: score review, result publication, answer retry (BR-15).
 
-| Cột | Kiểu Postgres | Null | Mặc định | Mô tả |
+| Column | Postgres type | Null | Default | Description |
 |---|---|:---:|---|---|
 | `log_id` | `BIGINT GENERATED ALWAYS AS IDENTITY` | NO | — | PK |
-| `entity_name` | `VARCHAR(100)` | NO | — | Tên bảng bị tác động (vd `Result`, `Answer`) |
-| `entity_id` | `INT` | NO | — | Khóa chính của bản ghi |
-| `action` | `VARCHAR(100)` | NO | — | Hành động (vd `REVIEW_SCORE_OVERRIDE`, `PUBLISH_RESULT`, `RETRY_ANSWER`) |
-| `old_value` | `JSONB` | YES | — | Snapshot giá trị cũ |
-| `new_value` | `JSONB` | YES | — | Snapshot giá trị mới |
-| `reason` | `TEXT` | YES | — | Lý do / giải thích |
+| `entity_name` | `VARCHAR(100)` | NO | — | Name of the affected table (e.g. `Result`, `Answer`) |
+| `entity_id` | `INT` | NO | — | Primary key of the record |
+| `action` | `VARCHAR(100)` | NO | — | Action (e.g. `REVIEW_SCORE_OVERRIDE`, `PUBLISH_RESULT`, `RETRY_ANSWER`) |
+| `old_value` | `JSONB` | YES | — | Snapshot of the old value |
+| `new_value` | `JSONB` | YES | — | Snapshot of the new value |
+| `reason` | `TEXT` | YES | — | Reason / explanation |
 | `performed_by` | `INT` | YES | — | FK→`users.user_id`, ON DELETE `SET NULL` |
-| `performed_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | Luôn UTC |
-| `ip_address` | `VARCHAR(45)` | YES | — | IPv4/IPv6 (45 chars đủ cho IPv6 đầy đủ) |
+| `performed_at` | `TIMESTAMP` | YES | `CURRENT_TIMESTAMP` | Always UTC |
+| `ip_address` | `VARCHAR(45)` | YES | — | IPv4/IPv6 (45 chars is enough for a full IPv6 address) |
 
-**Constraint:** PK `audit_logs_pkey`; IDX `idx_audit_logs_entity (entity_name, entity_id)`, `idx_audit_logs_performed_by`.
+**Constraints:** PK `audit_logs_pkey`; IDX `idx_audit_logs_entity (entity_name, entity_id)`, `idx_audit_logs_performed_by`.
 
-**Lưu ý:** append-only, không update/delete. Dùng để truy vết khi có khiếu nại về điểm.
+**Note:** append-only, no updates or deletes. Used for tracing when a score is disputed.
 
 ## 16. Enums (Postgres native types)
 
-Postgres lưu các kiểu enum như **native enum types** (không phải VARCHAR) nhờ `NpgsqlUpperCaseTranslator` (uppercase tất cả).
+Postgres stores these enum types as **native enum types** (not VARCHAR) thanks to `NpgsqlUpperCaseTranslator` (uppercases everything).
 
 ### `user_role`
-| Giá trị | Nghĩa |
+| Value | Meaning |
 |---|---|
-| `ADMIN` | Quản trị viên hệ thống |
-| `STAFF` | Nhân viên (xếp lịch, duyệt câu hỏi) |
-| `EXAMINER` | Giám khảo (xem kết quả, publish) |
-| `STUDENT` | Sinh viên (làm bài) |
+| `ADMIN` | System administrator |
+| `STAFF` | Staff member (scheduling, question approval) |
+| `EXAMINER` | Examiner (view results, publish) |
+| `STUDENT` | Student (take exams) |
 
 ### `exam_status`
-| Giá trị | Nghĩa |
+| Value | Meaning |
 |---|---|
-| `DRAFT` | Đang soạn |
-| `SCHEDULED` | Đã lên lịch |
-| `OPEN` | Đang mở, Student vào được |
-| `CLOSED` | Đã đóng |
-| `CANCELLED` | Bị huỷ |
+| `DRAFT` | Being drafted |
+| `SCHEDULED` | Scheduled |
+| `OPEN` | Open, students can join |
+| `CLOSED` | Closed |
+| `CANCELLED` | Cancelled |
 
 ### `session_status`
-| Giá trị | Nghĩa |
+| Value | Meaning |
 |---|---|
-| `NOT_STARTED` | Ca thi chưa tới giờ |
-| `IN_PROGRESS` | Đang diễn ra |
-| `COMPLETED` | Kết thúc bình thường |
-| `CANCELLED` | Bị huỷ |
+| `NOT_STARTED` | The session has not started yet |
+| `IN_PROGRESS` | Currently in progress |
+| `COMPLETED` | Finished normally |
+| `CANCELLED` | Cancelled |
 
-### `submission_status` (kết quả)
-| Giá trị | Nghĩa |
+### `submission_status` (results)
+| Value | Meaning |
 |---|---|
-| `PENDING_REVIEW` | AI chưa xong hoặc Teacher chưa xem |
-| `SUBMITTED` | Student vừa nộp, AI đã chấm |
-| `REVIEWED` | Teacher đã review |
-| `PUBLISHED` | Teacher publish → Student xem được |
-| `CANCELLED` | Bị huỷ |
+| `PENDING_REVIEW` | AI not finished, or the Teacher has not reviewed yet |
+| `SUBMITTED` | Student just submitted, AI has graded |
+| `REVIEWED` | Teacher has reviewed |
+| `PUBLISHED` | Teacher published → students can see it |
+| `CANCELLED` | Cancelled |
 
 ### `doc_type`
-| Giá trị | Nghĩa |
+| Value | Meaning |
 |---|---|
-| `CONTENT` | Tài liệu nội dung môn học |
-| `LEARNING_OUTCOMES` | Bảng learning outcomes |
+| `CONTENT` | Course content document |
+| `LEARNING_OUTCOMES` | Learning outcomes table |
 
-### Enums lưu dạng VARCHAR(20)
-Các enum sau lưu **string conversion** (không dùng Postgres enum) vì giá trị có thể mở rộng nhanh:
+### Enums stored as VARCHAR(20)
+The following enums use **string conversion** (not a Postgres enum) because their values may need to expand quickly:
 
-| Enum | Các giá trị |
+| Enum | Values |
 |---|---|
 | `AnswerStatus` | `PROCESSING`, `EVALUATED`, `ERROR` |
 | `AiEvaluationStatus` | `PENDING`, `SUCCEEDED`, `FAILED` |
 | `QuestionApprovalStatus` | `PENDING_REVIEW`, `APPROVED`, `REJECTED` |
 
-## 17. Chỉ mục & ràng buộc tổng hợp
+## 17. Index & Constraint summary
 
-| Bảng | Index / Unique / Check | Cột | Tên |
+| Table | Index / Unique / Check | Column(s) | Name |
 |---|---|---|---|
 | `users` | UNIQUE | `username` | `users_username_key` |
 | `users` | UNIQUE | `email` | `users_email_key` |
@@ -409,39 +413,43 @@ Các enum sau lưu **string conversion** (không dùng Postgres enum) vì giá t
 | `audit_logs` | IDX | (`entity_name`, `entity_id`) | `idx_audit_logs_entity` |
 | `audit_logs` | IDX | `performed_by` | `idx_audit_logs_performed_by` |
 
-## 18. Bảng hệ thống (do Hangfire tạo)
+> `exams.is_active` has no dedicated index: the column is only used as a boolean filter alongside the existing filters, and the exam count is small enough that a full scan is not a bottleneck. Add an index if that changes.
 
-Hangfire với `Hangfire.PostgreSql` tự động tạo các bảng trong schema `hangfire` (mặc định, đổi được qua `Hangfire:SchemaName`):
+## 18. System tables (created by Hangfire)
 
-| Bảng | Mục đích |
+Hangfire with `Hangfire.PostgreSql` automatically creates these tables in the `hangfire` schema (default, configurable via `Hangfire:SchemaName`):
+
+| Table | Purpose |
 |---|---|
-| `hangfire.job` | Định nghĩa job |
-| `hangfire.jobqueue` | Hàng đợi (`default`, `answers`) |
-| `hangfire.state` | Trạng thái job |
-| `hangfire.jobparameter` | Tham số kèm job |
+| `hangfire.job` | Job definitions |
+| `hangfire.jobqueue` | Queues (`default`, `answers`) |
+| `hangfire.state` | Job state |
+| `hangfire.jobparameter` | Parameters attached to a job |
 | `hangfire.lock` | Distributed lock |
-| `hangfire.counter` | Metric (số job chạy, fail) |
-| `hangfire.aggregatecounter`, `hangfire.hash`, `hangfire.list`, `hangfire.set`, `hangfire.server` | Cấu trúc phụ trợ |
+| `hangfire.counter` | Metrics (jobs run, failed) |
+| `hangfire.aggregatecounter`, `hangfire.hash`, `hangfire.list`, `hangfire.set`, `hangfire.server` | Auxiliary structures |
 
-Cấu hình: queues cố định `default` và `answers`, worker count mặc định `5`.
+Configuration: fixed queues `default` and `answers`, default worker count `5`.
 
-## 19. Quy tắc ON DELETE
+## 19. ON DELETE rules
 
-| Bảng cha | Cột | Bảng con | Cột FK | ON DELETE | Lý do |
+| Parent table | Column | Child table | FK column | ON DELETE | Reason |
 |---|---|---|---|---|---|
-| `users` | `user_id` | `courses` | `teacher_id` | `SET NULL` | Teacher nghỉ → giữ course |
-| `users` | `user_id` | `courses` | `created_by` | `SET NULL` | Audit; giữ course |
-| `users` | `user_id` | `results` | `reviewed_by` | `SET NULL` | Giữ audit chain |
+| `users` | `user_id` | `courses` | `teacher_id` | `SET NULL` | Teacher leaves → keep the course |
+| `users` | `user_id` | `courses` | `created_by` | `SET NULL` | Audit; keep the course |
+| `users` | `user_id` | `results` | `reviewed_by` | `SET NULL` | Keep the audit chain |
 | `users` | `user_id` | `results` | `published_by` | `SET NULL` | |
-| `users` | `user_id` | `audit_logs` | `performed_by` | `SET NULL` | Logs tồn tại vĩnh viễn |
-| `markdown_documents` | `document_id` | `question_bank` | `document_id` | `SET NULL` | Câu hỏi dùng được dù xoá .md |
-| `question_bank` | `question_id` | `question_rubric_criteria` | `question_id` | `CASCADE` | Rubric vô nghĩa khi xoá câu hỏi |
+| `users` | `user_id` | `audit_logs` | `performed_by` | `SET NULL` | Logs are permanent |
+| `markdown_documents` | `document_id` | `question_bank` | `document_id` | `SET NULL` | Questions stay usable even if the `.md` is deleted |
+| `question_bank` | `question_id` | `question_rubric_criteria` | `question_id` | `CASCADE` | A rubric is meaningless once the question is deleted |
 
-Các FK còn lại mặc định `RESTRICT` (không cho xoá parent nếu còn child).
+All other FKs default to `RESTRICT` (you cannot delete a parent while children still exist).
+
+> **Soft-delete note:** deleting an `exams` row is not the way to remove an exam — set `exams.is_active = FALSE` instead. A physical DELETE is blocked by the `RESTRICT` FK from `exams_course_id_fkey` dependents anyway (sessions, results).
 
 ---
 
-## Phụ lục — ER Diagram (Mermaid)
+## Appendix — ER Diagram (Mermaid)
 
 ```mermaid
 erDiagram
@@ -468,36 +476,38 @@ erDiagram
     RESULTS ||--o{ ANSWERS : "contains"
 ```
 
-ERD gốc (PNG): `docs/documentation/erd.drawio.png`.
+Original ERD (PNG): `docs/documentation/erd.drawio.png`.
 
-## Phụ lục — Đối chiếu với Sprint 1 task 1.4
+## Appendix — Cross-check with Sprint 1 task 1.4
 
-| Tên bảng yêu cầu SRS | Bảng thực tế | Trạng thái |
+| Table name required by the SRS | Actual table | Status |
 |---|---|---|
 | `User` | `users` | ✅ |
 | `Course` | `courses` | ✅ |
 | `MarkdownDocument` | `markdown_documents` | ✅ |
 | `Exam` | `exams` | ✅ |
 | `ExamSession` | `exam_sessions` | ✅ |
-| `Question` | `question_bank` | ✅ (chuẩn hoá tên bảng thành `question_bank`) |
+| `Question` | `question_bank` | ✅ (table name normalised to `question_bank`) |
 | `Answer` | `answers` | ✅ |
-| `Transcript` | `answers.transcript` | ✅ (lưu trong `answers`) |
+| `Transcript` | `answers.transcript` | ✅ (stored inside `answers`) |
 | `Result` | `results` | ✅ |
-| `QuestionScore` | `answers.ai_score` + `answers.final_score` | ✅ (phẳng hoá vào `answers`) |
-| `FinalResult` | `results.final_score` + `results.final_feedback` | ✅ (phẳng hoá vào `results`) |
-| (bổ sung P0) | `enrollments`, `session_enrollments`, `question_rubric_criteria`, `audit_logs`, `answers.ai_analysis`, `results.ai_analysis` (jsonb) | ✅ bổ sung |
+| `QuestionScore` | `answers.ai_score` + `answers.final_score` | ✅ (flattened into `answers`) |
+| `FinalResult` | `results.final_score` + `results.final_feedback` | ✅ (flattened into `results`) |
+| (P0 additions) | `enrollments`, `session_enrollments`, `question_rubric_criteria`, `audit_logs`, `answers.ai_analysis`, `results.ai_analysis` (jsonb) | ✅ added |
+| (2026-10-23) | `exams.is_active` | ✅ added for soft-delete |
 
-## Phụ lục — Lịch sử cập nhật
+## Appendix — Revision history
 
-| Version | Ngày | Thay đổi |
+| Version | Date | Change |
 |---|---|---|
-| 1.0 | 2026-10-12 | Khởi tạo từ Sprint 1 task 1.4 |
-| 2.0 | 2026-10-19 | Bổ sung `question_rubric_criteria`, `audit_logs`; chi tiết check constraint |
-| **2.1** | **2026-10-20** | Verify sau merge PR #41 (`89f50b9`) — schema không đổi. Bổ sung ghi chú PR #41: AI service tự download R2 qua `transcribe-object`, dùng `answers.object_key` |
+| 1.0 | 2026-10-12 | Initialised from Sprint 1 task 1.4 |
+| 2.0 | 2026-10-19 | Added `question_rubric_criteria`, `audit_logs`; detailed check constraints |
+| 2.1 | 2026-10-20 | Verified after merge PR #41 (`89f50b9`) — schema unchanged. Added a PR #41 note: the AI service downloads from R2 via `transcribe-object`, using `answers.object_key` |
+| **2.2** | **2026-10-23** | Added `exams.is_active` soft-delete flag (migration `AddExamIsActive`) with the `includeInactive` / `isDescending` query params on `GET /api/admin/exams`. Translated to English |
 
 ---
 
-**Cập nhật lần cuối:** 2026-10-20 · Người viết: Thịnh (theo Task Sheet SWD392)
+**Last updated:** 2026-10-23 · Author: Thịnh (per SWD392 Task Sheet)
 
 ---
 
@@ -515,15 +525,11 @@ users ──┬──< courses ──< markdown_documents
         └──< audit_logs (PerformedBy)
 ```
 
-**Quan hệ chính:**
+**Key relationships:**
 
 - `users` 1—N `courses` (CreatedBy, Teacher)
 - `courses` 1—N `markdown_documents`, `question_bank`, `exams`, `enrollments`
 - `markdown_documents` 1—N `question_bank` (optional)
-- `question_bank` 1—N `question_rubric_criteria` (CASCADE), 1—N `answers`, M—N `exams` (qua `exam_questions`)
+- `question_bank` 1—N `question_rubric_criteria` (CASCADE), 1—N `answers`, M—N `exams` (via `exam_questions`)
 - `exams` 1—N `exam_sessions` 1—N `results` 1—1 `session_enrollments`
 - `results` 1—N `answers`, FK→`users` (student/reviewer/publisher)
-
----
-
-## 3. Bảng: `users`

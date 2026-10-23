@@ -321,6 +321,12 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("exam_status")
                         .HasColumnName("exam_status");
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
                     b.Property<int>("MaxQuestions")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
