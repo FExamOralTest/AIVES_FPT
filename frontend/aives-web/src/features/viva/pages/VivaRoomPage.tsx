@@ -565,9 +565,11 @@ export default function VivaRoomPage() {
             <label htmlFor={textInputId} className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {!recorder.isRecordingSupported
                 ? 'Type your answer:'
-                : hasRecordedAudio || textAnswer
-                  ? 'Your answer (transcribed from your voice – you can edit it):'
-                  : 'Or type your answer (fallback):'}
+                : !recorder.isSpeechSupported
+                  ? 'Or type your answer:'
+                  : hasRecordedAudio || textAnswer
+                    ? 'Your answer (transcribed from your voice – you can edit it):'
+                    : 'Or type your answer (fallback):'}
             </label>
             {textAnswer && (
               <button
