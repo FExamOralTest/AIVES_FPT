@@ -16,12 +16,15 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { parseApiDate } from '@/lib/format/date'
 import { toApiError } from '@/lib/http/apiError'
+import { cn } from '@/lib/utils'
 import { vivaApi } from '../api/vivaApi'
 import { QuestionCard } from '../components/QuestionCard'
 import { VivaSessionPicker } from '../components/VivaSessionPicker'
 import { VivaWaveform } from '../components/VivaWaveform'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
+import { useCountdown } from '../hooks/useCountdown'
 import type { StartVivaSessionResponse, VivaQuestionDto } from '../types'
 
 export default function VivaRoomPage() {
@@ -38,12 +41,21 @@ export default function VivaRoomPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isFinishing, setIsFinishing] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [followUpAlert, setFollowUpAlert] = useState<string | null>(null)
 
   const recorder = useAudioRecorder()
   const textInputId = useId()
   const autoStartedSession = useRef<string | null>(null)
+  // Guards against finishing twice (Submit early racing the timer).
+  const finishingRef = useRef(false)
+
+  // The clock starts when the student first enters, so a reload keeps counting from the same moment.
+  // Uses this device's clock: it can drift if the device time is wrong (backend has no endsAt yet).
+  const endsAt = session?.startedAt
+    ? parseApiDate(session.startedAt).getTime() + session.durationMinutes * 60_000
+    : null
 
   // Format recording seconds MM:SS
   const formatTime = (secs: number) => {
@@ -130,19 +142,10 @@ export default function VivaRoomPage() {
     setFollowUpAlert(null)
 
     try {
-      const formData = new FormData()
-      formData.append('questionId', currentQuestion.questionId.toString())
-      formData.append('isFollowUp', currentQuestion.isFollowUp.toString())
-
-      if (recorder.audioBlob) {
-        // The backend names the stored object after this extension, so it must match the real format.
-        formData.append('audioFile', recorder.audioBlob, `answer.${audioExtension(recorder.audioBlob.type)}`)
-      }
-      if (hasText) {
-        formData.append('textAnswer', textAnswer.trim())
-      }
-
-      const res = await vivaApi.submitAnswer(session.sessionId, formData)
+      const res = await vivaApi.submitAnswer(
+        session.sessionId,
+        answerForm(currentQuestion, recorder.audioBlob, textAnswer.trim()),
+      )
 
       if (res.transcript) {
         setTranscript(res.transcript)
@@ -169,19 +172,54 @@ export default function VivaRoomPage() {
   }
 
   async function handleFinishExam() {
-    if (!session) return
+    if (!session || finishingRef.current) return
+    finishingRef.current = true
     setIsFinishing(true)
     setErrorMessage(null)
     try {
       await vivaApi.finish(session.sessionId)
       setIsCompleted(true)
     } catch (err) {
+      finishingRef.current = false
       const apiErr = toApiError(err)
       setErrorMessage(apiErr.message)
     } finally {
       setIsFinishing(false)
     }
   }
+
+  // Time is up: hand in whatever is on screen for the current question (recording included), then finish.
+  const { stopAndCollect } = recorder
+  const handleTimeUp = useCallback(async () => {
+    if (!session || isCompleted || finishingRef.current) return
+    finishingRef.current = true
+    setIsFinishing(true)
+    setErrorMessage(null)
+    try {
+      const { audio, text } = await stopAndCollect()
+      const answer = textAnswer.trim() || text
+      let completed = false
+      if (currentQuestion && !isSubmitting && (audio || answer)) {
+        try {
+          const res = await vivaApi.submitAnswer(session.sessionId, answerForm(currentQuestion, audio, answer))
+          completed = res.isCompleted
+        } catch {
+          // Still finish: the answers submitted before this one are kept.
+        }
+      }
+      if (!completed) await vivaApi.finish(session.sessionId)
+      setTimedOut(true)
+      setIsCompleted(true)
+    } catch (err) {
+      finishingRef.current = false
+      setErrorMessage(`Time is up, but your exam could not be submitted: ${toApiError(err).message}`)
+    } finally {
+      setIsFinishing(false)
+    }
+  }, [session, isCompleted, currentQuestion, textAnswer, isSubmitting, stopAndCollect])
+
+  const remainingMs = useCountdown(endsAt, () => void handleTimeUp())
+  const isTimeUp = remainingMs === 0
 
   // 1. Initial screen: pick one of your sessions to enter
   if (!session) {
@@ -216,10 +254,19 @@ export default function VivaRoomPage() {
         </div>
 
         <h1 className="mt-6 font-heading text-3xl font-medium tracking-tight sm:text-4xl">
-          Viva exam completed!
+          {timedOut ? 'Time is up!' : 'Viva exam completed!'}
         </h1>
         <p className="mt-3 text-lg text-muted-foreground">
-          You have answered all the questions in <span className="font-semibold text-foreground">{session.sessionName}</span>.
+          {timedOut ? (
+            <>
+              Your answers in <span className="font-semibold text-foreground">{session.sessionName}</span> were submitted
+              automatically.
+            </>
+          ) : (
+            <>
+              You have answered all the questions in <span className="font-semibold text-foreground">{session.sessionName}</span>.
+            </>
+          )}
         </p>
 
         <div className="mt-8 rounded-3xl border bg-card p-6 text-left shadow-sm sm:p-8">
@@ -250,6 +297,13 @@ export default function VivaRoomPage() {
     : 0
 
   const hasRecordedAudio = Boolean(recorder.audioBlob && recorder.audioUrl)
+  const isLocked = isTimeUp || isFinishing
+  const timerTone =
+    remainingMs === null || remainingMs > 5 * 60_000
+      ? 'bg-muted'
+      : remainingMs > 60_000
+        ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200'
+        : 'bg-destructive/10 text-destructive'
 
   return (
     <div className="mx-auto max-w-3xl py-4 sm:py-6">
@@ -265,16 +319,24 @@ export default function VivaRoomPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-2 text-sm font-medium">
-            <Clock className="size-4 text-brand" />
-            <span>Duration: {session.durationMinutes} min</span>
+          <div
+            role="timer"
+            aria-label="Time left"
+            className={cn('flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium', timerTone)}
+          >
+            <Clock className={cn('size-4', remainingMs !== null && remainingMs <= 5 * 60_000 ? 'text-current' : 'text-brand')} />
+            {remainingMs === null ? (
+              <span>Duration: {session.durationMinutes} min</span>
+            ) : (
+              <span className="tabular-nums">{formatRemaining(remainingMs)} left</span>
+            )}
           </div>
 
           <Button
             variant="destructive"
             size="sm"
             onClick={handleFinishExam}
-            disabled={isFinishing}
+            disabled={isLocked}
             className="rounded-xl px-4"
           >
             {isFinishing ? 'Submitting…' : 'Submit early'}
@@ -301,6 +363,23 @@ export default function VivaRoomPage() {
           <Sparkles className="size-4 text-amber-600" />
           <AlertDescription className="font-medium">{followUpAlert}</AlertDescription>
         </Alert>
+      )}
+
+      {isTimeUp && isFinishing && (
+        <Alert className="mt-4">
+          <Loader2 className="size-4 animate-spin" />
+          <AlertDescription>Time is up. Submitting your answers…</AlertDescription>
+        </Alert>
+      )}
+
+      {/* The automatic submit failed (e.g. network): let the student retry it */}
+      {isTimeUp && !isFinishing && (
+        <div className="mt-4 flex justify-end">
+          <Button onClick={() => void handleTimeUp()} className="gap-2 rounded-xl">
+            <Send className="size-4" />
+            Submit my exam
+          </Button>
+        </div>
       )}
 
       {/* Error message */}
@@ -366,13 +445,27 @@ export default function VivaRoomPage() {
           </Alert>
         )}
 
+        {/* Browsers without live speech-to-text (Firefox, some Safari) or without recording at all */}
+        {(!recorder.isRecordingSupported || !recorder.isSpeechSupported) && (
+          <Alert className="mt-4 rounded-2xl">
+            <AlertCircle className="size-4" />
+            <AlertDescription className="text-xs">
+              {recorder.isRecordingSupported
+                ? 'This browser cannot show your words while you speak. Record your answer and it will be transcribed after you submit, or type it in the box below.'
+                : 'This browser cannot record audio. Type your answer in the box below.'}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Audio Visualizer Waveform */}
-        <div className="mt-5">
-          <VivaWaveform
-            isRecording={recorder.isRecording}
-            volumeLevel={recorder.volumeLevel}
-          />
-        </div>
+        {recorder.isRecordingSupported && (
+          <div className="mt-5">
+            <VivaWaveform
+              isRecording={recorder.isRecording}
+              volumeLevel={recorder.volumeLevel}
+            />
+          </div>
+        )}
 
         {/* Real-time Live Speech-to-Text Preview while recording */}
         {recorder.isRecording && (
@@ -400,11 +493,11 @@ export default function VivaRoomPage() {
 
         {/* Recording Controls */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-          {!recorder.isRecording && !hasRecordedAudio && (
+          {recorder.isRecordingSupported && !recorder.isRecording && !hasRecordedAudio && (
             <Button
               type="button"
               size="lg"
-              disabled={recorder.isStarting}
+              disabled={recorder.isStarting || isLocked}
               onClick={recorder.startRecording}
               className="gap-2.5 rounded-full px-7 py-6 text-base bg-brand hover:bg-brand-hover shadow-md hover:shadow-lg transition-all font-medium"
             >
@@ -455,6 +548,7 @@ export default function VivaRoomPage() {
                 variant="outline"
                 size="sm"
                 onClick={recorder.resetRecording}
+                disabled={isLocked}
                 title="Record again"
                 className="gap-2 rounded-full px-4"
               >
@@ -469,9 +563,13 @@ export default function VivaRoomPage() {
         <div className="mt-6 border-t pt-5">
           <div className="flex items-center justify-between">
             <label htmlFor={textInputId} className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {hasRecordedAudio || textAnswer
-                ? 'Your answer (transcribed from your voice – you can edit it):'
-                : 'Or type your answer (fallback):'}
+              {!recorder.isRecordingSupported
+                ? 'Type your answer:'
+                : !recorder.isSpeechSupported
+                  ? 'Or type your answer:'
+                  : hasRecordedAudio || textAnswer
+                    ? 'Your answer (transcribed from your voice – you can edit it):'
+                    : 'Or type your answer (fallback):'}
             </label>
             {textAnswer && (
               <button
@@ -491,17 +589,26 @@ export default function VivaRoomPage() {
             </div>
           )}
 
+          {hasRecordedAudio && !textAnswer && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Your recording will be transcribed after you submit. You can also type a written answer.
+            </p>
+          )}
+
           <textarea
             id={textInputId}
             rows={4}
             value={textAnswer}
+            disabled={isLocked}
             onChange={(e) => setTextAnswer(e.target.value)}
             placeholder={
-              recorder.isRecording
-                ? 'Your words appear here in real time...'
-                : 'Your answer appears here after you speak, or you can type it directly...'
+              !recorder.isSpeechSupported
+                ? 'Type your answer here...'
+                : recorder.isRecording
+                  ? 'Your words appear here in real time...'
+                  : 'Your answer appears here after you speak, or you can type it directly...'
             }
-            className="mt-2 w-full rounded-2xl border border-input bg-background p-4 text-sm outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 resize-none leading-relaxed"
+            className="mt-2 w-full rounded-2xl border border-input bg-background p-4 text-sm outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 resize-none leading-relaxed disabled:cursor-not-allowed disabled:opacity-60"
           />
         </div>
 
@@ -521,7 +628,7 @@ export default function VivaRoomPage() {
           <Button
             size="lg"
             onClick={handleSubmitAnswer}
-            disabled={isSubmitting || recorder.isRecording || (!recorder.audioBlob && !textAnswer.trim())}
+            disabled={isSubmitting || isLocked || recorder.isRecording || (!recorder.audioBlob && !textAnswer.trim())}
             className="gap-2 rounded-xl px-7"
           >
             {isSubmitting ? (
@@ -540,6 +647,26 @@ export default function VivaRoomPage() {
       </section>
     </div>
   )
+}
+
+function answerForm(question: VivaQuestionDto, audio: Blob | null, text: string) {
+  const formData = new FormData()
+  formData.append('questionId', question.questionId.toString())
+  formData.append('isFollowUp', question.isFollowUp.toString())
+  if (audio) {
+    // The backend names the stored object after this extension, so it must match the real format.
+    formData.append('audioFile', audio, `answer.${audioExtension(audio.type)}`)
+  }
+  if (text) formData.append('textAnswer', text)
+  return formData
+}
+
+/** 754_000 → "12:34" (mm:ss, rounded up so "00:00" only shows once time is really up). */
+function formatRemaining(ms: number) {
+  const total = Math.ceil(ms / 1000)
+  const mins = Math.floor(total / 60)
+  const secs = total % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
 /** "audio/webm;codecs=opus" → "webm", "audio/mp4" → "m4a"; MediaRecorder output varies by browser. */

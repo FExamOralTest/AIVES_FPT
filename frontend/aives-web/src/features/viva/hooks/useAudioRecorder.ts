@@ -10,9 +10,13 @@ export interface AudioRecorderState {
   transcript: string
   interimTranscript: string
   isSpeechSupported: boolean
+  /** False when the browser cannot record audio at all; the student can only type. */
+  isRecordingSupported: boolean
   error: string | null
   startRecording: () => Promise<void>
   stopRecording: () => string
+  /** Stops any ongoing recording and resolves once its audio is ready, e.g. when time runs out mid-answer. */
+  stopAndCollect: () => Promise<{ audio: Blob | null; text: string }>
   resetRecording: () => void
   clearError: () => void
 }
@@ -37,10 +41,17 @@ export function useAudioRecorder(): AudioRecorderState {
   const chunksRef = useRef<Blob[]>([])
   const recognitionRef = useRef<any>(null)
   const lastRecognizedRef = useRef('')
+  const audioBlobRef = useRef<Blob | null>(null)
+  const onStoppedRef = useRef<((blob: Blob) => void) | null>(null)
 
   const isSpeechSupported =
     typeof window !== 'undefined' &&
     ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+
+  const isRecordingSupported =
+    typeof window !== 'undefined' &&
+    typeof window.MediaRecorder !== 'undefined' &&
+    Boolean(navigator.mediaDevices?.getUserMedia)
 
   const stopAudioContext = useCallback(() => {
     if (animationFrameRef.current) {
@@ -95,6 +106,7 @@ export function useAudioRecorder(): AudioRecorderState {
     setRecordingTime(0)
     setVolumeLevel(0)
     setAudioBlob(null)
+    audioBlobRef.current = null
     setAudioUrl(null)
     setTranscript('')
     setInterimTranscript('')
@@ -128,13 +140,14 @@ export function useAudioRecorder(): AudioRecorderState {
         setAudioUrl(null)
       }
       setAudioBlob(null)
+      audioBlobRef.current = null
       setTranscript('')
       setInterimTranscript('')
       lastRecognizedRef.current = ''
       chunksRef.current = []
 
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Your browser does not support audio recording (getUserMedia).')
+      if (!isRecordingSupported) {
+        throw new Error('Your browser cannot record audio. Type your answer in the box below instead.')
       }
 
       // Request microphone stream
@@ -272,9 +285,12 @@ export function useAudioRecorder(): AudioRecorderState {
         const blobType = recorder.mimeType || 'audio/webm'
         const finalBlob = new Blob(chunksRef.current, { type: blobType })
         setAudioBlob(finalBlob)
+        audioBlobRef.current = finalBlob
         const url = URL.createObjectURL(finalBlob)
         setAudioUrl(url)
         stopAudioContext()
+        onStoppedRef.current?.(finalBlob)
+        onStoppedRef.current = null
       }
 
       recorder.start(250) // slices of 250ms
@@ -298,7 +314,7 @@ export function useAudioRecorder(): AudioRecorderState {
         streamRef.current = null
       }
     }
-  }, [audioUrl, stopAudioContext, stopRecognition])
+  }, [audioUrl, isRecordingSupported, stopAudioContext, stopRecognition])
 
   const stopRecording = useCallback((): string => {
     const textSnapshot = lastRecognizedRef.current.trim()
@@ -326,6 +342,20 @@ export function useAudioRecorder(): AudioRecorderState {
     return textSnapshot
   }, [stopRecognition])
 
+  const stopAndCollect = useCallback(async () => {
+    const recorder = mediaRecorderRef.current
+    if (!recorder || recorder.state === 'inactive') {
+      return { audio: audioBlobRef.current, text: lastRecognizedRef.current.trim() }
+    }
+    // onstop fires asynchronously after stop(); give up after a moment so time-up never hangs.
+    const stopped = new Promise<Blob | null>((resolve) => {
+      onStoppedRef.current = resolve
+      window.setTimeout(() => resolve(null), 2000)
+    })
+    const text = stopRecording()
+    return { audio: await stopped, text }
+  }, [stopRecording])
+
   useEffect(() => {
     return () => {
       resetRecording()
@@ -342,9 +372,11 @@ export function useAudioRecorder(): AudioRecorderState {
     transcript,
     interimTranscript,
     isSpeechSupported,
+    isRecordingSupported,
     error,
     startRecording,
     stopRecording,
+    stopAndCollect,
     resetRecording,
     clearError,
   }
