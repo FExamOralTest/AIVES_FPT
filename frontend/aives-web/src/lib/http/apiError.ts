@@ -34,7 +34,10 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
 
 // Statuses whose meaning doesn't depend on the endpoint.
 const STATUS_MESSAGES: Record<number, string> = {
+  401: 'Your session has expired or you are not signed in. Please sign in again.',
   403: 'Your account does not have permission to do this.',
+  404: 'The requested item could not be found. Refresh the page and try again.',
+  409: 'This action conflicts with the current state of the item. Refresh the page and try again.',
   429: 'Too many attempts. Please wait about 15 minutes and try again.',
 }
 

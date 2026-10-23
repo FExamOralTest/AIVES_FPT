@@ -195,14 +195,15 @@ export default function TeacherQuestionsPage() {
             </div>
           </article>
         ))}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <label className="text-sm">Per page<select aria-label="Questions per page" className={`${control} ml-2`} disabled={!courseId} value={query.pageSize} onChange={(event) => changeQuery({ pageSize: Number(event.target.value) })}>{[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
           <Button variant="outline" disabled={loading || (query.page ?? 1) <= 1} onClick={() => changeQuery({ page: (query.page ?? 1) - 1 })}>Previous</Button>
           <span className="text-sm">Page {query.page ?? 1}/{Math.max(1, data.totalPages)}</span>
           <Button variant="outline" disabled={loading || (query.page ?? 1) >= data.totalPages} onClick={() => changeQuery({ page: (query.page ?? 1) + 1 })}>Next</Button>
         </div>
       </section>
       <Button asChild variant="outline"><Link to="/staff/exams">Manage exams</Link></Button>
-      {dialog && <QuestionFormDialog key={`${courseId}/${dialog.questionId ?? 'new'}/${dialog.readOnly}`} courseId={courseId} {...dialog} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); setFlash('Question saved. It is pending review until approved.'); refresh() }} />}
+      {dialog && <QuestionFormDialog key={`${courseId}/${dialog.questionId ?? 'new'}/${dialog.readOnly}`} courseId={courseId} {...dialog} onClose={() => setDialog(null)} onSaved={(question) => { setDialog(null); setFlash(`Question saved. Status: ${APPROVAL_LABEL[question.approvalStatus]}.`); refresh() }} />}
       {rejecting && <RejectQuestionDialog courseId={courseId} question={rejecting} onClose={() => setRejecting(null)} onRejected={() => { setRejecting(null); setFlash('Question rejected. Editing it sends it back for review.'); refresh() }} />}
       <ConfirmDialog open={deleting !== null} title="Delete question?" description={deleting?.questionText ?? ''} pending={deletePending} error={deleteError} onClose={() => setDeleting(null)} onConfirm={() => void remove()} />
     </div>

@@ -11,7 +11,12 @@ import type {
 
 export const teacherQuestionsApi = {
   async getQuestions(courseId: number, query: QuestionQuery = {}): Promise<QuestionPage> {
-    const { data } = await http.get<QuestionPage>(`/api/courses/${courseId}/questions`, { params: query })
+    const { data } = await http.get<QuestionPage>(`/api/courses/${courseId}/questions`, {
+      params: {
+        Search: query.search, Page: query.page, PageSize: query.pageSize,
+        Level: query.level, SortBy: query.sortBy, SortDirection: query.sortDirection, Status: query.status,
+      },
+    })
     return data
   },
 

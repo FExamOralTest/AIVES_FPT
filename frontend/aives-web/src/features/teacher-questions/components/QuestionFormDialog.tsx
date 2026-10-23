@@ -11,6 +11,7 @@ const fieldClass = 'mt-1 w-full rounded-xl border bg-background px-3 py-2 text-s
 const emptyQuestion: WriteQuestionInput = {
   questionText: '', topic: '', sampleAnswer: '', learningOutcome: '', level: 1,
   maxScore: 1, isFollowUpAllowed: true, rubric: [{ description: '', maxScore: 1 }],
+  expectedKeywords: [],
 }
 
 interface Props {
@@ -18,11 +19,12 @@ interface Props {
   questionId?: number
   readOnly: boolean
   onClose: () => void
-  onSaved: () => void
+  onSaved: (question: QuestionItemDto) => void
 }
 
 export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, onSaved }: Props) {
   const [form, setForm] = useState<WriteQuestionInput>(emptyQuestion)
+  const [keywordsText, setKeywordsText] = useState('')
   const [loadFailed, setLoadFailed] = useState(false)
   const [loading, setLoading] = useState(questionId !== undefined)
   const [pending, setPending] = useState(false)
@@ -40,8 +42,10 @@ export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, on
         sampleAnswer: question.sampleAnswer ?? '', learningOutcome: question.learningOutcome ?? '',
         level: question.level, maxScore: question.maxScore ?? 1,
         isFollowUpAllowed: question.isFollowUpAllowed ?? true,
+        expectedKeywords: question.expectedKeywords ?? [],
         rubric: question.rubric?.length ? question.rubric.map((criterion) => ({ ...criterion })) : [{ description: '', maxScore: question.maxScore ?? 1 }],
       })
+      setKeywordsText((question.expectedKeywords ?? []).join('\n'))
       setInUse(Boolean(question.isInUse))
       setReview({ approvalStatus: question.approvalStatus, rejectionReason: question.rejectionReason })
       setLoading(false)
@@ -73,10 +77,15 @@ export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, on
     setPending(true)
     setError(null)
     try {
-      const input = { ...form, questionText: form.questionText.trim(), topic: form.topic.trim(), sampleAnswer: form.sampleAnswer.trim(), learningOutcome: form.learningOutcome.trim() }
-      if (questionId === undefined) await teacherQuestionsApi.create(courseId, input)
-      else await teacherQuestionsApi.update(courseId, questionId, input)
-      onSaved()
+      const input: WriteQuestionInput = {
+        ...form, questionText: form.questionText.trim(), topic: form.topic.trim(),
+        sampleAnswer: form.sampleAnswer.trim(), learningOutcome: form.learningOutcome.trim(),
+        expectedKeywords: keywordsText.split('\n').map((keyword) => keyword.trim()).filter(Boolean),
+      }
+      const saved = questionId === undefined
+        ? await teacherQuestionsApi.create(courseId, input)
+        : await teacherQuestionsApi.update(courseId, questionId, input)
+      onSaved(saved)
     } catch (err) { setError(toApiError(err).message) }
     finally { setPending(false) }
   }
@@ -115,6 +124,7 @@ export function QuestionFormDialog({ courseId, questionId, readOnly, onClose, on
               <label className="block text-sm">Topic<input maxLength={1000} className={fieldClass} value={form.topic} onChange={(event) => set('topic', event.target.value)} /></label>
               <label className="block text-sm">Model answer<textarea aria-label="Model answer" required maxLength={10000} rows={3} className={fieldClass} value={form.sampleAnswer} onChange={(event) => set('sampleAnswer', event.target.value)} /></label>
               <label className="block text-sm">Learning outcome<textarea aria-label="Learning outcome" required maxLength={2000} rows={2} className={fieldClass} value={form.learningOutcome} onChange={(event) => set('learningOutcome', event.target.value)} /></label>
+              <label className="block text-sm">Expected keywords<textarea aria-label="Expected keywords" aria-describedby="keywords-help" rows={3} className={fieldClass} value={keywordsText} onChange={(event) => setKeywordsText(event.target.value)} /><span id="keywords-help" className="mt-1 block text-xs text-muted-foreground">Enter one keyword or phrase per line.</span></label>
               <div className="grid grid-cols-2 gap-4">
                 <label className="text-sm">Difficulty<select className={fieldClass} value={form.level} onChange={(event) => set('level', Number(event.target.value))}><option value={1}>Basic</option><option value={2}>Intermediate</option><option value={3}>Advanced</option></select></label>
                 <label className="text-sm">Max score<input required type="number" min="0.01" max="100" step="0.0001" className={fieldClass} value={form.maxScore} onChange={(event) => set('maxScore', Number(event.target.value))} /></label>

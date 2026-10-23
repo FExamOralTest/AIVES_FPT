@@ -13,6 +13,8 @@ export interface QuestionItemDto {
   maxScore?: number | null
   isFollowUpAllowed?: boolean | null
   courseId: number
+  documentId?: number | null
+  expectedKeywords?: string[]
   courseName?: string
   sampleAnswer?: string | null
   learningOutcome?: string | null
@@ -30,6 +32,7 @@ export interface WriteQuestionInput {
   level: number
   maxScore: number
   isFollowUpAllowed: boolean
+  expectedKeywords: string[]
 }
 
 export interface QuestionQuery {
