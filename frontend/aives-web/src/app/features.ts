@@ -1,6 +1,7 @@
 import {
   BookOpen,
   CalendarClock,
+  ChartColumn,
   ClipboardCheck,
   FileText,
   KeyRound,
@@ -62,17 +63,19 @@ export const FEATURES: FeatureDef[] = [
   },
   {
     role: 'ADMIN',
+    path: 'statistics',
+    title: 'Statistics',
+    icon: ChartColumn,
+    summary: 'Sessions, attempts, scores and review progress for the whole system or one course.',
+    status: 'done',
+  },
+  {
+    role: 'ADMIN',
     path: 'reports',
     title: 'Exams & results',
     icon: ListChecks,
-    summary: 'Track exams and student results across the whole system.',
-    status: 'pending',
-    endpoints: [
-      { method: 'GET', path: '/api/admin/exams', state: 'missing', note: 'Proposed: all exams in the system.' },
-      { method: 'GET', path: '/api/admin/reports/summary', state: 'missing', note: 'Proposed: sessions, attempts, average scores, pending reviews.' },
-      { method: 'GET', path: '/api/results/pending', state: 'ok', note: 'Results waiting for review (ADMIN can call it).' },
-    ],
-    blockers: ['The backend has no API yet for admins to list exams and results.'],
+    summary: 'Browse every exam session and open it to see each student’s result.',
+    status: 'done',
   },
 
   // ── Staff ──────────────────────────────────────────────────────────
