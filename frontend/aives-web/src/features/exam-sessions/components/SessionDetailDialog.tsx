@@ -4,19 +4,23 @@ import {
   Clock,
   Info,
   Layers,
+  Loader2,
   Pencil,
   Play,
   RotateCw,
+  Save,
   Shuffle,
   Sparkles,
   Square,
   Trash2,
   UserMinus,
   Users,
+  X,
   XCircle,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { CopyButton } from '@/components/common/CopyButton'
+import { FormField } from '@/components/common/FormField'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -26,6 +30,7 @@ import {
   SESSION_TRANSITIONS,
   type SessionStatus,
 } from '@/lib/domain/sessionStatus'
+import { examsApi } from '@/features/exams'
 import { formatDateTime, formatTimeRange, parseApiDate } from '@/lib/format/date'
 import { toApiError } from '@/lib/http/apiError'
 import { useApi } from '@/lib/http/useApi'
@@ -34,7 +39,6 @@ import { sessionsApi } from '../api/sessionsApi'
 import type { DistributeExamsResponse, DistributeSlotsResponse, ExamSession } from '../types'
 import { AddStudentsForm } from './AddStudentsForm'
 import { ConfigureSlotsDialog } from './ConfigureSlotsDialog'
-import { SessionForm } from './SessionFormDialog'
 
 interface SessionDetailDialogProps {
   sessionId: number | null
@@ -141,20 +145,118 @@ function SessionDetail({
     onChanged(updated)
   }
 
-  if (editing) {
-    return (
-      <div className="p-6">
-        <SessionForm
-          session={session}
-          onCancel={() => setEditing(false)}
-          onSaved={(updated) => {
-            applyUpdate(updated)
-            setEditing(false)
-            monitor.reload()
-          }}
-        />
-      </div>
-    )
+  // Inline edit state
+  const [editSessionName, setEditSessionName] = useState('')
+  const [editRoom, setEditRoom] = useState('')
+  const [editMaxCapacity, setEditMaxCapacity] = useState('50')
+  const [editStartTime, setEditStartTime] = useState('')
+  const [editEndTime, setEditEndTime] = useState('')
+  const [editExamIds, setEditExamIds] = useState<number[]>([])
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editErrors, setEditErrors] = useState<{
+    form?: string
+    name?: string
+    time?: string
+    capacity?: string
+    exams?: string
+  }>({})
+
+  const { state: teacherExamsState } = useApi(
+    () => examsApi.listMine(),
+    'session-detail-teacher-exams',
+    'Không thể tải danh sách đề thi.'
+  )
+  const teacherExams = teacherExamsState.status === 'ready' ? teacherExamsState.data : []
+
+  function toLocalInput(d: Date) {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  function startEditing() {
+    setEditSessionName(session.sessionName)
+    setEditRoom(session.room || '')
+    setEditMaxCapacity(String(session.maxCapacity))
+    setEditStartTime(toLocalInput(start))
+    setEditEndTime(toLocalInput(end))
+    const currentIds =
+      exams.length > 0
+        ? exams.map((e) => e.examId)
+        : session.examId
+        ? [session.examId]
+        : []
+    setEditExamIds(currentIds)
+    setEditErrors({})
+    setEditing(true)
+  }
+
+  function cancelEditing() {
+    setEditing(false)
+    setEditErrors({})
+  }
+
+  function handleAddExamToEdit(examIdStr: string) {
+    const id = Number(examIdStr)
+    if (!id || editExamIds.includes(id)) return
+    setEditExamIds((prev) => [...prev, id])
+    setEditErrors((prev) => ({ ...prev, exams: undefined }))
+  }
+
+  function handleRemoveExamFromEdit(examId: number) {
+    if (editExamIds.length <= 1) {
+      setEditErrors((prev) => ({ ...prev, exams: 'Ca thi phải có ít nhất 1 bộ đề thi.' }))
+      return
+    }
+    setEditExamIds((prev) => prev.filter((id) => id !== examId))
+    setEditErrors((prev) => ({ ...prev, exams: undefined }))
+  }
+
+  async function handleSaveInlineEdit() {
+    const errs: typeof editErrors = {}
+    if (!editSessionName.trim()) {
+      errs.name = 'Vui lòng nhập tên ca thi.'
+    }
+    const cap = Number(editMaxCapacity)
+    if (!cap || cap < 1) {
+      errs.capacity = 'Sức chứa tối đa phải lớn hơn 0.'
+    } else if (cap < session.enrolledStudents) {
+      errs.capacity = `Sức chứa không được nhỏ hơn số sinh viên hiện có (${session.enrolledStudents}).`
+    }
+
+    const sDate = new Date(editStartTime)
+    const eDate = new Date(editEndTime)
+    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime()) || sDate >= eDate) {
+      errs.time = 'Thời gian bắt đầu phải trước thời gian kết thúc.'
+    }
+
+    if (editExamIds.length === 0) {
+      errs.exams = 'Vui lòng chọn ít nhất 1 bộ đề thi.'
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setEditErrors(errs)
+      return
+    }
+
+    setSavingEdit(true)
+    setEditErrors({})
+    try {
+      const updated = await sessionsApi.update(sessionId, {
+        sessionName: editSessionName.trim(),
+        room: editRoom.trim() || undefined,
+        maxCapacity: cap,
+        startTime: sDate.toISOString(),
+        endTime: eDate.toISOString(),
+        examIds: editExamIds,
+      })
+      applyUpdate(updated)
+      setEditing(false)
+      monitor.reload()
+    } catch (err) {
+      setEditErrors({ form: toApiError(err, 'Không thể lưu thay đổi ca thi.').message })
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   const notStarted = session.status === 'NOT_STARTED'
@@ -348,7 +450,14 @@ function SessionDetail({
             </span>
           )}
         </div>
-        <DialogTitle className="mt-1.5 text-xl font-bold">{session.sessionName}</DialogTitle>
+        <DialogTitle className="mt-1.5 text-xl font-bold flex items-center gap-2">
+          {session.sessionName}
+          {editing && (
+            <span className="text-xs font-normal text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-full px-2 py-0.5">
+              Chế độ chỉnh sửa
+            </span>
+          )}
+        </DialogTitle>
       </div>
 
       {/* 2-Tab Navigation Bar */}
@@ -407,59 +516,191 @@ function SessionDetail({
               <CopyButton value={session.sessionCode} label="Sao chép mã" />
             </div>
 
-            {/* Basic Facts Card */}
-            <div className="rounded-2xl border bg-card p-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                Thông tin chung
-              </h4>
-              <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                {facts.map((f) => (
-                  <div key={f.label} className="flex flex-col">
-                    <dt className="text-xs text-muted-foreground">{f.label}</dt>
-                    <dd className="mt-0.5 font-medium text-foreground">{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-
-            {/* Multi-exam list section */}
-            <section className="rounded-2xl border p-4 bg-muted/10 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Layers className="size-4 text-brand" />
-                  <h4 className="font-semibold text-sm">
-                    Bộ đề thi cấu hình ({exams.length > 0 ? exams.length : 1})
+            {/* Basic Facts Card / In-place Edit Form */}
+            {editing ? (
+              <div className="rounded-2xl border bg-card p-5 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-brand flex items-center gap-1.5">
+                    <Pencil className="size-3.5" /> Chỉnh sửa thông tin ca thi
                   </h4>
+                  <span className="text-xs text-muted-foreground">Thay đổi trực tiếp trên ca thi</span>
+                </div>
+
+                <FormField label="Tên ca thi" required error={editErrors.name}>
+                  <input
+                    type="text"
+                    value={editSessionName}
+                    onChange={(e) => setEditSessionName(e.target.value)}
+                    placeholder="Ví dụ: Ca thi sáng 01 - Lớp PRJ301"
+                    className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                  />
+                </FormField>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label="Phòng thi">
+                    <input
+                      type="text"
+                      value={editRoom}
+                      onChange={(e) => setEditRoom(e.target.value)}
+                      placeholder="Ví dụ: Phòng 301, Tòa Alpha (tùy chọn)"
+                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                    />
+                  </FormField>
+                  <FormField label="Sức chứa tối đa (sinh viên)" required error={editErrors.capacity}>
+                    <input
+                      type="number"
+                      min={session.enrolledStudents || 1}
+                      max={500}
+                      value={editMaxCapacity}
+                      onChange={(e) => setEditMaxCapacity(e.target.value)}
+                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                    />
+                  </FormField>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label="Thời gian bắt đầu" required error={editErrors.time}>
+                    <input
+                      type="datetime-local"
+                      value={editStartTime}
+                      onChange={(e) => setEditStartTime(e.target.value)}
+                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                    />
+                  </FormField>
+                  <FormField label="Thời gian kết thúc" required>
+                    <input
+                      type="datetime-local"
+                      value={editEndTime}
+                      onChange={(e) => setEditEndTime(e.target.value)}
+                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                    />
+                  </FormField>
                 </div>
               </div>
-
-              {exams.length > 0 ? (
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                  {exams.map((ex) => (
-                    <div key={ex.examId} className="flex items-center justify-between rounded-xl border bg-background p-3 text-xs shadow-xs">
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-brand">{ex.examCode}</span>
-                          <span className="truncate font-medium text-foreground">{ex.title}</span>
-                        </div>
-                        <p className="text-muted-foreground mt-0.5">
-                          {ex.totalQuestions} câu · {ex.durationMinutes} phút
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <span className="rounded-full bg-brand-soft px-2.5 py-0.5 font-semibold text-brand text-[11px]">
-                          {ex.assignedStudentsCount} SV
-                        </span>
-                      </div>
+            ) : (
+              <div className="rounded-2xl border bg-card p-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                  Thông tin chung
+                </h4>
+                <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                  {facts.map((f) => (
+                    <div key={f.label} className="flex flex-col">
+                      <dt className="text-xs text-muted-foreground">{f.label}</dt>
+                      <dd className="mt-0.5 font-medium text-foreground">{f.value}</dd>
                     </div>
                   ))}
+                </dl>
+              </div>
+            )}
+
+            {/* Multi-exam list section */}
+            {editing ? (
+              <section className="rounded-2xl border p-4 bg-muted/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="size-4 text-brand" />
+                    <h4 className="font-semibold text-sm">
+                      Bộ đề thi cấu hình ({editExamIds.length})
+                    </h4>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Đề thi: <strong>{session.examTitle}</strong> ({session.examCode})
-                </p>
-              )}
-            </section>
+
+                {editErrors.exams && (
+                  <p className="text-xs text-destructive">{editErrors.exams}</p>
+                )}
+
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {editExamIds.map((id) => {
+                    const ex = teacherExams.find((e) => e.examId === id) || exams.find((e) => e.examId === id)
+                    return (
+                      <div key={id} className="flex items-center justify-between rounded-xl border bg-background p-3 text-xs shadow-xs">
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-brand">{ex?.examCode ?? `Đề #${id}`}</span>
+                            <span className="truncate font-medium text-foreground">{ex?.title ?? ''}</span>
+                          </div>
+                          {ex && (
+                            <p className="text-muted-foreground mt-0.5">
+                              {'totalQuestions' in ex ? ex.totalQuestions : (ex.maxQuestions ?? ex.questions?.length ?? 0)} câu · {ex.durationMinutes} phút
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => handleRemoveExamFromEdit(id)}
+                          disabled={editExamIds.length <= 1}
+                          title={editExamIds.length <= 1 ? 'Ca thi phải có ít nhất 1 bộ đề' : 'Gỡ đề thi'}
+                          className="text-muted-foreground hover:text-destructive size-7 shrink-0"
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Dropdown to add more exams */}
+                <div className="flex items-center gap-2 pt-1">
+                  <select
+                    value=""
+                    onChange={(e) => handleAddExamToEdit(e.target.value)}
+                    className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-xs focus:border-brand outline-none"
+                  >
+                    <option value="" disabled>
+                      + Chọn thêm đề thi vào ca thi...
+                    </option>
+                    {teacherExams
+                      .filter((e) => !editExamIds.includes(e.examId))
+                      .filter((e) => !session.courseId || e.courseId === session.courseId)
+                      .map((e) => (
+                        <option key={e.examId} value={e.examId}>
+                          {e.examCode} — {e.title} ({e.maxQuestions ?? e.questions?.length ?? 0} câu, {e.durationMinutes} phút)
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </section>
+            ) : (
+              <section className="rounded-2xl border p-4 bg-muted/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="size-4 text-brand" />
+                    <h4 className="font-semibold text-sm">
+                      Bộ đề thi cấu hình ({exams.length > 0 ? exams.length : 1})
+                    </h4>
+                  </div>
+                </div>
+
+                {exams.length > 0 ? (
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {exams.map((ex) => (
+                      <div key={ex.examId} className="flex items-center justify-between rounded-xl border bg-background p-3 text-xs shadow-xs">
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-brand">{ex.examCode}</span>
+                            <span className="truncate font-medium text-foreground">{ex.title}</span>
+                          </div>
+                          <p className="text-muted-foreground mt-0.5">
+                            {ex.totalQuestions} câu · {ex.durationMinutes} phút
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span className="rounded-full bg-brand-soft px-2.5 py-0.5 font-semibold text-brand text-[11px]">
+                            {ex.assignedStudentsCount} SV
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Đề thi: <strong>{session.examTitle}</strong> ({session.examCode})
+                  </p>
+                )}
+              </section>
+            )}
 
             {/* Time Slots (Kíp thi) Section */}
             {slots.length > 0 ? (
@@ -566,71 +807,112 @@ function SessionDetail({
             )}
 
             {/* Action buttons control bar */}
-            {(transitions.length > 0 || notStarted || deletableStatus) && (
-              <div className="flex flex-col gap-3 pt-2 border-t">
-                {confirming && (
-                  <p role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 px-4 py-3 text-xs text-amber-900 dark:text-amber-200">
-                    {confirming === 'DELETE'
-                      ? 'Xác nhận xóa ca thi này vĩnh viễn? Mã ca thi sẽ bị hủy. Thao tác không thể hoàn tác.'
-                      : ACTION[confirming].confirm}
-                  </p>
-                )}
-                {actionError && (
-                  <p role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-xs text-destructive">
+            {editing ? (
+              <div className="flex flex-col gap-3 pt-3 border-t">
+                {editErrors.form && (
+                  <div className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-xs text-destructive">
                     <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
-                    {actionError}
-                  </p>
+                    {editErrors.form}
+                  </div>
                 )}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  {notStarted && !confirming && (
-                    <Button variant="outline" size="sm" disabled={busy} onClick={() => setEditing(true)}>
-                      <Pencil className="size-3.5 mr-1.5" aria-hidden="true" />
-                      Chỉnh sửa ca thi
-                    </Button>
-                  )}
-                  {transitions.map((target) => {
-                    const action = ACTION[target]
-                    const isConfirming = confirming === target
-                    if (confirming && !isConfirming) return null
-                    return (
-                      <Button
-                        key={target}
-                        size="sm"
-                        variant={isConfirming && target === 'CANCELLED' ? 'destructive' : action.variant}
-                        disabled={busy}
-                        onClick={() => void changeStatus(target)}
-                      >
-                        {action.icon}
-                        <span className="ml-1.5">
-                          {isConfirming ? `Xác nhận: ${action.label.toLowerCase()}` : action.label}
-                        </span>
-                      </Button>
-                    )
-                  })}
-                  {deletableStatus && (!confirming || confirming === 'DELETE') && (
-                    <Button
-                      size="sm"
-                      variant={confirming === 'DELETE' ? 'destructive' : 'ghost'}
-                      className={cn(confirming !== 'DELETE' && 'text-destructive hover:bg-destructive/10 hover:text-destructive')}
-                      disabled={busy || session.enrolledStudents > 0}
-                      onClick={() => void deleteSession()}
-                    >
-                      <Trash2 className="size-3.5 mr-1.5" aria-hidden="true" />
-                      {confirming === 'DELETE' ? 'Xác nhận xóa ca thi' : 'Xóa ca thi'}
-                    </Button>
-                  )}
+                <div className="flex items-center justify-end gap-2.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={savingEdit}
+                    onClick={cancelEditing}
+                  >
+                    Hủy bỏ
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={savingEdit}
+                    onClick={() => void handleSaveInlineEdit()}
+                    className="gap-1.5"
+                  >
+                    {savingEdit ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Đang lưu...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="size-3.5" />
+                        Lưu thay đổi
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              (transitions.length > 0 || notStarted || deletableStatus) && (
+                <div className="flex flex-col gap-3 pt-2 border-t">
                   {confirming && (
-                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>
-                      Hủy thao tác
-                    </Button>
+                    <p role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 px-4 py-3 text-xs text-amber-900 dark:text-amber-200">
+                      {confirming === 'DELETE'
+                        ? 'Xác nhận xóa ca thi này vĩnh viễn? Mã ca thi sẽ bị hủy. Thao tác không thể hoàn tác.'
+                        : ACTION[confirming].confirm}
+                    </p>
+                  )}
+                  {actionError && (
+                    <p role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-xs text-destructive">
+                      <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+                      {actionError}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {notStarted && !confirming && (
+                      <Button variant="outline" size="sm" disabled={busy} onClick={startEditing}>
+                        <Pencil className="size-3.5 mr-1.5" aria-hidden="true" />
+                        Chỉnh sửa ca thi
+                      </Button>
+                    )}
+                    {transitions.map((target) => {
+                      const action = ACTION[target]
+                      const isConfirming = confirming === target
+                      if (confirming && !isConfirming) return null
+                      return (
+                        <Button
+                          key={target}
+                          size="sm"
+                          variant={isConfirming && target === 'CANCELLED' ? 'destructive' : action.variant}
+                          disabled={busy}
+                          onClick={() => void changeStatus(target)}
+                        >
+                          {action.icon}
+                          <span className="ml-1.5">
+                            {isConfirming ? `Xác nhận: ${action.label.toLowerCase()}` : action.label}
+                          </span>
+                        </Button>
+                      )
+                    })}
+                    {deletableStatus && (!confirming || confirming === 'DELETE') && (
+                      <Button
+                        size="sm"
+                        variant={confirming === 'DELETE' ? 'destructive' : 'ghost'}
+                        className={cn(confirming !== 'DELETE' && 'text-destructive hover:bg-destructive/10 hover:text-destructive')}
+                        disabled={busy || session.enrolledStudents > 0}
+                        onClick={() => void deleteSession()}
+                      >
+                        <Trash2 className="size-3.5 mr-1.5" aria-hidden="true" />
+                        {confirming === 'DELETE' ? 'Xác nhận xóa ca thi' : 'Xóa ca thi'}
+                      </Button>
+                    )}
+                    {confirming && (
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>
+                        Hủy thao tác
+                      </Button>
+                    )}
+                  </div>
+                  {deletableStatus && session.enrolledStudents > 0 && !confirming && (
+                    <p className="text-[12px] text-muted-foreground">
+                      Ca thi đã có sinh viên đăng ký không thể xóa. Hãy gỡ toàn bộ sinh viên trước hoặc hủy ca thi.
+                    </p>
                   )}
                 </div>
-                {deletableStatus && session.enrolledStudents > 0 && !confirming && (
-                  <p className="text-[12px] text-muted-foreground">
-                    Ca thi đã có sinh viên đăng ký không thể xóa. Hãy gỡ toàn bộ sinh viên trước hoặc hủy ca thi.
-                  </p>
-                )}
-              </div>
+              )
             )}
           </div>
         )}
