@@ -170,6 +170,7 @@ class MockAIClient(BaseAIClient):
                     "question_text": f"Question {offset + i + 1}: Explain {topics[i % len(topics)]} using the course material.",
                     "topic": topics[i % len(topics)],
                     "sample_answer": content.strip(),
+                    "expected_keywords": [topics[i % len(topics)]],
                     "learning_outcome": outcomes[(offset + i) % len(outcomes)],
                     "rubric": [{
                         "description": f"Explain {topics[i % len(topics)]} accurately using this course evidence: {content.strip()[:1500]}",
