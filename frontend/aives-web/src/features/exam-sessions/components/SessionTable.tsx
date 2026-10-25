@@ -40,13 +40,25 @@ interface SessionTableProps {
   sessions: ExamSessionSummary[]
   status: SessionStatus | null
   onStatusChange: (status: SessionStatus | null) => void
+  /** Row click; also the first item of the row menu, named by `openLabel`. */
   onOpen: (session: ExamSessionSummary) => void
-  /** Extra toolbar controls, placed before the sort button (the page's date range). */
+  openLabel?: string
+  /** Extra toolbar controls, placed before the sort button (e.g. a date range filter). */
   controls?: ReactNode
+  /** The page's primary button, placed last in the toolbar (e.g. "New session"). */
+  primaryAction?: ReactNode
 }
 
 /** Status tabs with counts, search, sortable columns and 20 sessions per page. */
-export function SessionTable({ sessions, status, onStatusChange, onOpen, controls }: SessionTableProps) {
+export function SessionTable({
+  sessions,
+  status,
+  onStatusChange,
+  onOpen,
+  openLabel = 'View results',
+  controls,
+  primaryAction,
+}: SessionTableProps) {
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [sort, setSort] = useState<Sort>({ key: 'time', dir: 'desc' })
@@ -118,6 +130,7 @@ export function SessionTable({ sessions, status, onStatusChange, onOpen, control
             label="Search sessions"
             placeholder="Session, exam, code or room"
           />
+          {primaryAction}
         </div>
       </Toolbar>
 
@@ -174,7 +187,7 @@ export function SessionTable({ sessions, status, onStatusChange, onOpen, control
                         <span onClick={(e) => e.stopPropagation()} className="contents">
                           <ActionMenu
                             label={`Actions for ${s.sessionName}`}
-                            actions={[{ label: 'View results', icon: Eye, onSelect: () => onOpen(s) }]}
+                            actions={[{ label: openLabel, icon: Eye, onSelect: () => onOpen(s) }]}
                           />
                         </span>
                       </div>

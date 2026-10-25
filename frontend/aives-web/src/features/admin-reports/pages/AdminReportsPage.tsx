@@ -9,7 +9,7 @@ import { useApi } from '@/lib/http/useApi'
 import { cn } from '@/lib/utils'
 import { adminReportsApi } from '../api/adminReportsApi'
 import { SessionResultsDialog } from '../components/SessionResultsDialog'
-import { SessionTable } from '../components/SessionTable'
+import { SessionTable } from '@/features/exam-sessions/components/SessionTable'
 import type { ExamSessionSummary, SessionStatus } from '../types'
 
 const dateInputClass =
