@@ -1,32 +1,82 @@
-import { DotGrid } from '@/components/common/DotGrid'
-import { Waveform } from '@/components/common/Waveform'
+import type { CSSProperties } from 'react'
+import panelBg from '@/assets/images/login-panel-bg.webp'
+import robotWave from '@/assets/images/robot-login-wave.webp'
+import star from '@/assets/images/star.webp'
 import { cn } from '@/lib/utils'
 
-/** Login aside: an AI examiner question card with floating chips. */
+/*
+ * Login aside artwork, laid out in the design's own coordinates: a 638.5 × 740 frame.
+ * Every length goes through `u()` into container-width units, so the composition scales
+ * as one piece and keeps the design's proportions at any panel width.
+ */
+const FRAME_W = 638.5
+const u = (px: number) => `${((px * 100) / FRAME_W).toFixed(3)}cqw`
+const box = (x: number, y: number, w: number, h?: number): CSSProperties => ({
+  left: u(x),
+  top: u(y),
+  width: u(w),
+  height: h === undefined ? undefined : u(h),
+})
+
+// Bar heights (design px) of the voice waveform; it repeats this phrase two and a half times.
+const PHRASE = [6, 20, 17.6, 22.2, 39.4, 32.8, 30, 20, 11.6, 7.6, 7.6, 28.6, 35.8, 31.4, 24.8, 38, 18.4, 11.2]
+const BARS = [...PHRASE, ...PHRASE, ...PHRASE.slice(0, 9)]
+
+const STARS = [
+  { x: 488, y: 255.2, w: 134.7 },
+  { x: 471.6, y: 250.4, w: 59.3 },
+  { x: 73.3, y: 473, w: 134.8 },
+]
+
+function Chip({ x, y, padLeft, children }: { x: number; y: number; padLeft: number; children: string }) {
+  return (
+    <span
+      className="absolute flex items-center rounded-full bg-[#4570ad] font-[Poppins] leading-none whitespace-nowrap text-white"
+      style={{ ...box(x, y, 218.1, 68.5), paddingLeft: u(padLeft), fontSize: u(18.3) }}
+    >
+      {children}
+    </span>
+  )
+}
+
+/** Login aside: a waving robot beside an AI examiner card and floating chips. */
 export function LoginPanel() {
   return (
-    <div className="relative flex w-full items-center justify-center px-10 py-16">
-      <div aria-hidden="true" className="absolute -right-28 -bottom-32 size-[380px] rounded-full bg-sun" />
-      <DotGrid className="absolute top-11 left-10" />
+    <div className="absolute inset-0 @container-[size]">
+      <img src={panelBg} alt="" aria-hidden="true" className="absolute inset-0 size-full object-cover" />
+      {/* Fit the frame inside the panel, pinned bottom-right where the robot is cropped by the panel edge. */}
+      <div className="absolute right-0 bottom-0 @container aspect-[638.5/740] w-[min(100cqw,calc(100cqh*638.5/740))]">
+        <img src={robotWave} alt="" aria-hidden="true" className="absolute max-w-none" style={box(209.8, 348.8, 498.2)} />
 
-      <div className="relative flex w-full max-w-[380px] flex-col gap-[18px] rounded-3xl bg-white p-6 shadow-[0_24px_48px_-24px_rgba(17,17,20,0.25)]">
-        <div className="flex items-center justify-between">
-          <span className="text-[13px] font-semibold text-muted-foreground">AI examiner, question 2 of 5</span>
-          <span className="size-2 rounded-full bg-brand" />
+        <Chip x={379.1} y={40.2} padLeft={36}>
+          Answer by voice
+        </Chip>
+
+        <div className="absolute bg-white" style={{ ...box(121.6, 151.5, 276.3, 155.9), borderRadius: u(36) }}>
+          <span
+            className="absolute font-[Poppins] leading-none font-bold whitespace-nowrap text-[#2a2929]"
+            style={{ left: u(17.2), top: u(18.4), fontSize: u(14.1) }}
+          >
+            AI examiner, question 2 of 5
+          </span>
+          <div aria-hidden="true" className="absolute flex items-center" style={box(17.2, 98.9, 250, 40.6)}>
+            {BARS.map((h, i) => (
+              <span
+                key={i}
+                className="shrink-0 rounded-full bg-[#1737b2]"
+                style={{ width: u(2.2), height: u(h), marginLeft: i ? u(3.23) : 0 }}
+              />
+            ))}
+          </div>
         </div>
-        <p className="font-heading text-[21px] leading-snug font-medium">
-          Explain why you would choose a hash table over a binary search tree for this lookup problem.
-        </p>
-        <Waveform className="h-12" />
-      </div>
 
-      <div className="absolute top-10 right-9 flex flex-col rounded-2xl bg-brand px-4 py-3 text-white shadow-[0_12px_24px_-12px_rgba(15,108,230,0.6)]">
-        <span className="text-[13px] font-semibold">Answer by voice</span>
-        <span className="text-[11px] opacity-85">Automatically transcribed</span>
-      </div>
-      <div className="absolute bottom-11 left-9 flex flex-col gap-0.5 rounded-2xl bg-brand px-[18px] py-3.5 text-white shadow-[0_12px_24px_-12px_rgba(15,108,230,0.6)]">
-        <span className="self-start rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold">Examiner</span>
-        <span className="font-heading text-lg font-semibold">Reviewed before published</span>
+        <Chip x={22.7} y={372.6} padLeft={28.6}>
+          Examiner Review
+        </Chip>
+
+        {STARS.map((s, i) => (
+          <img key={i} src={star} alt="" aria-hidden="true" className="absolute" style={box(s.x, s.y, s.w)} />
+        ))}
       </div>
     </div>
   )
