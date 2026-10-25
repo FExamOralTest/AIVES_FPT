@@ -42,6 +42,16 @@ public class HangfireQueueService : IQueueService
 
     public string EnqueueAnswerProcessing(QueueJobMetadata metadata)
     {
+        // Task 1.4 — validate metadata theo Queue Job Contract trước khi enqueue.
+        // Metadata vi phạm → job vô nghĩa, chỉ làm đốt compute và gây nhiễu dashboard.
+        if (!QueueJobContract.TryValidate(metadata, out var contractError))
+        {
+            _logger.LogError(
+                "Refusing to enqueue invalid job metadata: AnswerId={AnswerId}, Error={Error}",
+                metadata?.AnswerId, contractError);
+            throw new ArgumentException(contractError, nameof(metadata));
+        }
+
         // Trước khi enqueue: kiểm tra trùng — tránh 2 job cùng xử lý 1 answer gây race.
         if (HasPendingOrProcessingJob(metadata.AnswerId))
         {
@@ -56,7 +66,16 @@ public class HangfireQueueService : IQueueService
 
         // Hangfire sẽ serialize metadata vào storage. Dùng Expression thay vì method invoke
         // để Hangfire có thể hiển thị method signature trên dashboard.
-        Expression<Action<IAnswerProcessingJob>> method = j => j.ExecuteAsync(metadata, default);
+        //
+        // QUAN TRỌNG: phải enqueue qua CONCRETE CLASS (AnswerProcessingJob), KHÔNG qua interface
+        // (IAnswerProcessingJob). Hangfire đọc job filter từ `Job.Method.DeclaringType`; khi
+        // khai báo expression trên interface, DeclaringType là interface nên các attribute
+    // job-level (ví dụ [AutomaticRetry]) trên class implementation sẽ KHÔNG được áp dụng —
+    // Hangfire fallback về policy mặc định (10 lần retry, mọi exception đều retry).
+    // Điều này làm hỏng BR-17: lỗi không retryable (audio hỏng, transcript rỗng) vẫn bị retry.
+        // Dùng Expression<Func<T, Task>> (không phải Action<T>) vì ExecuteAsync trả về Task —
+        // Action<T> sẽ bỏ qua Task và sinh cảnh báo CS4014 (fire-and-forget).
+        Expression<Func<AnswerProcessingJob, Task>> method = j => j.ExecuteAsync(metadata, default);
         var jobId = _jobClient.Enqueue(method);
 
         metadata.JobId = jobId;
@@ -70,21 +89,21 @@ public class HangfireQueueService : IQueueService
     {
         // Hangfire cung cấp MonitoringApi để query job states.
         // Dùng ProcessingJobs + ScheduledJobs + EnqueuedJobs (lọc theo Args).
-        // Vì Args chứa AnswerId trong metadata, ta dựa vào tag/filter — đơn giản nhất là
-        // thêm tag = "answer:{id}" qua JobFilter (xem HangfireJobTagsAttribute).
-        // Ở đây dùng tổng quát: query list, filter theo args.Contains.
+        // Vì Args chứa AnswerId trong metadata, ta dựa vào chuỗi ToString() của metadata
+        // (xem QueueJobMetadata.ToString) để match job theo AnswerId.
         try
         {
-            var processing = MonitoringApi.ProcessingJobs(0, 1000);
-            if (processing.Any(j => j.Value.Job.Args.Any(a => a?.ToString()?.Contains($"AnswerId = {answerId}") == true)))
+            if (HasJobForAnswer(MonitoringApi.ProcessingJobs(0, 1000), j => j.Job, answerId))
                 return true;
 
-            var scheduled = MonitoringApi.ScheduledJobs(0, 1000);
-            if (scheduled.Any(j => j.Value.Job.Args.Any(a => a?.ToString()?.Contains($"AnswerId = {answerId}") == true)))
+            // ScheduledJobs chứa cả job đang chờ retry (ScheduledState) sau khi job fail.
+            if (HasJobForAnswer(MonitoringApi.ScheduledJobs(0, 1000), j => j.Job, answerId))
                 return true;
 
-            var enqueued = MonitoringApi.EnqueuedJobs("default", 0, 1000);
-            if (enqueued.Any(j => j.Value.Job.Args.Any(a => a?.ToString()?.Contains($"AnswerId = {answerId}") == true)))
+            if (HasJobForAnswer(MonitoringApi.EnqueuedJobs("default", 0, 1000), j => j.Job, answerId))
+                return true;
+
+            if (HasJobForAnswer(MonitoringApi.EnqueuedJobs("answers", 0, 1000), j => j.Job, answerId))
                 return true;
         }
         catch (Exception ex)
@@ -103,30 +122,31 @@ public class HangfireQueueService : IQueueService
         try
         {
             var cancelled = false;
-            var processing = MonitoringApi.ProcessingJobs(0, 1000);
-            foreach (var (jobId, info) in processing)
+
+            foreach (var (jobId, info) in MonitoringApi.ProcessingJobs(0, 1000))
             {
-                if (info.Job.Args.Any(a => a?.ToString()?.Contains($"AnswerId = {answerId}") == true))
-                {
+                if (MatchesAnswerId(info.Job, answerId))
                     cancelled = _jobClient.Delete(jobId) || cancelled;
-                }
             }
-            var scheduled = MonitoringApi.ScheduledJobs(0, 1000);
-            foreach (var (jobId, info) in scheduled)
+
+            foreach (var (jobId, info) in MonitoringApi.ScheduledJobs(0, 1000))
             {
-                if (info.Job.Args.Any(a => a?.ToString()?.Contains($"AnswerId = {answerId}") == true))
-                {
+                if (MatchesAnswerId(info.Job, answerId))
                     cancelled = _jobClient.Delete(jobId) || cancelled;
-                }
             }
-            var enqueued = MonitoringApi.EnqueuedJobs("default", 0, 1000);
-            foreach (var (jobId, info) in enqueued)
+
+            foreach (var (jobId, info) in MonitoringApi.EnqueuedJobs("default", 0, 1000))
             {
-                if (info.Job.Args.Any(a => a?.ToString()?.Contains($"AnswerId = {answerId}") == true))
-                {
+                if (MatchesAnswerId(info.Job, answerId))
                     cancelled = _jobClient.Delete(jobId) || cancelled;
-                }
             }
+
+            foreach (var (jobId, info) in MonitoringApi.EnqueuedJobs("answers", 0, 1000))
+            {
+                if (MatchesAnswerId(info.Job, answerId))
+                    cancelled = _jobClient.Delete(jobId) || cancelled;
+            }
+
             return cancelled;
         }
         catch (Exception ex)
@@ -134,5 +154,40 @@ public class HangfireQueueService : IQueueService
             _logger.LogWarning(ex, "Failed to cancel jobs for AnswerId={AnswerId}.", answerId);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Kiểm tra danh sách job có chứa job của answer hay không.
+    /// </summary>
+    private static bool HasJobForAnswer<TJob>(
+        IEnumerable<KeyValuePair<string, TJob>> jobs,
+        Func<TJob, Hangfire.Common.Job> jobSelector,
+        int answerId) =>
+        jobs.Any(j => MatchesAnswerId(jobSelector(j.Value), answerId));
+
+    /// <summary>
+    /// Match chính xác AnswerId trong chuỗi args của job.
+    /// Phải so sánh theo ranh giới số để "AnswerId = 77" không khớp "AnswerId = 777".
+    /// </summary>
+    private static bool MatchesAnswerId(Hangfire.Common.Job job, int answerId)
+    {
+        var pattern = $"AnswerId = {answerId}";
+        foreach (var arg in job.Args)
+        {
+            var text = arg?.ToString();
+            if (text == null) continue;
+
+            var index = text.IndexOf(pattern, StringComparison.Ordinal);
+            while (index >= 0)
+            {
+                var end = index + pattern.Length;
+                // Đảm bảo không có chữ số nào đứng ngay sau AnswerId (tránh match 77 với 777).
+                var isExact = end >= text.Length || !char.IsDigit(text[end]);
+                if (isExact) return true;
+
+                index = text.IndexOf(pattern, index + 1, StringComparison.Ordinal);
+            }
+        }
+        return false;
     }
 }

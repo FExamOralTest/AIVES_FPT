@@ -34,9 +34,14 @@ public class QueueJobMetadata
     public string ObjectKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lần thử hiện tại (1-based). Hangfire tự tăng khi retry nhưng ta lưu lại
-    /// để log/audit và so sánh với max attempts = 3.
+    /// Lần thử hiện tại (1-based).
     /// </summary>
+    /// <remarks>
+    /// Hangfire serialize lại metadata ở mỗi lần retry nên giá trị này KHÔNG tự tăng.
+    /// Nguồn sự thật của "lần thử thứ mấy" là <c>answers.attempt_count</c> trong DB —
+    /// xem <c>QueueLimits.MaxTotalAttempts</c> và <c>IAnswerRepository.IncrementAttemptAsync</c>.
+    /// Giá trị ở đây chỉ để log/audit và hiển thị trên dashboard.
+    /// </remarks>
     public int Attempt { get; set; } = 1;
 
     /// <summary>Trạng thái hiện tại của job trong vòng đời.</summary>

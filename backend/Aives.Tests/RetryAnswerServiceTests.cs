@@ -156,6 +156,51 @@ public class RetryAnswerServiceTests : IDisposable
             _service.RetryAsync(answerId: 9999, currentUserId: 1, UserRole.ADMIN, req));
     }
 
+    [Fact]
+    public async Task Retry_ExhaustedAttempts_Throws_MaxAttemptsReached()
+    {
+        // BR-17: "retry tối đa 3 lần thử tổng cộng". Khi attempt_count đã đạt giới hạn
+        // thì không được retry thủ công nữa.
+        var (answer, student, _) = await SeedAsync(AnswerStatus.ERROR);
+        var dbAnswer = await _db.Answers.FindAsync(answer.AnswerId);
+        dbAnswer!.AttemptCount = QueueLimits.MaxTotalAttempts;
+        await _db.SaveChangesAsync();
+
+        var req = new RetryAnswerRequest();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RetryAsync(answer.AnswerId, student.UserId, UserRole.STUDENT, req));
+        Assert.Empty(_queue.EnqueuedJobs);
+    }
+
+    [Fact]
+    public async Task Retry_IncrementsAttemptInMetadata()
+    {
+        // Attempt trong metadata = lần thử tiếp theo (attempt_count hiện tại + 1).
+        var (answer, student, _) = await SeedAsync(AnswerStatus.ERROR);
+        var dbAnswer = await _db.Answers.FindAsync(answer.AnswerId);
+        dbAnswer!.AttemptCount = 1;
+        await _db.SaveChangesAsync();
+
+        var req = new RetryAnswerRequest();
+        var result = await _service.RetryAsync(answer.AnswerId, student.UserId, UserRole.STUDENT, req);
+
+        Assert.Equal("QUEUED", result.Status);
+        Assert.Equal(2, _queue.EnqueuedJobs[0].Attempt);
+    }
+
+    [Fact]
+    public async Task Retry_PersistsJobIdToAnswer()
+    {
+        // JobId được lưu vào DB để tra cứu job không chỉ từ Hangfire dashboard.
+        var (answer, student, _) = await SeedAsync(AnswerStatus.ERROR);
+        var req = new RetryAnswerRequest();
+
+        var result = await _service.RetryAsync(answer.AnswerId, student.UserId, UserRole.STUDENT, req);
+
+        var dbAnswer = await _db.Answers.FindAsync(answer.AnswerId);
+        Assert.Equal(result.JobId, dbAnswer!.JobId);
+    }
+
     // ----- Helpers -----
 
     private async Task<(Answer answer, User student, ExamSession examSession)> SeedAsync(

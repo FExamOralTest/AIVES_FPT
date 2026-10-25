@@ -530,7 +530,7 @@ stateDiagram-v2
 | **BR-14** | Kiến trúc | Frontend không được gọi trực tiếp AI Service hoặc Storage; mọi yêu cầu bắt buộc đi qua Backend. | [ai-service.md](file:///d:/FPT/GitHub/AIVES_FPT/docs/ai/ai-service.md), `AiServiceClient.cs` |
 | **BR-15** | **Bảo mật Audio** | Mọi file ghi âm phải lưu trên **Cloudflare R2 (Private Bucket)**. Quyền nghe lại của Khảo thí được cấp qua Presigned GET URL có giới hạn thời gian (TTL ≤ 3600s). | `R2StorageService.cs`, `Answer.AudioUrl` |
 | **BR-16** | Trạng thái ca thi | Exam Session chỉ được chuyển đổi qua lại giữa các trạng thái hợp lệ: `NOT_STARTED` → `IN_PROGRESS` → `COMPLETED` / `CANCELLED`. | `SessionStatus.cs`, `ExamSessionService.ValidateStatusTransition` |
-| **BR-17** | **Async Worker** | Khâu gỡ băng âm thanh (STT) và chấm điểm Rubric được thực hiện bởi Background Worker tách rời, hỗ trợ cơ chế retry tự động 3 lần nếu lỗi API AI. | `AiWorkerService.py`, Hangfire / Message Queue |
+| **BR-17** | **Async Worker** | Khâu gỡ băng âm thanh (STT) và chấm điểm Rubric được thực hiện bởi Background Worker tách rời, hỗ trợ cơ chế retry tự động tối đa **3 lần thử tổng cộng** nếu lỗi API AI. Bộ đếm attempt lưu bền vững trong `answers.attempt_count`; lỗi không retryable (audio hỏng, transcript rỗng, lỗi nghiệp vụ) đi thẳng dead-letter. Job phải được enqueue qua **concrete class** `AnswerProcessingJob` (không qua interface) để `[AutomaticRetry]` được Hangfire áp dụng. | `QueueLimits.cs`, `QueueJobContract.cs`, `AnswerProcessingJob.cs`, `AnswerRepository.IncrementAttemptAsync`, `HangfireQueueService.EnqueueAnswerProcessing`, Hangfire, [queue-and-stt-contract.md](../api/queue-and-stt-contract.md) |
 
 ---
 

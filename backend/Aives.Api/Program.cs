@@ -221,7 +221,11 @@ builder.Services.AddHangfireServer(options =>
 
 // Queue services
 builder.Services.AddScoped<IAnswerOrchestrator, AnswerOrchestrator>();
-builder.Services.AddScoped<IAnswerProcessingJob, AnswerProcessingJob>();
+// Đăng ký CẢ concrete class: Hangfire resolve job theo type khai báo trong expression.
+// HangfireQueueService enqueue qua AnswerProcessingJob (không qua interface) để
+// [AutomaticRetry] trên class được áp dụng — xem comment trong HangfireQueueService.
+builder.Services.AddScoped<AnswerProcessingJob>();
+builder.Services.AddScoped<IAnswerProcessingJob>(sp => sp.GetRequiredService<AnswerProcessingJob>());
 builder.Services.AddSingleton<IQueueService, HangfireQueueService>();
 builder.Services.AddScoped<IRetryAnswerService, RetryAnswerService>();
 builder.Services.AddScoped<IAudioPlaybackService, AudioPlaybackService>();

@@ -6,19 +6,35 @@ using Microsoft.Extensions.Logging;
 namespace Aives.Infrastructure.Queue;
 
 /// <summary>
-/// Hangfire job thực thi <see cref="IAnswerOrchestrator"/> cho 1 Answer.
-/// Class non-static + method public để Hangfire resolve qua DI scope.
+/// Hangfire job that runs <see cref="IAnswerOrchestrator"/> for a single answer.
+/// Non-static class with a public method so Hangfire can resolve it from the DI scope.
 /// </summary>
 /// <remarks>
-/// Retry policy:
+/// Retry policy (BR-17 — "retry at most 3 total attempts"):
 /// <list type="bullet">
-///   <item>Mặc định Hangfire retry 10 lần với exponential backoff. Ta override thành 3.</item>
-///   <item>Retryable lỗi (timeout, internal): Hangfire sẽ re-throw → retry.</item>
-///   <item>Non-retryable lỗi (audio corrupted, empty): throw <see cref="NonRetryableException"/>
-///         để <c>AutomaticRetryAttribute</c> skip retry và đi vào dead-letter ngay.</item>
+///   <item>The attempt number is counted in the database (<c>answers.attempt_count</c>), not in the
+///         Hangfire metadata, because Hangfire re-serializes the metadata on every retry so
+///         <c>metadata.Attempt</c> never increases on its own.</item>
+///   <item>Retryable failures (STT timeout/internal, transient evaluation errors) rethrow so that
+///         Hangfire retries them with the configured backoff.</item>
+///   <item>Non-retryable failures (corrupted audio, empty transcript, business evaluation errors)
+///         throw <see cref="NonRetryableJobException"/>. The <c>AutomaticRetry</c> filter is limited
+///         to <see cref="RetryableJobException"/>, so those failures are never retried and the job
+///         goes straight to the dead-letter state.</item>
+///   <item>When the attempt budget is exhausted the job is aborted and the answer is marked as
+///         failed, so no further automatic or manual retry is possible.</item>
 /// </list>
 /// </remarks>
-[AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 120, 300 }, OnAttemptsExceeded = AttemptsExceededAction.Delete)]
+[AutomaticRetry(
+    Attempts = QueueLimits.MaxTotalAttempts - 1,
+    DelaysInSeconds = new[]
+    {
+        QueueLimits.RetryDelay1Seconds,
+        QueueLimits.RetryDelay2Seconds,
+        QueueLimits.RetryDelay3Seconds
+    },
+    OnAttemptsExceeded = AttemptsExceededAction.Delete,
+    OnlyOn = new[] { typeof(AnswerProcessingJob.RetryableJobException) })]
 public class AnswerProcessingJob : IAnswerProcessingJob
 {
     private readonly IAnswerOrchestrator _orchestrator;
@@ -37,65 +53,149 @@ public class AnswerProcessingJob : IAnswerProcessingJob
 
     public async Task ExecuteAsync(QueueJobMetadata metadata, CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
-            "AnswerProcessingJob starting: AnswerId={AnswerId}, Attempt={Attempt}, JobId={JobId}",
-            metadata.AnswerId, metadata.Attempt, metadata.JobId);
+        // Task 1.4 — validate metadata theo Queue Job Contract.
+        // Job được enqueue từ version cũ có thể thiếu field → abort ngay thay vì
+        // chạy pipeline với dữ liệu rác.
+        if (!QueueJobContract.TryValidate(metadata, out var contractError))
+        {
+            metadata.Status = QueueJobStatus.DeadLetter;
+            metadata.LastError = contractError;
+            _logger.LogError(
+                "AnswerProcessingJob aborted: invalid job metadata for AnswerId={AnswerId}. Error={Error}",
+                metadata?.AnswerId, contractError);
+            throw new NonRetryableJobException($"Invalid job metadata: {contractError}");
+        }
 
-        var result = await _orchestrator.ProcessAnswerAsync(metadata.AnswerId, metadata.Attempt, cancellationToken);
+        // 1. Increase the attempt counter in the database — the single source of truth (BR-17).
+        var attempt = await _answerRepository.IncrementAttemptAsync(
+            metadata.AnswerId, metadata.JobId, cancellationToken);
+
+        if (attempt == 0)
+        {
+            // The answer was deleted between enqueue and execution.
+            metadata.Status = QueueJobStatus.DeadLetter;
+            metadata.LastError = "Answer not found.";
+            _logger.LogError(
+                "AnswerProcessingJob aborted: AnswerId={AnswerId} not found.", metadata.AnswerId);
+            throw new NonRetryableJobException($"Answer {metadata.AnswerId} not found.");
+        }
+
+        // Keep the metadata in sync with the database for logs and the dashboard.
+        metadata.Attempt = attempt;
+
+        _logger.LogInformation(
+            "AnswerProcessingJob starting: AnswerId={AnswerId}, Attempt={Attempt}/{MaxAttempts}, JobId={JobId}",
+            metadata.AnswerId, attempt, QueueLimits.MaxTotalAttempts, metadata.JobId);
+
+        // 2. The attempt budget is exhausted — abort without running the pipeline again.
+        if (attempt > QueueLimits.MaxTotalAttempts)
+        {
+            metadata.Status = QueueJobStatus.DeadLetter;
+            metadata.LastError = $"Maximum attempts ({QueueLimits.MaxTotalAttempts}) exceeded.";
+            await _answerRepository.MarkFailedAsync(
+                metadata.AnswerId, metadata.LastError, cancellationToken);
+            _logger.LogError(
+                "AnswerProcessingJob aborted: AnswerId={AnswerId} exceeded max attempts ({MaxAttempts}).",
+                metadata.AnswerId, QueueLimits.MaxTotalAttempts);
+            throw new NonRetryableJobException(
+                $"Answer {metadata.AnswerId} exceeded maximum attempts ({QueueLimits.MaxTotalAttempts}).");
+        }
+
+        var result = await _orchestrator.ProcessAnswerAsync(metadata.AnswerId, attempt, cancellationToken);
 
         if (result.Success)
         {
             metadata.Status = QueueJobStatus.Completed;
             _logger.LogInformation(
                 "AnswerProcessingJob completed: AnswerId={AnswerId}, Attempt={Attempt}",
-                metadata.AnswerId, metadata.Attempt);
+                metadata.AnswerId, attempt);
             return;
         }
 
-        // Map kết quả → quyết định retry.
+        // 3. Non-retryable STT failures (corrupted audio, empty transcript) — abort immediately.
         if (result.SttError is { Retryable: false })
         {
-            // Lỗi không retryable (audio corrupted, empty transcript) → dead-letter ngay.
             metadata.Status = QueueJobStatus.DeadLetter;
             metadata.LastError = result.SttError.Message;
             _logger.LogError(
                 "AnswerProcessingJob dead-lettered (non-retryable): AnswerId={AnswerId}, Code={Code}, Message={Message}",
                 metadata.AnswerId, result.SttError.Code, result.SttError.Message);
-            // Throw non-retryable exception để Hangfire không retry.
             throw new NonRetryableJobException(
                 $"STT error [{result.SttError.Code}]: {result.SttError.Message}");
         }
 
-        // Evaluation failure (AI2 trả Success=false) → không retry vì retry sẽ cho cùng kết quả.
-        // Transcript đã được persist OK, chỉ là AI2 chấm không ra điểm. → dead-letter.
+        // 4. Evaluation failures.
+        //    - Transient errors (timeout / connection_error / internal_error) are retryable.
+        //    - Business errors (invalid response, score out of range…) always produce the same
+        //      outcome, so they are dead-lettered immediately.
         if (!string.IsNullOrEmpty(result.EvaluationErrorCode))
         {
-            metadata.Status = QueueJobStatus.DeadLetter;
+            if (!QueueLimits.IsRetryableEvaluationError(result.EvaluationErrorCode))
+            {
+                metadata.Status = QueueJobStatus.DeadLetter;
+                metadata.LastError = result.Message;
+                _logger.LogError(
+                    "AnswerProcessingJob dead-lettered (eval failure): AnswerId={AnswerId}, Code={Code}, Message={Message}",
+                    metadata.AnswerId, result.EvaluationErrorCode, result.Message);
+                throw new NonRetryableJobException(
+                    $"Evaluation error [{result.EvaluationErrorCode}]: {result.Message}");
+            }
+
+            metadata.Status = QueueJobStatus.Failed;
             metadata.LastError = result.Message;
-            _logger.LogError(
-                "AnswerProcessingJob dead-lettered (eval failure): AnswerId={AnswerId}, Code={Code}, Message={Message}",
-                metadata.AnswerId, result.EvaluationErrorCode, result.Message);
-            throw new NonRetryableJobException(
-                $"Evaluation error [{result.EvaluationErrorCode}]: {result.Message}");
+            await _answerRepository.MarkFailedAsync(
+                metadata.AnswerId, metadata.LastError ?? "Evaluation failed.", cancellationToken);
+
+            if (QueueLimits.IsExhausted(attempt))
+            {
+                metadata.Status = QueueJobStatus.DeadLetter;
+                _logger.LogError(
+                    "AnswerProcessingJob dead-lettered (no attempts left): AnswerId={AnswerId}, Attempt={Attempt}",
+                    metadata.AnswerId, attempt);
+                throw new NonRetryableJobException(
+                    $"Evaluation error [{result.EvaluationErrorCode}] and no attempts left: {result.Message}");
+            }
+
+            _logger.LogWarning(
+                "AnswerProcessingJob failed (will retry): AnswerId={AnswerId}, Attempt={Attempt}, Message={Message}",
+                metadata.AnswerId, attempt, metadata.LastError);
+            throw new RetryableJobException(
+                $"Retryable error for Answer {metadata.AnswerId}: {metadata.LastError}");
         }
 
-        // Retryable error → throw để Hangfire retry (AutomaticRetry sẽ tăng Attempt).
+        // 5. Retryable STT failures (timeout, internal error).
         metadata.Status = QueueJobStatus.Failed;
         metadata.LastError = result.SttError?.Message ?? result.Message;
+        await _answerRepository.MarkFailedAsync(
+            metadata.AnswerId, metadata.LastError ?? "STT failed.", cancellationToken);
+
+        if (QueueLimits.IsExhausted(attempt))
+        {
+            metadata.Status = QueueJobStatus.DeadLetter;
+            _logger.LogError(
+                "AnswerProcessingJob dead-lettered (no attempts left): AnswerId={AnswerId}, Attempt={Attempt}",
+                metadata.AnswerId, attempt);
+            throw new NonRetryableJobException(
+                $"Retryable error but no attempts left for Answer {metadata.AnswerId}: {metadata.LastError}");
+        }
+
         _logger.LogWarning(
             "AnswerProcessingJob failed (will retry): AnswerId={AnswerId}, Attempt={Attempt}, Message={Message}",
-            metadata.AnswerId, metadata.Attempt, metadata.LastError);
+            metadata.AnswerId, attempt, metadata.LastError);
         throw new RetryableJobException(
             $"Retryable error for Answer {metadata.AnswerId}: {metadata.LastError}");
     }
 
-    /// <summary>Exception đánh dấu lỗi không nên retry — Hangfire filter sẽ đi thẳng dead-letter.</summary>
+    /// <summary>
+    /// Marks a failure that must not be retried. The <c>AutomaticRetry</c> filter is restricted to
+    /// <see cref="RetryableJobException"/>, so any other exception type is never retried.
+    /// </summary>
     public class NonRetryableJobException : Exception
     {
         public NonRetryableJobException(string message) : base(message) { }
     }
 
-    /// <summary>Exception đánh dấu lỗi có thể retry.</summary>
+    /// <summary>Marks a failure that can be retried by Hangfire.</summary>
     public class RetryableJobException : Exception
     {
         public RetryableJobException(string message) : base(message) { }
