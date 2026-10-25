@@ -1,19 +1,39 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, ChevronLeft, ChevronRight, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import {
+  CalendarClock,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheckBig,
+  CircleDot,
+  CircleSlash,
+  Clock,
+  Eye,
+  LayoutGrid,
+  type LucideIcon,
+} from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
+import { ActionMenu, FilterTabs, SortHeader, SortMenu, Toolbar, ToolbarSearch } from '@/components/common/FlatPage'
 import { SESSION_STATUS_LABEL, SESSION_STATUS_TONE, type SessionStatus } from '@/lib/domain/sessionStatus'
-import { parseApiDate } from '@/lib/format/date'
+import { formatLongDate, formatTime, parseApiDate } from '@/lib/format/date'
 import { cn } from '@/lib/utils'
 import type { ExamSessionSummary } from '../types'
 
 const PAGE_SIZE = 20
-const TABS: (SessionStatus | null)[] = [null, 'IN_PROGRESS', 'NOT_STARTED', 'COMPLETED', 'CANCELLED']
+
+type Tab = 'ALL' | SessionStatus
+
+const TABS: { value: Tab; label: string; icon: LucideIcon }[] = [
+  { value: 'ALL', label: 'All sessions', icon: LayoutGrid },
+  { value: 'IN_PROGRESS', label: SESSION_STATUS_LABEL.IN_PROGRESS, icon: CircleDot },
+  { value: 'NOT_STARTED', label: SESSION_STATUS_LABEL.NOT_STARTED, icon: Clock },
+  { value: 'COMPLETED', label: SESSION_STATUS_LABEL.COMPLETED, icon: CircleCheckBig },
+  { value: 'CANCELLED', label: SESSION_STATUS_LABEL.CANCELLED, icon: CircleSlash },
+]
 
 type SortKey = 'name' | 'time' | 'students'
-type Sort = { key: SortKey; desc: boolean }
+type Sort = { key: SortKey; dir: 'asc' | 'desc' }
 
-const shortDay = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-const shortTime = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' })
+const SORT_LABEL: Record<SortKey, string> = { name: 'Session name', time: 'Start time', students: 'Students' }
 
 interface SessionTableProps {
   /** Sessions already narrowed by the page's date filter; the tabs and search narrow them further. */
@@ -21,17 +41,20 @@ interface SessionTableProps {
   status: SessionStatus | null
   onStatusChange: (status: SessionStatus | null) => void
   onOpen: (session: ExamSessionSummary) => void
+  /** Extra toolbar controls, placed before the sort button (the page's date range). */
+  controls?: ReactNode
 }
 
-/** Status tabs with counts, a search box, sortable columns and 20 sessions per page. */
-export function SessionTable({ sessions, status, onStatusChange, onOpen }: SessionTableProps) {
+/** Status tabs with counts, search, sortable columns and 20 sessions per page. */
+export function SessionTable({ sessions, status, onStatusChange, onOpen, controls }: SessionTableProps) {
   const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<Sort>({ key: 'time', desc: true })
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [sort, setSort] = useState<Sort>({ key: 'time', dir: 'desc' })
   const [page, setPage] = useState(0)
 
   const counts = useMemo(() => {
-    const byStatus: Record<string, number> = { all: sessions.length }
-    for (const s of sessions) byStatus[s.status] = (byStatus[s.status] ?? 0) + 1
+    const byStatus: Record<Tab, number> = { ALL: sessions.length, NOT_STARTED: 0, IN_PROGRESS: 0, COMPLETED: 0, CANCELLED: 0 }
+    for (const s of sessions) byStatus[s.status]++
     return byStatus
   }, [sessions])
 
@@ -47,7 +70,7 @@ export function SessionTable({ sessions, status, onStatusChange, onOpen }: Sessi
     return matched.sort((a, b) => {
       const [x, y] = [value(a), value(b)]
       const order = x < y ? -1 : x > y ? 1 : 0
-      return sort.desc ? -order : order
+      return sort.dir === 'desc' ? -order : order
     })
   }, [sessions, status, query, sort])
 
@@ -55,73 +78,77 @@ export function SessionTable({ sessions, status, onStatusChange, onOpen }: Sessi
   const current = Math.min(page, pageCount - 1)
   const visible = rows.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE)
 
-  function toggleSort(key: SortKey) {
-    // Names start A→Z; time and students start with the newest / largest first.
-    setSort((s) => (s.key === key ? { key, desc: !s.desc } : { key, desc: key !== 'name' }))
+  function changeSort(next: Sort) {
+    setSort(next)
     setPage(0)
   }
 
+  function sortBy(key: SortKey) {
+    // Names start A→Z; time and students start with the newest / largest first.
+    changeSort(sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'name' ? 'asc' : 'desc' })
+  }
+
+  const header = (key: SortKey, label: string, count?: number) => (
+    <SortHeader label={label} count={count} active={sort.key === key} dir={sort.dir} onSort={() => sortBy(key)} />
+  )
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div role="tablist" aria-label="Session status" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
-          {TABS.map((tab) => {
-            const selected = tab === status
-            return (
-              <button
-                key={tab ?? 'all'}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => {
-                  onStatusChange(tab)
-                  setPage(0)
-                }}
-                className={cn(
-                  'flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm transition-colors',
-                  selected ? 'border-foreground bg-foreground text-background' : 'hover:bg-muted',
-                )}
-              >
-                {tab ? SESSION_STATUS_LABEL[tab] : 'All'}
-                <span className={cn('rounded-full px-1.5 text-xs tabular-nums', selected ? 'bg-background/20' : 'bg-muted')}>
-                  {counts[tab ?? 'all'] ?? 0}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-        <label className="relative block lg:w-72">
-          <span className="sr-only">Search sessions</span>
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <input
-            type="search"
+    <>
+      <Toolbar>
+        <FilterTabs
+          label="Session status"
+          tabs={TABS.map((t) => ({ ...t, count: counts[t.value] }))}
+          value={status ?? 'ALL'}
+          onChange={(tab) => {
+            onStatusChange(tab === 'ALL' ? null : tab)
+            setPage(0)
+          }}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          {controls}
+          <SortMenu labels={SORT_LABEL} sort={sort} onSort={changeSort} />
+          <ToolbarSearch
+            open={searchOpen}
+            onOpenChange={setSearchOpen}
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
+            onChange={(value) => {
+              setQuery(value)
               setPage(0)
             }}
+            label="Search sessions"
             placeholder="Session, exam, code or room"
-            className="block w-full rounded-xl border bg-background py-2 pr-3 pl-9 text-sm"
           />
-        </label>
-      </div>
+        </div>
+      </Toolbar>
 
       {visible.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-6 py-12 text-center">
-          <CalendarClock className="size-8 text-muted-foreground" aria-hidden="true" />
+        <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+          <CalendarClock className="size-7 text-muted-foreground" aria-hidden="true" />
           <p className="text-muted-foreground">{sessions.length === 0 ? 'No exam sessions yet.' : 'No sessions match these filters.'}</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-              <tr>
-                <SortHeader label="Session" sortKey="name" sort={sort} onSort={toggleSort} />
-                <th scope="col" className="hidden px-3 py-2.5 sm:px-4 font-medium md:table-cell">Exam</th>
-                <SortHeader label="Time" sortKey="time" sort={sort} onSort={toggleSort} />
-                <th scope="col" className="hidden px-3 py-2.5 sm:px-4 font-medium sm:table-cell">Room</th>
-                <SortHeader label="Students" sortKey="students" sort={sort} onSort={toggleSort} className="hidden text-right sm:table-cell" />
-                <th scope="col" className="w-8"><span className="sr-only">Open</span></th>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1080px] table-fixed text-left text-[15px]">
+            <colgroup>
+              <col />
+              <col />
+              <col className="w-44" />
+              <col className="w-44" />
+              <col className="w-32" />
+              <col className="w-20" />
+              <col className="w-24" />
+              <col className="w-32" />
+            </colgroup>
+            <thead>
+              <tr className="border-b [&>th:first-child]:pl-4 sm:[&>th:first-child]:pl-6">
+                {header('name', 'Session', rows.length)}
+                <th scope="col" className="px-3 py-3 font-medium">Exam</th>
+                <th scope="col" className="px-3 py-3 font-medium">Code</th>
+                {header('time', 'Date')}
+                <th scope="col" className="px-3 py-3 font-medium">Time</th>
+                <th scope="col" className="px-3 py-3 font-medium">Room</th>
+                {header('students', 'Students')}
+                <th scope="col" className="px-3 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -129,42 +156,41 @@ export function SessionTable({ sessions, status, onStatusChange, onOpen }: Sessi
                 const start = parseApiDate(s.startTime)
                 const end = parseApiDate(s.endTime)
                 return (
-                  <tr key={s.sessionId} onClick={() => onOpen(s)} className="cursor-pointer transition-colors hover:bg-brand-soft/30">
-                    <td className="px-3 py-3 sm:px-4">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onOpen(s)
-                        }}
-                        className="text-left font-medium hover:underline"
-                      >
-                        {s.sessionName}
-                      </button>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', SESSION_STATUS_TONE[s.status])}>
-                          {SESSION_STATUS_LABEL[s.status] ?? s.status}
-                        </span>
-                        <span className="text-xs text-muted-foreground md:hidden">{s.examTitle}</span>
-                        <span className="text-xs text-muted-foreground sm:hidden">
-                          · {s.enrolledStudents} student{s.enrolledStudents === 1 ? '' : 's'}
+                  <tr key={s.sessionId} onClick={() => onOpen(s)} className="cursor-pointer transition-colors hover:bg-muted/50">
+                    <td className="max-w-0 py-3.5 pr-3 pl-4 sm:pl-6">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onOpen(s)
+                          }}
+                          title={s.sessionName}
+                          className="truncate text-left hover:underline"
+                        >
+                          {s.sessionName}
+                        </button>
+                        {/* The menu sits inside the clickable row, so keep its clicks from opening the row. */}
+                        <span onClick={(e) => e.stopPropagation()} className="contents">
+                          <ActionMenu
+                            label={`Actions for ${s.sessionName}`}
+                            actions={[{ label: 'View results', icon: Eye, onSelect: () => onOpen(s) }]}
+                          />
                         </span>
                       </div>
                     </td>
-                    <td className="hidden max-w-56 px-3 py-3 sm:px-4 md:table-cell">
-                      <span className="block truncate">{s.examTitle}</span>
-                      <code className="font-mono text-xs text-muted-foreground">{s.examCode}</code>
+                    <td title={s.examTitle} className="max-w-0 truncate px-3 py-3.5">{s.examTitle}</td>
+                    <td title={s.examCode} className="max-w-0 truncate px-3 py-3.5 font-mono text-sm text-brand">{s.examCode}</td>
+                    <td className="max-w-0 truncate px-3 py-3.5">{formatLongDate(start)}</td>
+                    <td className="px-3 py-3.5 whitespace-nowrap text-muted-foreground tabular-nums">
+                      {formatTime(start)} – {formatTime(end)}
                     </td>
-                    <td className="px-3 py-3 sm:px-4 whitespace-nowrap">
-                      <span className="block">{shortDay.format(start)}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {shortTime.format(start)} – {shortTime.format(end)}
+                    <td className="max-w-0 truncate px-3 py-3.5 text-muted-foreground">{s.room ?? '—'}</td>
+                    <td className="px-3 py-3.5 tabular-nums">{s.enrolledStudents}</td>
+                    <td className="px-3 py-3.5">
+                      <span className={cn('inline-flex rounded-md px-2 py-0.5 text-[13px] font-medium whitespace-nowrap', SESSION_STATUS_TONE[s.status])}>
+                        {SESSION_STATUS_LABEL[s.status] ?? s.status}
                       </span>
-                    </td>
-                    <td className="hidden px-3 py-3 sm:px-4 text-muted-foreground sm:table-cell">{s.room ?? '—'}</td>
-                    <td className="hidden px-3 py-3 text-right tabular-nums sm:table-cell sm:px-4">{s.enrolledStudents}</td>
-                    <td className="pr-3 text-muted-foreground">
-                      <ChevronRight className="size-4" aria-hidden="true" />
                     </td>
                   </tr>
                 )
@@ -175,50 +201,25 @@ export function SessionTable({ sessions, status, onStatusChange, onOpen }: Sessi
       )}
 
       {rows.length > PAGE_SIZE && (
-        <nav aria-label="Pages" className="flex items-center justify-between gap-3 text-sm">
+        <nav aria-label="Pages" className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-sm sm:px-6">
           <span className="text-muted-foreground">
             {current * PAGE_SIZE + 1}–{Math.min(rows.length, (current + 1) * PAGE_SIZE)} of {rows.length}
           </span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={current === 0} onClick={() => setPage(current - 1)}>
+            <Button variant="outline" className="h-8 rounded-lg px-2.5 text-sm font-medium" disabled={current === 0} onClick={() => setPage(current - 1)}>
               <ChevronLeft aria-hidden="true" />
               Previous
             </Button>
             <span className="tabular-nums">
               {current + 1} / {pageCount}
             </span>
-            <Button variant="outline" size="sm" disabled={current >= pageCount - 1} onClick={() => setPage(current + 1)}>
+            <Button variant="outline" className="h-8 rounded-lg px-2.5 text-sm font-medium" disabled={current >= pageCount - 1} onClick={() => setPage(current + 1)}>
               Next
               <ChevronRight aria-hidden="true" />
             </Button>
           </div>
         </nav>
       )}
-    </div>
-  )
-}
-
-function SortHeader({
-  label,
-  sortKey,
-  sort,
-  onSort,
-  className,
-}: {
-  label: string
-  sortKey: SortKey
-  sort: Sort
-  onSort: (key: SortKey) => void
-  className?: string
-}) {
-  const active = sort.key === sortKey
-  const Icon = !active ? ArrowUpDown : sort.desc ? ArrowDown : ArrowUp
-  return (
-    <th scope="col" aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : 'none'} className={cn('px-3 py-2.5 sm:px-4 font-medium', className)}>
-      <button type="button" onClick={() => onSort(sortKey)} className="inline-flex items-center gap-1 hover:text-foreground">
-        {label}
-        <Icon className={cn('size-3.5', !active && 'opacity-50')} aria-hidden="true" />
-      </button>
-    </th>
+    </>
   )
 }
