@@ -1,4 +1,4 @@
-import { CircleAlert, Play, RotateCw, Square, Users, XCircle } from 'lucide-react'
+import { CircleAlert, Pencil, Play, RotateCw, Square, Trash2, UserMinus, Users, XCircle } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { CopyButton } from '@/components/common/CopyButton'
 import { Button } from '@/components/ui/button'
@@ -15,19 +15,25 @@ import { useApi } from '@/lib/http/useApi'
 import { cn } from '@/lib/utils'
 import { sessionsApi } from '../api/sessionsApi'
 import type { ExamSession } from '../types'
+import { AddStudentsForm } from './AddStudentsForm'
+import { SessionForm } from './SessionFormDialog'
 
 interface SessionDetailDialogProps {
   sessionId: number | null
   onClose: () => void
-  /** Called after a status change so the list can reflect it. */
+  /** Called after an edit, status change or enrollment change so the list can reflect it. */
   onChanged: (session: ExamSession) => void
+  /** Called after the session was deleted; the dialog should close. */
+  onDeleted: (sessionId: number) => void
 }
 
-export function SessionDetailDialog({ sessionId, onClose, onChanged }: SessionDetailDialogProps) {
+export function SessionDetailDialog({ sessionId, onClose, onChanged, onDeleted }: SessionDetailDialogProps) {
   return (
     <Dialog open={sessionId !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
-        {sessionId !== null && <SessionDetail key={sessionId} sessionId={sessionId} onChanged={onChanged} />}
+        {sessionId !== null && (
+          <SessionDetail key={sessionId} sessionId={sessionId} onChanged={onChanged} onDeleted={onDeleted} />
+        )}
       </DialogContent>
     </Dialog>
   )
@@ -50,12 +56,21 @@ const ACTION: Record<SessionStatus, { label: string; confirm?: string; icon: Rea
   NOT_STARTED: { label: '', icon: null, variant: 'secondary' },
 }
 
-function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged: SessionDetailDialogProps['onChanged'] }) {
+function SessionDetail({
+  sessionId,
+  onChanged,
+  onDeleted,
+}: { sessionId: number } & Pick<SessionDetailDialogProps, 'onChanged' | 'onDeleted'>) {
   const detail = useApi(() => sessionsApi.get(sessionId), sessionId, 'Could not load the session.')
   const monitor = useApi(() => sessionsApi.monitor(sessionId), sessionId, 'Could not load the student list.')
-  const [confirming, setConfirming] = useState<SessionStatus | null>(null)
+  const [confirming, setConfirming] = useState<SessionStatus | 'DELETE' | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [removingId, setRemovingId] = useState<number | null>(null)
+  // Bumped on each removal to clear the add form's last result, which may mention the removed student.
+  const [removals, setRemovals] = useState(0)
+  const [studentError, setStudentError] = useState<string | null>(null)
 
   if (detail.state.status === 'loading') {
     return (
@@ -87,6 +102,76 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
   const start = parseApiDate(session.startTime)
   const end = parseApiDate(session.endTime)
 
+  function applyUpdate(updated: ExamSession) {
+    detail.update(() => updated)
+    onChanged(updated)
+  }
+
+  if (editing) {
+    return (
+      <SessionForm
+        session={session}
+        onCancel={() => setEditing(false)}
+        onSaved={(updated) => {
+          applyUpdate(updated)
+          setEditing(false)
+        }}
+      />
+    )
+  }
+
+  // Backend rules: details and students can change only before the session starts (it would still allow
+  // editing a finished session or removing a student who already took the exam, so the UI stops that).
+  const notStarted = session.status === 'NOT_STARTED'
+  const canAddStudents = session.status === 'NOT_STARTED' || session.status === 'IN_PROGRESS'
+  const deletableStatus = session.status === 'NOT_STARTED' || session.status === 'CANCELLED'
+
+  async function deleteSession() {
+    if (confirming !== 'DELETE') {
+      setConfirming('DELETE')
+      return
+    }
+    setBusy(true)
+    setActionError(null)
+    try {
+      await sessionsApi.remove(sessionId)
+      onDeleted(sessionId)
+    } catch (err) {
+      setActionError(toApiError(err, 'Could not delete the session.').message)
+      setBusy(false)
+    }
+  }
+
+  async function removeStudent(studentId: number) {
+    setBusy(true)
+    setStudentError(null)
+    try {
+      await sessionsApi.removeStudent(sessionId, studentId)
+      monitor.update((m) => ({
+        ...m,
+        currentEnrollment: Math.max(0, m.currentEnrollment - 1),
+        students: m.students.filter((s) => s.studentId !== studentId),
+      }))
+      applyUpdate({ ...session, enrolledStudents: Math.max(0, session.enrolledStudents - 1) })
+      setRemovingId(null)
+      setRemovals((n) => n + 1)
+    } catch (err) {
+      setStudentError(toApiError(err, 'Could not remove the student.').message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // The bulk response only has IDs, so reload both to show the new names and count.
+  async function handleStudentsAdded() {
+    monitor.reload()
+    try {
+      applyUpdate(await sessionsApi.get(sessionId))
+    } catch {
+      detail.reload()
+    }
+  }
+
   async function changeStatus(target: SessionStatus) {
     if (ACTION[target].confirm && confirming !== target) {
       setConfirming(target)
@@ -95,9 +180,7 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
     setBusy(true)
     setActionError(null)
     try {
-      const updated = await sessionsApi.updateStatus(sessionId, target)
-      detail.update(() => updated)
-      onChanged(updated)
+      applyUpdate(await sessionsApi.updateStatus(sessionId, target))
       setConfirming(null)
     } catch (err) {
       setActionError(toApiError(err, 'Could not change the session status.').message)
@@ -141,11 +224,13 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
         ))}
       </dl>
 
-      {transitions.length > 0 && (
-        <section aria-label="Change status" className="flex flex-col gap-3">
+      {(transitions.length > 0 || notStarted || deletableStatus) && (
+        <section aria-label="Manage session" className="flex flex-col gap-3">
           {confirming && (
             <p role="alert" className="rounded-[14px] bg-warning-soft px-4 py-3 text-sm text-warning">
-              {ACTION[confirming].confirm}
+              {confirming === 'DELETE'
+                ? 'Delete this session permanently? Its join code will stop working. This cannot be undone.'
+                : ACTION[confirming].confirm}
             </p>
           )}
           {actionError && (
@@ -155,9 +240,16 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
             </p>
           )}
           <div className="flex flex-wrap gap-2">
+            {notStarted && !confirming && (
+              <Button variant="secondary" disabled={busy} onClick={() => setEditing(true)}>
+                <Pencil aria-hidden="true" />
+                Edit
+              </Button>
+            )}
             {transitions.map((target) => {
               const action = ACTION[target]
               const isConfirming = confirming === target
+              if (confirming && !isConfirming) return null
               return (
                 <Button
                   key={target}
@@ -170,38 +262,91 @@ function SessionDetail({ sessionId, onChanged }: { sessionId: number; onChanged:
                 </Button>
               )
             })}
+            {deletableStatus && (!confirming || confirming === 'DELETE') && (
+              <Button
+                variant={confirming === 'DELETE' ? 'destructive' : 'ghost'}
+                className={cn(confirming !== 'DELETE' && 'text-destructive hover:bg-destructive/10 hover:text-destructive')}
+                // The backend refuses to delete a session that still has students (explained below the buttons).
+                disabled={busy || session.enrolledStudents > 0}
+                onClick={() => void deleteSession()}
+              >
+                <Trash2 aria-hidden="true" />
+                {confirming === 'DELETE' ? 'Confirm: delete session' : 'Delete'}
+              </Button>
+            )}
             {confirming && (
               <Button variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>
                 No
               </Button>
             )}
           </div>
+          {deletableStatus && session.enrolledStudents > 0 && !confirming && (
+            <p className="text-[13px] text-muted-foreground">
+              A session with students cannot be deleted. Remove the students first, or cancel the session.
+            </p>
+          )}
         </section>
       )}
 
-      <section aria-labelledby="session-students">
+      <section aria-labelledby="session-students" className="flex flex-col gap-3">
         <h3 id="session-students" className="flex items-center gap-2 font-heading font-medium">
           <Users className="size-4" aria-hidden="true" />
-          Students who joined
+          Students
         </h3>
-        {monitor.state.status === 'loading' && <p className="mt-2 text-sm text-muted-foreground">Loading…</p>}
-        {monitor.state.status === 'error' && <p className="mt-2 text-sm text-destructive">{monitor.state.message}</p>}
+        {canAddStudents && (
+          <AddStudentsForm key={removals} sessionId={sessionId} onAdded={() => void handleStudentsAdded()} />
+        )}
+        {studentError && (
+          <p role="alert" className="flex items-center gap-2 rounded-[14px] bg-[#fef1f0] px-4 py-3 text-sm text-destructive">
+            <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+            {studentError}
+          </p>
+        )}
+        {monitor.state.status === 'loading' && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {monitor.state.status === 'error' && <p className="text-sm text-destructive">{monitor.state.message}</p>}
         {monitor.state.status === 'ready' &&
           (monitor.state.data.students.length === 0 ? (
-            <p className="mt-2 rounded-[14px] border border-dashed p-4 text-sm text-muted-foreground">
-              No students have entered the join code yet.
+            <p className="rounded-[14px] border border-dashed p-4 text-sm text-muted-foreground">
+              No students yet. Students join with the code above{canAddStudents ? ', or add them by ID' : ''}.
             </p>
           ) : (
-            <ul className="mt-3 divide-y rounded-[14px] border">
+            <ul className="divide-y rounded-[14px] border">
               {monitor.state.data.students.map((s) => (
                 <li key={s.sessionEnrollmentId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{s.studentName}</p>
+                    <p className="truncate font-medium">
+                      {s.studentName} <span className="font-normal text-muted-foreground">#{s.studentId}</span>
+                    </p>
                     <p className="truncate text-muted-foreground">{s.studentEmail}</p>
                   </div>
-                  <p className="text-muted-foreground">
-                    {s.enrolledAt ? `Joined ${formatDateTime(parseApiDate(s.enrolledAt))}` : ''}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-muted-foreground">
+                      {s.enrolledAt ? `Joined ${formatDateTime(parseApiDate(s.enrolledAt))}` : ''}
+                    </p>
+                    {notStarted &&
+                      (removingId === s.studentId ? (
+                        <>
+                          <Button size="sm" variant="destructive" disabled={busy} onClick={() => void removeStudent(s.studentId)}>
+                            Remove
+                          </Button>
+                          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRemovingId(null)}>
+                            No
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={busy}
+                          aria-label={`Remove ${s.studentName} from this session`}
+                          title="Remove from this session"
+                          onClick={() => setRemovingId(s.studentId)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <UserMinus className="size-4" aria-hidden="true" />
+                        </Button>
+                      ))}
+                  </div>
                 </li>
               ))}
             </ul>

@@ -1,6 +1,13 @@
 import { SESSION_STATUS_CODE, type SessionStatus } from '@/lib/domain/sessionStatus'
 import { http } from '@/lib/http/client'
-import type { CreateSessionInput, ExamSession, ExamSessionSummary, SessionMonitor } from '../types'
+import type {
+  BulkEnrollResult,
+  CreateSessionInput,
+  ExamSession,
+  ExamSessionSummary,
+  SessionMonitor,
+  UpdateSessionInput,
+} from '../types'
 
 export const sessionsApi = {
   async listMine(teacherId: number): Promise<ExamSessionSummary[]> {
@@ -29,5 +36,25 @@ export const sessionsApi = {
   async monitor(sessionId: number): Promise<SessionMonitor> {
     const { data } = await http.get<SessionMonitor>(`/api/exam-sessions/${sessionId}/monitor`)
     return data
+  },
+
+  // Editing, deleting and manual enrollment live under /api/staff/sessions.
+  async update(sessionId: number, input: UpdateSessionInput): Promise<ExamSession> {
+    const { data } = await http.put<ExamSession>(`/api/staff/sessions/${sessionId}`, input)
+    return data
+  },
+
+  /** Only for sessions that have not started (or were cancelled) and have no students. */
+  async remove(sessionId: number): Promise<void> {
+    await http.delete(`/api/staff/sessions/${sessionId}`)
+  },
+
+  async addStudents(sessionId: number, studentIds: number[]): Promise<BulkEnrollResult> {
+    const { data } = await http.post<BulkEnrollResult>(`/api/staff/sessions/${sessionId}/enrollments`, { studentIds })
+    return data
+  },
+
+  async removeStudent(sessionId: number, studentId: number): Promise<void> {
+    await http.delete(`/api/staff/sessions/${sessionId}/enrollments/${studentId}`)
   },
 }

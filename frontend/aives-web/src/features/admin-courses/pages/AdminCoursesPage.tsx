@@ -1,3 +1,4 @@
+import { Search } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -28,7 +29,13 @@ export default function AdminCoursesPage() {
   const [pending, setPending] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<AdminCourse | null>(null)
+  const [query, setQuery] = useState('')
   const requestId = useRef(0)
+
+  const q = query.trim().toLowerCase()
+  const visibleCourses = q
+    ? courses.filter((item) => [item.courseCode, item.courseName, item.teacherFullName ?? '', item.teacherName ?? ''].some((field) => field.toLowerCase().includes(q)))
+    : courses
 
   useEffect(() => {
     let active = true
@@ -90,7 +97,14 @@ export default function AdminCoursesPage() {
       </header>
       {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="outline" onClick={() => { setLoading(true); setError(null); setRevision((value) => value + 1) }}>Try again</Button></p>}
       {flash && <p role="status" className="rounded-xl bg-success-soft p-4 text-success">{flash}</p>}
-      {loading ? <p role="status">Loading courses…</p> : !courses.length ? <p className="rounded-2xl border border-dashed p-8 text-center">No courses yet.</p> : courses.map((item) => (
+      {!loading && courses.length > 0 && (
+        <label className="relative block sm:max-w-sm">
+          <span className="sr-only">Search courses</span>
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Course code, name or staff" className="block w-full rounded-xl border bg-background py-2 pr-3 pl-9 text-sm" />
+        </label>
+      )}
+      {loading ? <p role="status">Loading courses…</p> : !courses.length ? <p className="rounded-2xl border border-dashed p-8 text-center">No courses yet.</p> : !visibleCourses.length ? <p className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">No courses match “{query.trim()}”.</p> : visibleCourses.map((item) => (
         <article key={item.courseId} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5">
           <div><p className="font-mono text-sm text-brand">{item.courseCode}</p><h2 className="font-medium">{item.courseName}</h2><p className="mt-1 text-sm text-muted-foreground">{item.teacherFullName ?? item.teacherName ?? 'No staff assigned'}</p></div>
           <div className="flex flex-wrap gap-2">
