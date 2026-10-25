@@ -115,6 +115,7 @@ export const FEATURES: FeatureDef[] = [
     icon: CalendarClock,
     summary: 'Schedule sessions, share the join code, start or close a session and monitor it live.',
     status: 'done',
+    layout: 'flush',
   },
 
   // ── Examiner ───────────────────────────────────────────────────────
