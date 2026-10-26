@@ -111,7 +111,7 @@ function CreateSessionForm({
   const availableExams = examList.filter((e) => !selectedExamIds.includes(e.examId))
   const selectedExamsData = selectedExamIds.map((id) => {
     const found = examList.find((e) => e.examId === id)
-    return found ?? ({ examId: id, examCode: `ID #${id}`, title: 'Đề thi', durationMinutes: 0, maxQuestions: 0 } as Exam)
+    return found ?? ({ examId: id, examCode: `ID #${id}`, title: 'Exam', durationMinutes: 0, maxQuestions: 0 } as Exam)
   })
 
   function addExam(examIdStr: string) {
@@ -166,7 +166,7 @@ function CreateSessionForm({
       const sEnd = i === finalSlotCount - 1 ? end : new Date(start.getTime() + (i + 1) * slotMs)
       return {
         slotIndex: i + 1,
-        slotName: `Kíp ${i + 1}`,
+        slotName: `Slot ${i + 1}`,
         startTime: sStart.toISOString(),
         endTime: sEnd.toISOString(),
         startDisplay: sStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -182,17 +182,17 @@ function CreateSessionForm({
 
   function validate() {
     const next: Record<string, string> = {}
-    if (selectedExamIds.length === 0) next.examId = 'Vui lòng chọn ít nhất 1 bộ đề thi cho ca thi.'
+    if (selectedExamIds.length === 0) next.examId = 'Please select at least 1 exam paper for this session.'
     const name = sessionName.trim()
-    if (!name) next.sessionName = 'Vui lòng nhập tên ca thi.'
-    else if (name.length > 150) next.sessionName = 'Tên ca thi không được vượt quá 150 ký tự.'
+    if (!name) next.sessionName = 'Please enter session name.'
+    else if (name.length > 150) next.sessionName = 'Session name cannot exceed 150 characters.'
     const start = new Date(startTime)
     const end = new Date(endTime)
-    if (Number.isNaN(start.getTime())) next.start = 'Chọn thời gian bắt đầu.'
-    if (Number.isNaN(end.getTime())) next.end = 'Chọn thời gian kết thúc.'
-    else if (!next.start && end <= start) next.end = 'Thời gian kết thúc phải sau thời gian bắt đầu.'
+    if (Number.isNaN(start.getTime())) next.start = 'Select start time.'
+    if (Number.isNaN(end.getTime())) next.end = 'Select end time.'
+    else if (!next.start && end <= start) next.end = 'End time must be after start time.'
     const cap = Number(maxCapacity)
-    if (!/^\d+$/.test(maxCapacity) || cap < 1 || cap > 500) next.maxCapacity = 'Sĩ số tối đa từ 1 đến 500 sinh viên.'
+    if (!/^\d+$/.test(maxCapacity) || cap < 1 || cap > 500) next.maxCapacity = 'Maximum capacity must be between 1 and 500 students.'
     return next
   }
 
@@ -291,17 +291,17 @@ function CreateSessionForm({
       <div className="border-b px-6 py-4">
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
-            Tạo ca thi mới
+            Create New Session
           </span>
           {selectedExamIds.length > 1 && (
             <span className="rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 px-2.5 py-0.5 text-xs font-medium">
-              {selectedExamIds.length} bộ đề
+              {selectedExamIds.length} exams
             </span>
           )}
         </div>
-        <DialogTitle className="mt-1.5 text-xl font-bold">Thiết lập Ca thi mới</DialogTitle>
+        <DialogTitle className="mt-1.5 text-xl font-bold">Configure New Exam Session</DialogTitle>
         <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-          Cấu hình thông tin phòng thi, bộ đề thi, kíp thi và thêm thí sinh tham gia
+          Configure room info, exam papers, time slots, and enroll participating students
         </DialogDescription>
       </div>
 
@@ -318,7 +318,7 @@ function CreateSessionForm({
           )}
         >
           <Info className="size-4" />
-          Tổng quan & Ca thi
+          Overview & Session
         </button>
         <button
           type="button"
@@ -331,7 +331,7 @@ function CreateSessionForm({
           )}
         >
           <Users className="size-4" />
-          Thí sinh ca thi
+          Enrolled Students
           {(importFromCourse || studentTokens.length > 0) && (
             <span
               className={cn(
@@ -339,7 +339,7 @@ function CreateSessionForm({
                 activeTab === 'STUDENTS' ? 'bg-brand text-white' : 'bg-muted text-muted-foreground'
               )}
             >
-              {importFromCourse ? 'Môn học' : studentTokens.length}
+              {importFromCourse ? 'Course' : studentTokens.length}
             </span>
           )}
         </button>
@@ -361,15 +361,15 @@ function CreateSessionForm({
         {/* ========================================================================= */}
         {activeTab === 'OVERVIEW' && (
           <div className="space-y-4">
-            {/* Card 1: Thông tin cơ bản */}
+            {/* Card 1: Basic Information */}
             <div className="rounded-2xl border bg-card p-4 space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Thông tin chung ca thi
+                General Session Information
               </h4>
 
               <FormField
-                label="Tên ca thi"
-                placeholder="VD: Ca thi sáng 01 - Lớp SE1601"
+                label="Session Name"
+                placeholder="e.g. Morning Session 01 - Class SE1601"
                 value={sessionName}
                 error={errors.sessionName}
                 onChange={(e) => {
@@ -380,13 +380,13 @@ function CreateSessionForm({
 
               <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
                 <FormField
-                  label="Phòng thi"
-                  placeholder="Phòng 301, Tòa Alpha (tùy chọn)"
+                  label="Room"
+                  placeholder="Room 301, Alpha Building (optional)"
                   value={room}
                   onChange={(e) => setRoom(e.target.value)}
                 />
                 <FormField
-                  label="Sức chứa tối đa"
+                  label="Max Capacity"
                   inputMode="numeric"
                   value={maxCapacity}
                   error={errors.maxCapacity}
@@ -399,7 +399,7 @@ function CreateSessionForm({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <FormField
-                  label="Thời gian bắt đầu"
+                  label="Start Time"
                   type="datetime-local"
                   value={startTime}
                   error={errors.start}
@@ -409,7 +409,7 @@ function CreateSessionForm({
                   }}
                 />
                 <FormField
-                  label="Thời gian kết thúc"
+                  label="End Time"
                   type="datetime-local"
                   value={endTime}
                   error={errors.end}
@@ -421,18 +421,18 @@ function CreateSessionForm({
               </div>
             </div>
 
-            {/* Card 2: Bộ đề thi cấu hình */}
+            {/* Card 2: Configured Exam Papers */}
             <div className="rounded-2xl border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Layers className="size-4 text-brand" />
                   <Label htmlFor={examSelectId} className="text-sm font-semibold">
-                    Bộ đề thi sử dụng trong ca thi ({selectedExamIds.length})
+                    Exam papers in this session ({selectedExamIds.length})
                   </Label>
                 </div>
                 {selectedExamIds.length > 1 && (
                   <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand">
-                    Trộn ngẫu nhiên & Cân bằng
+                    Balanced Random Distribution
                   </span>
                 )}
               </div>
@@ -453,7 +453,7 @@ function CreateSessionForm({
                           type="button"
                           onClick={() => removeExam(e.examId)}
                           className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          title="Gỡ bỏ đề thi"
+                          title="Remove exam"
                         >
                           <X className="size-3.5" />
                         </button>
@@ -462,7 +462,7 @@ function CreateSessionForm({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic">Chưa chọn bộ đề nào cho ca thi.</p>
+                <p className="text-xs text-muted-foreground italic">No exam papers selected yet.</p>
               )}
 
               {/* Add exam dropdown */}
@@ -479,14 +479,14 @@ function CreateSessionForm({
                 >
                   <option value="">
                     {exams.status === 'loading'
-                      ? 'Đang tải danh sách đề thi…'
+                      ? 'Loading exams…'
                       : availableExams.length
-                      ? '+ Chọn bộ đề thi để thêm vào ca thi'
-                      : 'Đã thêm tất cả đề thi có sẵn'}
+                      ? '+ Select exam paper to add to session'
+                      : 'All available exams have been added'}
                   </option>
                   {availableExams.map((exam) => (
                     <option key={exam.examId} value={exam.examId}>
-                      {exam.examCode} - {exam.title} ({exam.durationMinutes} phút)
+                      {exam.examCode} - {exam.title} ({exam.durationMinutes} mins)
                     </option>
                   ))}
                 </select>
@@ -499,7 +499,7 @@ function CreateSessionForm({
                   onClick={() => addExam(pickerValue)}
                 >
                   <Plus className="size-3.5 mr-1" />
-                  Thêm đề
+                  Add exam
                 </Button>
               </div>
 
@@ -507,12 +507,12 @@ function CreateSessionForm({
 
               {selectedExamIds.length > 1 && (
                 <p className="text-[11px] text-muted-foreground">
-                  💡 Thí sinh khi tham gia ca thi sẽ được thuật toán phân bổ ngẫu nhiên và cân bằng đều cho {selectedExamIds.length} bộ đề trên.
+                  💡 Participating students will be distributed randomly and evenly across the {selectedExamIds.length} exam papers above.
                 </p>
               )}
             </div>
 
-            {/* Card 3: Cấu hình Kíp thi thông minh */}
+            {/* Card 3: Smart Time Slots Configuration */}
             <div className="rounded-2xl border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer select-none">
@@ -523,11 +523,11 @@ function CreateSessionForm({
                     className="size-4 rounded border-gray-300 text-brand focus:ring-brand accent-brand"
                   />
                   <Clock className="size-4 text-brand" />
-                  <span>Chia ca thi thành nhiều Kíp thi (Time Slots)</span>
+                  <span>Divide session into Time Slots</span>
                 </label>
                 {enableSlots && (
                   <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
-                    {calculatedSlots.length} kíp
+                    {calculatedSlots.length} slots
                   </span>
                 )}
               </div>
@@ -548,9 +548,9 @@ function CreateSessionForm({
                     >
                       <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                         <Users className="size-3.5 text-brand" />
-                        Theo số SV/kíp
+                        By students/slot
                       </div>
-                      <span className="text-[11px] text-muted-foreground">VD: 10 SV/kíp</span>
+                      <span className="text-[11px] text-muted-foreground">e.g. 10 students/slot</span>
                     </button>
 
                     <button
@@ -565,9 +565,9 @@ function CreateSessionForm({
                     >
                       <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                         <Clock className="size-3.5 text-brand" />
-                        Theo thời lượng
+                        By duration
                       </div>
-                      <span className="text-[11px] text-muted-foreground">VD: 15 phút/kíp</span>
+                      <span className="text-[11px] text-muted-foreground">e.g. 15 mins/slot</span>
                     </button>
 
                     <button
@@ -582,9 +582,9 @@ function CreateSessionForm({
                     >
                       <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                         <Layers className="size-3.5 text-brand" />
-                        Theo số kíp
+                        By slot count
                       </div>
-                      <span className="text-[11px] text-muted-foreground">VD: 5 kíp</span>
+                      <span className="text-[11px] text-muted-foreground">e.g. 5 slots</span>
                     </button>
                   </div>
 
@@ -592,7 +592,7 @@ function CreateSessionForm({
                   <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/20 p-2.5 text-xs">
                     {slicingMode === 'BY_STUDENTS' && (
                       <>
-                        <span className="text-muted-foreground">Sĩ số mỗi kíp:</span>
+                        <span className="text-muted-foreground">Students per slot:</span>
                         <div className="flex items-center gap-1">
                           {[5, 10, 12, 15, 20].map((num) => (
                             <button
@@ -606,7 +606,7 @@ function CreateSessionForm({
                                   : 'bg-background hover:bg-muted text-muted-foreground'
                               )}
                             >
-                              {num} SV
+                              {num} students
                             </button>
                           ))}
                         </div>
@@ -615,7 +615,7 @@ function CreateSessionForm({
 
                     {slicingMode === 'BY_DURATION' && (
                       <>
-                        <span className="text-muted-foreground">Thời lượng mỗi kíp:</span>
+                        <span className="text-muted-foreground">Duration per slot:</span>
                         <div className="flex items-center gap-1">
                           {[10, 15, 20, 30].map((mins) => (
                             <button
@@ -638,7 +638,7 @@ function CreateSessionForm({
 
                     {slicingMode === 'BY_COUNT' && (
                       <>
-                        <span className="text-muted-foreground">Số lượng kíp thi:</span>
+                        <span className="text-muted-foreground">Number of slots:</span>
                         <div className="flex items-center gap-1">
                           {[2, 3, 4, 5, 6, 8].map((n) => (
                             <button
@@ -665,15 +665,15 @@ function CreateSessionForm({
                     <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/10 p-2.5 text-xs">
                       <span className="font-medium text-foreground flex items-center gap-1.5">
                         <Shuffle className="size-3.5 text-brand" />
-                        Chế độ gán đề cho kíp:
+                        Slot exam assignment mode:
                       </span>
                       <select
                         value={slotExamMode}
                         onChange={(e) => setSlotExamMode(e.target.value as 'EXAM_PER_SLOT' | 'SHUFFLE_IN_SLOT')}
                         className="h-7 rounded-lg border border-input bg-background px-2 text-xs font-medium outline-none focus:border-brand"
                       >
-                        <option value="EXAM_PER_SLOT">Mỗi kíp 1 đề (Cố định đề)</option>
-                        <option value="SHUFFLE_IN_SLOT">Trộn đề trong từng kíp</option>
+                        <option value="EXAM_PER_SLOT">One fixed exam per slot</option>
+                        <option value="SHUFFLE_IN_SLOT">Shuffle exams within each slot</option>
                       </select>
                     </div>
                   )}
@@ -682,7 +682,7 @@ function CreateSessionForm({
                   {calculatedSlots.length > 0 && (
                     <div className="space-y-1.5 pt-1">
                       <span className="text-xs font-medium text-muted-foreground">
-                        Khung giờ dự kiến ({calculatedSlots.length} kíp):
+                        Estimated time slots ({calculatedSlots.length} slots):
                       </span>
                       <div className="grid gap-2 sm:grid-cols-2 max-h-[160px] overflow-y-auto rounded-xl border p-2 bg-muted/10">
                         {calculatedSlots.map((slot) => (
@@ -697,7 +697,7 @@ function CreateSessionForm({
                               </span>
                             </div>
                             <span className="text-[11px] text-muted-foreground">
-                              {slot.durationMinutes}m · ~{slot.maxCapacity} SV
+                              {slot.durationMinutes}m · ~{slot.maxCapacity} students
                             </span>
                           </div>
                         ))}
@@ -711,11 +711,11 @@ function CreateSessionForm({
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 2: THÍ SINH CA THI */}
+        {/* TAB 2: ENROLLED STUDENTS */}
         {/* ========================================================================= */}
         {activeTab === 'STUDENTS' && (
           <div className="space-y-4">
-            {/* Option A: Nhập từ môn học */}
+            {/* Option A: Import from course */}
             <div className="rounded-2xl border bg-card p-4 space-y-2">
               <label className="flex items-start gap-3 cursor-pointer select-none">
                 <input
@@ -728,26 +728,26 @@ function CreateSessionForm({
                   <div className="flex items-center gap-2">
                     <GraduationCap className="size-4 text-brand" />
                     <span className="text-sm font-semibold text-foreground">
-                      Tự động nạp toàn bộ sinh viên môn học vào ca thi
+                      Automatically enroll all course students into this session
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Hệ thống sẽ tự động quét danh sách sinh viên đã ghi danh vào môn học tương ứng và đưa vào ca thi ngay sau khi tạo.
+                    The system will automatically scan students registered in the corresponding course and enroll them into the session right upon creation.
                   </p>
                 </div>
               </label>
             </div>
 
-            {/* Option B: Dán MSSV/Email */}
+            {/* Option B: Paste Student Codes / Emails / IDs */}
             <div className="rounded-2xl border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="create-students-input" className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                   <Users className="size-4 text-brand" />
-                  Dán danh sách sinh viên bổ sung (MSSV, Email, ID)
+                  Paste additional student list (Student Code, Email, ID)
                 </Label>
                 {studentTokens.length > 0 && (
                   <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
-                    {studentTokens.length} sinh viên
+                    {studentTokens.length} students
                   </span>
                 )}
               </div>
@@ -757,19 +757,19 @@ function CreateSessionForm({
                 rows={3}
                 value={studentText}
                 onChange={(e) => setStudentText(e.target.value)}
-                placeholder="VD: SE160001, SE160002, he170003@fpt.edu.vn, 12... (Phân cách bởi dấu phẩy, khoảng trắng hoặc xuống dòng)"
+                placeholder="e.g. SE160001, SE160002, he170003@fpt.edu.vn, 12... (Separated by commas, spaces, or line breaks)"
                 className="w-full rounded-xl border border-input bg-background p-2.5 text-xs outline-none resize-y min-h-[64px] focus:border-brand focus:ring-3 focus:ring-brand/15"
               />
 
               <p className="text-[11px] text-muted-foreground">
-                Thí sinh được nạp sẽ tự động được phân chia đều vào các Kíp thi và các Bộ đề thi đã chọn.
+                Enrolled students will be automatically balanced across configured Time Slots and Exam Papers.
               </p>
 
               {/* Tokens chips preview */}
               {studentTokens.length > 0 && (
                 <div className="space-y-1.5 pt-1 border-t">
                   <span className="text-xs font-medium text-muted-foreground">
-                    Danh sách đã nhận diện ({studentTokens.length}):
+                    Recognized list ({studentTokens.length}):
                   </span>
                   <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto p-1">
                     {studentTokens.slice(0, 30).map((tok, idx) => (
@@ -782,7 +782,7 @@ function CreateSessionForm({
                     ))}
                     {studentTokens.length > 30 && (
                       <span className="text-[11px] text-muted-foreground italic px-1 self-center">
-                        … và {studentTokens.length - 30} thí sinh khác
+                        … and {studentTokens.length - 30} other students
                       </span>
                     )}
                   </div>
@@ -796,7 +796,7 @@ function CreateSessionForm({
       {/* Footer */}
       <DialogFooter className="border-t px-6 py-3.5 gap-2 sm:gap-2">
         <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
-          Hủy
+          Cancel
         </Button>
 
         {activeTab === 'OVERVIEW' ? (
@@ -807,12 +807,12 @@ function CreateSessionForm({
               onClick={() => setActiveTab('STUDENTS')}
               className="gap-1.5 text-xs"
             >
-              Tiếp tục: Thí sinh ca thi
+              Continue: Enrolled Students
               <ArrowRight className="size-3.5" />
             </Button>
             <Button type="submit" disabled={submitting} className="gap-1.5">
               {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
-              {submitting ? 'Đang tạo…' : 'Tạo ca thi'}
+              {submitting ? 'Creating…' : 'Create Session'}
             </Button>
           </>
         ) : (
@@ -824,13 +824,13 @@ function CreateSessionForm({
               className="gap-1.5 text-xs"
             >
               <ArrowLeft className="size-3.5" />
-              Quay lại thông tin
+              Back to Overview
             </Button>
             <Button type="submit" disabled={submitting} className="gap-1.5">
               {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
               {submitting
-                ? 'Đang tạo & nạp sinh viên…'
-                : `Tạo ca thi ${studentTokens.length > 0 ? `(${studentTokens.length} SV)` : ''}`}
+                ? 'Creating & enrolling students…'
+                : `Create Session ${studentTokens.length > 0 ? `(${studentTokens.length} students)` : ''}`}
             </Button>
           </>
         )}

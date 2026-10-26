@@ -17,6 +17,8 @@ public interface IExamSessionRepository
 
     Task<ExamSession?> GetBySessionCodeAsync(string sessionCode);
 
+    Task<(ExamSession? Session, ExamSessionSlot? Slot)> GetBySessionOrSlotCodeAsync(string code);
+
     Task<IEnumerable<ExamSession>> GetByTeacherIdAsync(int teacherId);
 
     Task<IEnumerable<StudentSessionEnrollmentDto>> GetStudentEnrollmentsAsync(int studentId, CancellationToken cancellationToken = default);

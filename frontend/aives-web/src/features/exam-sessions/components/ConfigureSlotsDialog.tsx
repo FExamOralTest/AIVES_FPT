@@ -97,7 +97,7 @@ export function ConfigureSlotsDialog({
 
       slots.push({
         slotIndex: i + 1,
-        slotName: `Kíp ${i + 1}`,
+        slotName: `Slot ${i + 1}`,
         startTime: sStart.toISOString(),
         endTime: sEnd.toISOString(),
         maxCapacity: perSlotCap,
@@ -150,7 +150,7 @@ export function ConfigureSlotsDialog({
       onSaved(updated)
       onClose()
     } catch (err) {
-      setError(toApiError(err, 'Không thể lưu cấu hình kíp thi.').message)
+      setError(toApiError(err, 'Could not save time slot configuration.').message)
     } finally {
       setSaving(false)
     }
@@ -165,9 +165,9 @@ export function ConfigureSlotsDialog({
               <Sparkles className="size-4" />
             </span>
             <div>
-              <DialogTitle className="text-lg font-bold">Cấu hình & Chia Kíp thi thông minh</DialogTitle>
+              <DialogTitle className="text-lg font-bold">Smart Time Slot Configuration & Slicing</DialogTitle>
               <DialogDescription className="text-xs">
-                Tự động tính toán khung giờ, chia đều thí sinh và phân bổ đề thi cho từng kíp.
+                Automatically calculate time slots, distribute students evenly, and allocate exams per slot.
               </DialogDescription>
             </div>
           </div>
@@ -184,21 +184,21 @@ export function ConfigureSlotsDialog({
           {/* Quick Context Summary Banner */}
           <div className="grid grid-cols-3 gap-2 rounded-xl border bg-muted/30 p-3 text-xs">
             <div>
-              <span className="text-muted-foreground block">Thời gian ca thi</span>
+              <span className="text-muted-foreground block">Session Duration</span>
               <span className="font-semibold text-foreground">
-                {formatTimeRange(start, end)} ({totalDurationMinutes} phút)
+                {formatTimeRange(start, end)} ({totalDurationMinutes} mins)
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground block">Thí sinh hiện tại</span>
+              <span className="text-muted-foreground block">Current Students</span>
               <span className="font-semibold text-foreground">
-                {session.enrolledStudents} SV (tối đa {session.maxCapacity})
+                {session.enrolledStudents} students (max {session.maxCapacity})
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground block">Bộ đề thi</span>
+              <span className="text-muted-foreground block">Exam Papers</span>
               <span className="font-semibold text-foreground">
-                {exams.length > 0 ? `${exams.length} bộ đề` : '1 bộ đề'}
+                {exams.length > 0 ? `${exams.length} exams` : '1 exam'}
               </span>
             </div>
           </div>
@@ -206,7 +206,7 @@ export function ConfigureSlotsDialog({
           {/* Mode Selector Tabs */}
           <div className="space-y-2">
             <label id={modeId} className="text-xs font-semibold text-foreground">
-              Phương thức chia kíp thi:
+              Slot slicing method:
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -221,10 +221,10 @@ export function ConfigureSlotsDialog({
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                   <Users className="size-3.5 text-brand" />
-                  Theo số SV/kíp
+                  By students/slot
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Cố định sĩ số (VD: 10 SV/kíp), tự tính số kíp
+                  Fixed capacity (e.g. 10 students/slot), auto-calculate slots
                 </p>
               </button>
 
@@ -240,10 +240,10 @@ export function ConfigureSlotsDialog({
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                   <Clock className="size-3.5 text-brand" />
-                  Theo thời lượng
+                  By slot duration
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Cố định phút/kíp (VD: 15p), tự xếp ca liên tiếp
+                  Fixed minutes/slot (e.g. 15 mins), auto-sequence slots
                 </p>
               </button>
 
@@ -259,10 +259,10 @@ export function ConfigureSlotsDialog({
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                   <Layers className="size-3.5 text-brand" />
-                  Theo số kíp
+                  By slot count
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Chọn số kíp cố định (VD: 5 kíp), chia đều giờ
+                  Fixed number of slots (e.g. 5 slots), divide time evenly
                 </p>
               </button>
             </div>
@@ -273,9 +273,9 @@ export function ConfigureSlotsDialog({
             {slicingMode === 'BY_STUDENTS' && (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <span className="text-xs font-semibold text-foreground">Sĩ số mục tiêu cho mỗi kíp:</span>
+                  <span className="text-xs font-semibold text-foreground">Target students per slot:</span>
                   <p className="text-[11px] text-muted-foreground">
-                    Hệ thống sẽ lấy {studentCount} SV chia cho {studentsPerSlot} SV/kíp = {calculated.slotCount} kíp.
+                    The system divides {studentCount} students by {studentsPerSlot} students/slot = {calculated.slotCount} slots.
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -291,7 +291,7 @@ export function ConfigureSlotsDialog({
                           : 'bg-background hover:bg-muted text-muted-foreground'
                       )}
                     >
-                      {num} SV
+                      {num} students
                     </button>
                   ))}
                 </div>
@@ -301,9 +301,9 @@ export function ConfigureSlotsDialog({
             {slicingMode === 'BY_DURATION' && (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <span className="text-xs font-semibold text-foreground">Thời lượng thi mỗi kíp:</span>
+                  <span className="text-xs font-semibold text-foreground">Exam duration per slot:</span>
                   <p className="text-[11px] text-muted-foreground">
-                    Tổng {totalDurationMinutes} phút chia cho {durationMinutes} phút/kíp = {calculated.slotCount} kíp.
+                    Total {totalDurationMinutes} mins divided by {durationMinutes} mins/slot = {calculated.slotCount} slots.
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -319,7 +319,7 @@ export function ConfigureSlotsDialog({
                           : 'bg-background hover:bg-muted text-muted-foreground'
                       )}
                     >
-                      {mins} phút
+                      {mins} mins
                     </button>
                   ))}
                 </div>
@@ -329,9 +329,9 @@ export function ConfigureSlotsDialog({
             {slicingMode === 'BY_COUNT' && (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <span className="text-xs font-semibold text-foreground">Số lượng kíp thi muốn chia:</span>
+                  <span className="text-xs font-semibold text-foreground">Number of time slots:</span>
                   <p className="text-[11px] text-muted-foreground">
-                    Mỗi kíp sẽ kéo dài ~{Math.round(totalDurationMinutes / customSlotCount)} phút.
+                    Each slot will last ~{Math.round(totalDurationMinutes / customSlotCount)} mins.
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -347,7 +347,7 @@ export function ConfigureSlotsDialog({
                           : 'bg-background hover:bg-muted text-muted-foreground'
                       )}
                     >
-                      {n} kíp
+                      {n} slots
                     </button>
                   ))}
                 </div>
@@ -359,7 +359,7 @@ export function ConfigureSlotsDialog({
               <div className="pt-2 border-t flex flex-col gap-1.5">
                 <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <Shuffle className="size-3.5 text-brand" />
-                  Quy tắc gán đề thi cho kíp:
+                  Exam assignment rule for slots:
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <label className="flex items-center gap-2 rounded-xl border bg-background p-2.5 cursor-pointer">
@@ -372,8 +372,8 @@ export function ConfigureSlotsDialog({
                       className="text-brand accent-brand"
                     />
                     <div>
-                      <span className="font-semibold block text-foreground">Mỗi kíp 1 đề cố định</span>
-                      <span className="text-[11px] text-muted-foreground">Kíp 1 đề A, Kíp 2 đề B... chống lộ đề</span>
+                      <span className="font-semibold block text-foreground">One fixed exam per slot</span>
+                      <span className="text-[11px] text-muted-foreground">Slot 1 Exam A, Slot 2 Exam B... prevent exam leaking</span>
                     </div>
                   </label>
 
@@ -387,8 +387,8 @@ export function ConfigureSlotsDialog({
                       className="text-brand accent-brand"
                     />
                     <div>
-                      <span className="font-semibold block text-foreground">Trộn đa đề trong từng kíp</span>
-                      <span className="text-[11px] text-muted-foreground">Mỗi kíp chia đều các đề cho SV ngồi cạnh nhau</span>
+                      <span className="font-semibold block text-foreground">Shuffle multiple exams in each slot</span>
+                      <span className="text-[11px] text-muted-foreground">Distribute exams evenly among adjacent students</span>
                     </div>
                   </label>
                 </div>
@@ -401,39 +401,46 @@ export function ConfigureSlotsDialog({
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <Clock className="size-3.5 text-brand" />
-                Xem trước Lịch Kíp thi ({calculated.slotCount} kíp):
+                Preview Time Slot Schedule ({calculated.slotCount} slots):
               </span>
               <span className="text-[11px] text-muted-foreground">
-                ~{calculated.perSlotCap} sinh viên/kíp
+                ~{calculated.perSlotCap} students/slot
               </span>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2 max-h-[220px] overflow-y-auto rounded-2xl border p-2 bg-muted/10">
+            <div className="grid gap-2 sm:grid-cols-2 max-h-[240px] overflow-y-auto rounded-2xl border p-2 bg-muted/10">
               {calculated.slots.map((s) => (
                 <div
                   key={s.slotIndex}
-                  className="flex items-center justify-between rounded-xl border bg-card p-2.5 text-xs shadow-xs"
+                  className="flex flex-col gap-1.5 rounded-xl border bg-card p-2.5 text-xs shadow-xs"
                 >
-                  <div className="min-w-0 pr-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-foreground">{s.slotName}</span>
                       <span className="font-mono text-brand font-semibold">
                         {s.startDisplay} – {s.endDisplay}
                       </span>
                     </div>
-                    {s.assignedExamSummary ? (
-                      <p className="text-[11px] text-muted-foreground truncate mt-0.5 font-mono">
-                        Đề: {s.assignedExamSummary}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {s.durationMinutes} phút · Dự kiến {s.maxCapacity} SV
-                      </p>
+                    <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-semibold text-brand shrink-0">
+                      Slot {s.slotIndex}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
+                    <span>{s.durationMinutes} mins · Est. {s.maxCapacity} students</span>
+                    {s.assignedExamSummary && (
+                      <span className="truncate max-w-[150px] font-mono text-foreground font-medium">
+                        {s.assignedExamSummary}
+                      </span>
                     )}
                   </div>
-                  <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-semibold text-brand shrink-0">
-                    Kíp {s.slotIndex}
-                  </span>
+
+                  <div className="flex items-center justify-between pt-1 border-t text-[11px]">
+                    <span className="text-muted-foreground">Est. Join Code:</span>
+                    <span className="font-mono font-semibold text-brand">
+                      {session.sessionCode}-S{s.slotIndex}-******
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -442,15 +449,15 @@ export function ConfigureSlotsDialog({
 
         <DialogFooter className="gap-2 sm:gap-0 pt-2">
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
-            Hủy
+            Cancel
           </Button>
           <Button type="button" onClick={handleApply} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
             {saving
-              ? 'Đang xử lý…'
+              ? 'Processing…'
               : session.enrolledStudents > 0
-              ? 'Áp dụng & Phân bổ ngay cho SV'
-              : 'Lưu cấu hình kíp thi'}
+                ? 'Apply & Distribute to Students'
+                : 'Save Slot Configuration'}
           </Button>
         </DialogFooter>
       </DialogContent>

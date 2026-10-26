@@ -58,6 +58,7 @@ public class ExamSessionSlotDto
     public int SessionId { get; set; }
     public int SlotIndex { get; set; }
     public string SlotName { get; set; } = null!;
+    public string SlotCode { get; set; } = null!;
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public int MaxCapacity { get; set; }

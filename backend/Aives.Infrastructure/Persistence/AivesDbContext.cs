@@ -358,6 +358,7 @@ public partial class AivesDbContext : DbContext
             entity.ToTable("session_slots");
 
             entity.HasIndex(e => new { e.SessionId, e.SlotIndex }, "session_slots_session_slot_key").IsUnique();
+            entity.HasIndex(e => e.SlotCode, "session_slots_slot_code_key").IsUnique();
 
             entity.Property(e => e.SlotId)
                 .UseIdentityAlwaysColumn()
@@ -367,6 +368,9 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.SlotName)
                 .HasMaxLength(100)
                 .HasColumnName("slot_name");
+            entity.Property(e => e.SlotCode)
+                .HasMaxLength(50)
+                .HasColumnName("slot_code");
             entity.Property(e => e.StartTime).HasColumnName("start_time");
             entity.Property(e => e.EndTime).HasColumnName("end_time");
             entity.Property(e => e.MaxCapacity)

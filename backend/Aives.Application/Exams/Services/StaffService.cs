@@ -126,14 +126,19 @@ public class StaffService : IStaffService
             await _sessionRepository.SetSessionExamsAsync(created.SessionId, examIds);
             if (request.Slots != null && request.Slots.Count > 0)
             {
-                var slotEntities = request.Slots.OrderBy(s => s.SlotIndex).ThenBy(s => s.StartTime).Select((s, idx) => new ExamSessionSlot
+                var slotEntities = request.Slots.OrderBy(s => s.SlotIndex).ThenBy(s => s.StartTime).Select((s, idx) =>
                 {
-                    SessionId = created.SessionId,
-                    SlotIndex = s.SlotIndex > 0 ? s.SlotIndex : (idx + 1),
-                    SlotName = string.IsNullOrWhiteSpace(s.SlotName) ? $"Kíp {idx + 1}" : s.SlotName.Trim(),
-                    StartTime = s.StartTime,
-                    EndTime = s.EndTime,
-                    MaxCapacity = s.MaxCapacity ?? 10
+                    var slotIndex = s.SlotIndex > 0 ? s.SlotIndex : (idx + 1);
+                    return new ExamSessionSlot
+                    {
+                        SessionId = created.SessionId,
+                        SlotIndex = slotIndex,
+                        SlotName = string.IsNullOrWhiteSpace(s.SlotName) ? $"Kíp {slotIndex}" : s.SlotName.Trim(),
+                        SlotCode = GenerateSlotCode(created.SessionCode, slotIndex),
+                        StartTime = s.StartTime,
+                        EndTime = s.EndTime,
+                        MaxCapacity = s.MaxCapacity ?? 10
+                    };
                 }).ToList();
                 await _sessionRepository.SetSessionSlotsAsync(created.SessionId, slotEntities);
             }
@@ -207,14 +212,19 @@ public class StaffService : IStaffService
                 if (session.Status != SessionStatus.NOT_STARTED)
                     throw new InvalidOperationException("Không thể cập nhật cấu hình kíp thi khi ca thi đã bắt đầu.");
 
-                var slotEntities = request.Slots.OrderBy(s => s.SlotIndex).ThenBy(s => s.StartTime).Select((s, idx) => new ExamSessionSlot
+                var slotEntities = request.Slots.OrderBy(s => s.SlotIndex).ThenBy(s => s.StartTime).Select((s, idx) =>
                 {
-                    SessionId = sessionId,
-                    SlotIndex = s.SlotIndex > 0 ? s.SlotIndex : (idx + 1),
-                    SlotName = string.IsNullOrWhiteSpace(s.SlotName) ? $"Kíp {idx + 1}" : s.SlotName.Trim(),
-                    StartTime = s.StartTime,
-                    EndTime = s.EndTime,
-                    MaxCapacity = s.MaxCapacity ?? 10
+                    var slotIndex = s.SlotIndex > 0 ? s.SlotIndex : (idx + 1);
+                    return new ExamSessionSlot
+                    {
+                        SessionId = sessionId,
+                        SlotIndex = slotIndex,
+                        SlotName = string.IsNullOrWhiteSpace(s.SlotName) ? $"Kíp {slotIndex}" : s.SlotName.Trim(),
+                        SlotCode = GenerateSlotCode(session.SessionCode, slotIndex),
+                        StartTime = s.StartTime,
+                        EndTime = s.EndTime,
+                        MaxCapacity = s.MaxCapacity ?? 10
+                    };
                 }).ToList();
                 await _sessionRepository.SetSessionSlotsAsync(sessionId, slotEntities);
             }
@@ -619,6 +629,7 @@ public class StaffService : IStaffService
                 SessionId = slot.SessionId,
                 SlotIndex = slot.SlotIndex,
                 SlotName = slot.SlotName,
+                SlotCode = slot.SlotCode ?? $"{session.SessionCode}-S{slot.SlotIndex}",
                 StartTime = slot.StartTime,
                 EndTime = slot.EndTime,
                 MaxCapacity = slot.MaxCapacity,
@@ -995,6 +1006,7 @@ public class StaffService : IStaffService
                 SessionId = slot.SessionId,
                 SlotIndex = slot.SlotIndex,
                 SlotName = slot.SlotName,
+                SlotCode = slot.SlotCode ?? $"{s.SessionCode}-S{slot.SlotIndex}",
                 StartTime = slot.StartTime,
                 EndTime = slot.EndTime,
                 MaxCapacity = slot.MaxCapacity,
@@ -1035,11 +1047,18 @@ public class StaffService : IStaffService
                 SessionId = slot.SessionId,
                 SlotIndex = slot.SlotIndex,
                 SlotName = slot.SlotName,
+                SlotCode = slot.SlotCode ?? $"{s.SessionCode}-S{slot.SlotIndex}",
                 StartTime = slot.StartTime,
                 EndTime = slot.EndTime,
                 MaxCapacity = slot.MaxCapacity,
                 AssignedStudentsCount = s.SessionEnrollments?.Count(e => e.AssignedSlotId == slot.SlotId) ?? 0
             }).ToList() ?? new List<ExamSessionSlotDto>()
         };
+    }
+
+    private static string GenerateSlotCode(string sessionCode, int slotIndex)
+    {
+        var randomDigits = RandomNumberGenerator.GetInt32(100000, 1000000);
+        return $"{sessionCode}-S{slotIndex}-{randomDigits}";
     }
 }

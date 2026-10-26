@@ -16,6 +16,7 @@ export interface ExamSessionSlot {
   sessionId?: number
   slotIndex: number
   slotName: string
+  slotCode?: string | null
   startTime: string
   endTime: string
   maxCapacity: number

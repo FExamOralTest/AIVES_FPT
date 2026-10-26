@@ -10,6 +10,8 @@ public class ExamSessionSlot
 
     public string SlotName { get; set; } = null!;
 
+    public string? SlotCode { get; set; }
+
     public DateTime StartTime { get; set; }
 
     public DateTime EndTime { get; set; }

@@ -270,6 +270,78 @@ public class ExamSessionSlotTests : IDisposable
         Assert.Equal(slots[0].EndTime, response.SlotEndTime);
     }
 
+    [Fact]
+    public async Task StaffService_UpdateSlots_GeneratesSlotCodeWithExpectedPattern()
+    {
+        // Arrange
+        var (session, _, _, _) = await SeedSessionWithSlotsAndExamsAsync(slotCount: 0, examCount: 1, studentCount: 0);
+        var slotInput = new List<CreateSessionSlotInput>
+        {
+            new() { SlotIndex = 1, SlotName = "Kíp 1", StartTime = session.StartTime, EndTime = session.StartTime.AddMinutes(30), MaxCapacity = 20 },
+            new() { SlotIndex = 2, SlotName = "Kíp 2", StartTime = session.StartTime.AddMinutes(30), EndTime = session.EndTime, MaxCapacity = 20 }
+        };
+
+        // Act
+        var result = await _staffService.UpdateSessionAsync(session.SessionId, new StaffUpdateSessionRequest
+        {
+            SessionName = session.SessionName,
+            Slots = slotInput
+        }, 1);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Slots.Count);
+        foreach (var slot in result.Slots)
+        {
+            Assert.NotNull(slot.SlotCode);
+            Assert.StartsWith($"{session.SessionCode}-S{slot.SlotIndex}-", slot.SlotCode);
+            var parts = slot.SlotCode.Split('-');
+            Assert.True(parts.Length >= 3, "Slot code should contain session code, slot index, and random digits");
+            var lastPart = parts.Last();
+            Assert.Equal(6, lastPart.Length);
+            Assert.True(int.TryParse(lastPart, out _), "Last part of slot code must be 6 numeric digits");
+        }
+    }
+
+    [Fact]
+    public async Task ExamSessionService_EnrollWithSlotCode_AssignsStudentDirectlyToSlot()
+    {
+        // Arrange
+        var (session, slots, _, _) = await SeedSessionWithSlotsAndExamsAsync(slotCount: 2, examCount: 1, studentCount: 0,
+            sessionStart: DateTime.UtcNow.AddMinutes(-5), sessionEnd: DateTime.UtcNow.AddHours(2));
+
+        var slotToEnroll = slots[1];
+        Assert.NotNull(slotToEnroll.SlotCode);
+
+        var newStudent = new User
+        {
+            Username = "new_student_slot",
+            Email = "student_slot@fpt.edu.vn",
+            PasswordHash = "hash",
+            FullName = "New Student Slot",
+            Role = UserRole.STUDENT
+        };
+        _db.Users.Add(newStudent);
+        await _db.SaveChangesAsync();
+
+        var examSessionService = new ExamSessionService(
+            new ExamSessionRepository(_db),
+            new ExamRepository(_db),
+            new ExamUnitOfWork(_db));
+
+        // Act: student enrolls using SlotCode instead of SessionCode
+        var enrollResponse = await examSessionService.EnrollStudentAsync(
+            new EnrollSessionRequest { SessionCode = slotToEnroll.SlotCode },
+            newStudent.UserId);
+
+        // Assert
+        Assert.NotNull(enrollResponse);
+        var enrollment = await _db.SessionEnrollments
+            .FirstOrDefaultAsync(e => e.SessionId == session.SessionId && e.StudentId == newStudent.UserId);
+        Assert.NotNull(enrollment);
+        Assert.Equal(slotToEnroll.SlotId, enrollment.AssignedSlotId);
+    }
+
     // ─── Helpers ────────────────────────────────────────────────
     private async Task<(ExamSession Session, List<ExamSessionSlot> Slots, List<Exam> Exams, List<User> Students)>
         SeedSessionWithSlotsAndExamsAsync(
@@ -371,24 +443,28 @@ public class ExamSessionSlotTests : IDisposable
         await _db.SaveChangesAsync();
 
         var slots = new List<ExamSessionSlot>();
-        var slotDuration = (sEnd - sStart) / slotCount;
-        for (int i = 0; i < slotCount; i++)
+        if (slotCount > 0)
         {
-            var curSlotStart = slotStart ?? (sStart + (slotDuration * i));
-            var curSlotEnd = slotEnd ?? (curSlotStart + slotDuration);
-
-            var slot = new ExamSessionSlot
+            var slotDuration = (sEnd - sStart) / slotCount;
+            for (int i = 0; i < slotCount; i++)
             {
-                SessionId = session.SessionId,
-                SlotIndex = i + 1,
-                SlotName = $"Kíp {i + 1}",
-                StartTime = curSlotStart,
-                EndTime = curSlotEnd,
-                MaxCapacity = 20,
-                CreatedAt = DateTime.UtcNow
-            };
-            _db.ExamSessionSlots.Add(slot);
-            slots.Add(slot);
+                var curSlotStart = slotStart ?? (sStart + (slotDuration * i));
+                var curSlotEnd = slotEnd ?? (curSlotStart + slotDuration);
+
+                var slot = new ExamSessionSlot
+                {
+                    SessionId = session.SessionId,
+                    SlotIndex = i + 1,
+                    SlotName = $"Kíp {i + 1}",
+                    SlotCode = $"{session.SessionCode}-S{i + 1}-123456",
+                    StartTime = curSlotStart,
+                    EndTime = curSlotEnd,
+                    MaxCapacity = 20,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _db.ExamSessionSlots.Add(slot);
+                slots.Add(slot);
+            }
         }
         await _db.SaveChangesAsync();
 

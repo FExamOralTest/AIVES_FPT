@@ -37,7 +37,7 @@ export const sessionsApi = {
   },
 
   async monitor(sessionId: number): Promise<SessionMonitor> {
-    const { data } = await http.get<SessionMonitor>(`/api/exam-sessions/${sessionId}/monitor`)
+    const { data } = await http.get<SessionMonitor>(`/api/staff/sessions/${sessionId}/monitor`)
     return data
   },
 

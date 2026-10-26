@@ -86,6 +86,41 @@ public class ExamSessionRepository : IExamSessionRepository
             .FirstOrDefaultAsync(s => s.SessionCode == normalizedCode);
     }
 
+    public async Task<(ExamSession? Session, ExamSessionSlot? Slot)> GetBySessionOrSlotCodeAsync(string code)
+    {
+        var normalized = NormalizeSessionCode(code);
+        if (normalized is null)
+            return (null, null);
+
+        var slot = await _db.ExamSessionSlots
+            .Include(sl => sl.Session)
+                .ThenInclude(s => s.Course)
+            .Include(sl => sl.Session)
+                .ThenInclude(s => s.Period)
+            .Include(sl => sl.Session)
+                .ThenInclude(s => s.Exam)
+            .Include(sl => sl.Session)
+                .ThenInclude(s => s.SessionExams)
+                    .ThenInclude(se => se.Exam)
+            .Include(sl => sl.Session)
+                .ThenInclude(s => s.Slots)
+            .Include(sl => sl.Session)
+                .ThenInclude(s => s.SessionEnrollments)
+                    .ThenInclude(se => se.AssignedExam)
+            .Include(sl => sl.Session)
+                .ThenInclude(s => s.SessionEnrollments)
+                    .ThenInclude(se => se.AssignedSlot)
+            .FirstOrDefaultAsync(sl => sl.SlotCode == normalized);
+
+        if (slot != null)
+        {
+            return (slot.Session, slot);
+        }
+
+        var session = await GetBySessionCodeAsync(normalized);
+        return (session, null);
+    }
+
     public async Task<IEnumerable<ExamSession>> GetByTeacherIdAsync(int teacherId)
     {
         return await _db.ExamSessions

@@ -566,6 +566,11 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("session_id");
 
+                    b.Property<string>("SlotCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("slot_code");
+
                     b.Property<int>("SlotIndex")
                         .HasColumnType("integer")
                         .HasColumnName("slot_index");
@@ -584,6 +589,9 @@ namespace Aives.Infrastructure.Migrations
                         .HasName("session_slots_pkey");
 
                     b.HasIndex(new[] { "SessionId", "SlotIndex" }, "session_slots_session_slot_key")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "SlotCode" }, "session_slots_slot_code_key")
                         .IsUnique();
 
                     b.ToTable("session_slots", (string)null);

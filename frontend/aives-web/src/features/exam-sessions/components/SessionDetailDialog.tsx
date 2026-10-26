@@ -62,16 +62,16 @@ export function SessionDetailDialog({ sessionId, onClose, onChanged, onDeleted }
 }
 
 const ACTION: Record<SessionStatus, { label: string; confirm?: string; icon: ReactNode; variant: 'default' | 'secondary' }> = {
-  IN_PROGRESS: { label: 'Bắt đầu ca thi', icon: <Play className="size-4" aria-hidden="true" />, variant: 'default' },
+  IN_PROGRESS: { label: 'Start session', icon: <Play className="size-4" aria-hidden="true" />, variant: 'default' },
   COMPLETED: {
-    label: 'Kết thúc ca thi',
-    confirm: 'Kết thúc ca thi này? Sinh viên sẽ không thể làm bài thêm. Thao tác này không thể hoàn tác.',
+    label: 'Complete session',
+    confirm: 'Complete this session? Students will no longer be able to submit. This action cannot be undone.',
     icon: <Square className="size-4" aria-hidden="true" />,
     variant: 'default',
   },
   CANCELLED: {
-    label: 'Hủy ca thi',
-    confirm: 'Hủy ca thi này? Sinh viên sẽ không thể vào phòng thi. Thao tác này không thể hoàn tác.',
+    label: 'Cancel session',
+    confirm: 'Cancel this session? Students will not be able to enter the exam room. This action cannot be undone.',
     icon: <XCircle className="size-4" aria-hidden="true" />,
     variant: 'secondary',
   },
@@ -107,44 +107,6 @@ function SessionDetail({
   const [selectedSlotFilter, setSelectedSlotFilter] = useState<number | 'ALL'>('ALL')
   const [reassigningSlotStudentId, setReassigningSlotStudentId] = useState<number | null>(null)
 
-  if (detail.state.status === 'loading') {
-    return (
-      <div className="p-6 space-y-4">
-        <DialogHeader>
-          <DialogTitle>Ca thi</DialogTitle>
-          <DialogDescription>Đang tải thông tin…</DialogDescription>
-        </DialogHeader>
-        <div className="h-44 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
-      </div>
-    )
-  }
-  if (detail.state.status === 'error') {
-    return (
-      <div className="p-6 space-y-4">
-        <DialogHeader>
-          <DialogTitle>Ca thi</DialogTitle>
-          <DialogDescription className="text-destructive">{detail.state.message}</DialogDescription>
-        </DialogHeader>
-        <Button variant="secondary" className="w-fit" onClick={detail.reload}>
-          <RotateCw className="size-4 mr-2" aria-hidden="true" />
-          Thử lại
-        </Button>
-      </div>
-    )
-  }
-
-  const session = detail.state.data
-  const start = parseApiDate(session.startTime)
-  const end = parseApiDate(session.endTime)
-  const exams = session.exams ?? []
-  const slots = session.slots ?? []
-  const hasMultipleExams = exams.length > 1
-
-  function applyUpdate(updated: ExamSession) {
-    detail.update(() => updated)
-    onChanged(updated)
-  }
-
   // Inline edit state
   const [editSessionName, setEditSessionName] = useState('')
   const [editRoom, setEditRoom] = useState('')
@@ -164,9 +126,47 @@ function SessionDetail({
   const { state: teacherExamsState } = useApi(
     () => examsApi.listMine(),
     'session-detail-teacher-exams',
-    'Không thể tải danh sách đề thi.'
+    'Could not load exams.'
   )
+
+  if (detail.state.status === 'loading') {
+    return (
+      <div className="p-6 space-y-4">
+        <DialogHeader>
+          <DialogTitle>Exam Session</DialogTitle>
+          <DialogDescription>Loading session details…</DialogDescription>
+        </DialogHeader>
+        <div className="h-44 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
+      </div>
+    )
+  }
+  if (detail.state.status === 'error') {
+    return (
+      <div className="p-6 space-y-4">
+        <DialogHeader>
+          <DialogTitle>Exam Session</DialogTitle>
+          <DialogDescription className="text-destructive">{detail.state.message}</DialogDescription>
+        </DialogHeader>
+        <Button variant="secondary" className="w-fit" onClick={detail.reload}>
+          <RotateCw className="size-4 mr-2" aria-hidden="true" />
+          Try again
+        </Button>
+      </div>
+    )
+  }
+
+  const session = detail.state.data
+  const start = parseApiDate(session.startTime)
+  const end = parseApiDate(session.endTime)
+  const exams = session.exams ?? []
+  const slots = session.slots ?? []
+  const hasMultipleExams = exams.length > 1
   const teacherExams = teacherExamsState.status === 'ready' ? teacherExamsState.data : []
+
+  function applyUpdate(updated: ExamSession) {
+    detail.update(() => updated)
+    onChanged(updated)
+  }
 
   function toLocalInput(d: Date) {
     const pad = (n: number) => String(n).padStart(2, '0')
@@ -204,7 +204,7 @@ function SessionDetail({
 
   function handleRemoveExamFromEdit(examId: number) {
     if (editExamIds.length <= 1) {
-      setEditErrors((prev) => ({ ...prev, exams: 'Ca thi phải có ít nhất 1 bộ đề thi.' }))
+      setEditErrors((prev) => ({ ...prev, exams: 'The session must have at least 1 exam paper.' }))
       return
     }
     setEditExamIds((prev) => prev.filter((id) => id !== examId))
@@ -214,23 +214,23 @@ function SessionDetail({
   async function handleSaveInlineEdit() {
     const errs: typeof editErrors = {}
     if (!editSessionName.trim()) {
-      errs.name = 'Vui lòng nhập tên ca thi.'
+      errs.name = 'Please enter session name.'
     }
     const cap = Number(editMaxCapacity)
     if (!cap || cap < 1) {
-      errs.capacity = 'Sức chứa tối đa phải lớn hơn 0.'
+      errs.capacity = 'Maximum capacity must be greater than 0.'
     } else if (cap < session.enrolledStudents) {
-      errs.capacity = `Sức chứa không được nhỏ hơn số sinh viên hiện có (${session.enrolledStudents}).`
+      errs.capacity = `Capacity cannot be lower than current enrolled students (${session.enrolledStudents}).`
     }
 
     const sDate = new Date(editStartTime)
     const eDate = new Date(editEndTime)
     if (isNaN(sDate.getTime()) || isNaN(eDate.getTime()) || sDate >= eDate) {
-      errs.time = 'Thời gian bắt đầu phải trước thời gian kết thúc.'
+      errs.time = 'Start time must be before end time.'
     }
 
     if (editExamIds.length === 0) {
-      errs.exams = 'Vui lòng chọn ít nhất 1 bộ đề thi.'
+      errs.exams = 'Please select at least 1 exam paper.'
     }
 
     if (Object.keys(errs).length > 0) {
@@ -253,7 +253,7 @@ function SessionDetail({
       setEditing(false)
       monitor.reload()
     } catch (err) {
-      setEditErrors({ form: toApiError(err, 'Không thể lưu thay đổi ca thi.').message })
+      setEditErrors({ form: toApiError(err, 'Could not save session changes.').message })
     } finally {
       setSavingEdit(false)
     }
@@ -274,7 +274,7 @@ function SessionDetail({
       await sessionsApi.remove(sessionId)
       onDeleted(sessionId)
     } catch (err) {
-      setActionError(toApiError(err, 'Không thể xóa ca thi.').message)
+      setActionError(toApiError(err, 'Could not delete session.').message)
       setBusy(false)
     }
   }
@@ -293,7 +293,7 @@ function SessionDetail({
       setRemovingId(null)
       setRemovals((n) => n + 1)
     } catch (err) {
-      setStudentError(toApiError(err, 'Không thể gỡ sinh viên khỏi ca thi.').message)
+      setStudentError(toApiError(err, 'Could not remove student from session.').message)
     } finally {
       setBusy(false)
     }
@@ -319,7 +319,7 @@ function SessionDetail({
       const updated = await sessionsApi.get(sessionId)
       applyUpdate(updated)
     } catch (err) {
-      setActionError(toApiError(err, 'Không thể phân bổ đề thi.').message)
+      setActionError(toApiError(err, 'Could not distribute exams.').message)
     } finally {
       setDistributing(false)
     }
@@ -347,7 +347,7 @@ function SessionDetail({
       const updated = await sessionsApi.get(sessionId)
       applyUpdate(updated)
     } catch (err) {
-      setStudentError(toApiError(err, 'Không thể gán đề thi cho sinh viên.').message)
+      setStudentError(toApiError(err, 'Could not assign exam to student.').message)
     } finally {
       setReassigningStudentId(null)
     }
@@ -367,7 +367,7 @@ function SessionDetail({
       const updated = await sessionsApi.get(sessionId)
       applyUpdate(updated)
     } catch (err) {
-      setActionError(toApiError(err, 'Không thể phân bổ kíp thi.').message)
+      setActionError(toApiError(err, 'Could not distribute time slots.').message)
     } finally {
       setDistributingSlots(false)
     }
@@ -396,7 +396,7 @@ function SessionDetail({
       const updated = await sessionsApi.get(sessionId)
       applyUpdate(updated)
     } catch (err) {
-      setStudentError(toApiError(err, 'Không thể gán kíp thi cho sinh viên.').message)
+      setStudentError(toApiError(err, 'Could not assign time slot to student.').message)
     } finally {
       setReassigningSlotStudentId(null)
     }
@@ -413,7 +413,7 @@ function SessionDetail({
       applyUpdate(await sessionsApi.updateStatus(sessionId, target))
       setConfirming(null)
     } catch (err) {
-      setActionError(toApiError(err, 'Không thể chuyển trạng thái ca thi.').message)
+      setActionError(toApiError(err, 'Could not change session status.').message)
     } finally {
       setBusy(false)
     }
@@ -421,14 +421,14 @@ function SessionDetail({
 
   const transitions = SESSION_TRANSITIONS[session.status]
   const facts = [
-    { label: 'Thời gian thi', value: formatTimeRange(start, end) },
-    { label: 'Phòng thi', value: session.room || 'Chưa thiết lập' },
+    { label: 'Exam Time', value: formatTimeRange(start, end) },
+    { label: 'Room', value: session.room || 'Not set' },
     {
-      label: 'Sĩ số đăng ký',
-      value: `${session.enrolledStudents} / ${session.maxCapacity} sinh viên`,
+      label: 'Enrollment',
+      value: `${session.enrolledStudents} / ${session.maxCapacity} students`,
     },
-    { label: 'Môn học', value: session.courseName || 'Chưa phân môn' },
-    ...(session.periodName ? [{ label: 'Đợt thi', value: session.periodName }] : []),
+    { label: 'Course', value: session.courseName || 'Unassigned' },
+    ...(session.periodName ? [{ label: 'Exam Period', value: session.periodName }] : []),
   ]
 
   return (
@@ -441,12 +441,12 @@ function SessionDetail({
           </span>
           {hasMultipleExams && (
             <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand">
-              {exams.length} bộ đề thi
+              {exams.length} exam papers
             </span>
           )}
           {slots.length > 0 && (
             <span className="rounded-full bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 px-2.5 py-0.5 text-xs font-medium">
-              {slots.length} kíp thi
+              {slots.length} time slots
             </span>
           )}
         </div>
@@ -454,7 +454,7 @@ function SessionDetail({
           {session.sessionName}
           {editing && (
             <span className="text-xs font-normal text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-full px-2 py-0.5">
-              Chế độ chỉnh sửa
+              Editing Mode
             </span>
           )}
         </DialogTitle>
@@ -473,7 +473,7 @@ function SessionDetail({
           )}
         >
           <Info className="size-4" />
-          Tổng quan & Ca thi
+          Overview & Session
         </button>
         <button
           type="button"
@@ -486,7 +486,7 @@ function SessionDetail({
           )}
         >
           <Users className="size-4" />
-          Thí sinh & Phân bổ
+          Students & Allocation
           <span
             className={cn(
               'rounded-full px-2 py-0.5 text-xs font-semibold',
@@ -501,19 +501,39 @@ function SessionDetail({
       {/* Content Area */}
       <div className="p-6 space-y-5">
         {/* ========================================================================= */}
-        {/* TAB 1: TỔNG QUAN & CA THI */}
+        {/* TAB 1: OVERVIEW & SESSION */}
         {/* ========================================================================= */}
         {activeTab === 'OVERVIEW' && (
           <div className="space-y-5">
             {/* Join code banner */}
-            <div className="flex flex-col items-start gap-3 rounded-2xl bg-brand-soft/80 border border-brand/20 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-medium text-brand/80">Mã ca thi (Join Code dành cho sinh viên)</p>
-                <p className="font-mono text-2xl font-bold tracking-[0.15em] sm:text-3xl text-brand mt-0.5">
-                  {session.sessionCode}
-                </p>
+            <div className="flex flex-col gap-3 rounded-2xl bg-brand-soft/80 border border-brand/20 p-5">
+              <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium text-brand/80">
+                    {slots.length > 0 ? 'Main Session Join Code (Mã phòng thi chung)' : 'Session Join Code (for students)'}
+                  </p>
+                  <p className="font-mono text-2xl font-bold tracking-[0.15em] sm:text-3xl text-brand mt-0.5">
+                    {session.sessionCode}
+                  </p>
+                </div>
+                <CopyButton value={session.sessionCode} label="Copy session code" />
               </div>
-              <CopyButton value={session.sessionCode} label="Sao chép mã" />
+
+              {slots.length > 0 && (
+                <div className="flex items-start gap-2.5 rounded-xl bg-background/80 border border-brand/25 px-3.5 py-2.5 text-xs text-foreground mt-1 shadow-xs">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-brand/10 text-brand font-bold shrink-0 mt-0.5">
+                    ⚡
+                  </span>
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-brand">
+                      Ca thi đã được chia thành {slots.length} kíp thi (time slots).
+                    </p>
+                    <p className="text-muted-foreground text-[11px] leading-relaxed">
+                      Để phân bổ sinh viên vào đúng ca thi và khung giờ, hãy gửi <strong>Mã Kíp thi riêng (Slot Join Code)</strong> ở danh sách kíp thi bên dưới cho sinh viên từng ca.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Basic Facts Card / In-place Edit Form */}
@@ -521,66 +541,70 @@ function SessionDetail({
               <div className="rounded-2xl border bg-card p-5 space-y-4 shadow-xs">
                 <div className="flex items-center justify-between border-b pb-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-brand flex items-center gap-1.5">
-                    <Pencil className="size-3.5" /> Chỉnh sửa thông tin ca thi
+                    <Pencil className="size-3.5" /> Edit Session Information
                   </h4>
-                  <span className="text-xs text-muted-foreground">Thay đổi trực tiếp trên ca thi</span>
+                  <span className="text-xs text-muted-foreground">Modify directly in this session</span>
                 </div>
 
-                <FormField label="Tên ca thi" required error={editErrors.name}>
-                  <input
-                    type="text"
-                    value={editSessionName}
-                    onChange={(e) => setEditSessionName(e.target.value)}
-                    placeholder="Ví dụ: Ca thi sáng 01 - Lớp PRJ301"
-                    className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                <FormField
+                  label="Session Name"
+                  required
+                  error={editErrors.name}
+                  value={editSessionName}
+                  onChange={(e) => {
+                    setEditSessionName(e.target.value)
+                    if (editErrors.name) setEditErrors((prev) => ({ ...prev, name: undefined }))
+                  }}
+                  placeholder="e.g. Morning Session 01 - Class PRJ301"
+                />
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    label="Room"
+                    value={editRoom}
+                    onChange={(e) => setEditRoom(e.target.value)}
+                    placeholder="e.g. Room 301, Alpha Building (optional)"
                   />
-                </FormField>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Phòng thi">
-                    <input
-                      type="text"
-                      value={editRoom}
-                      onChange={(e) => setEditRoom(e.target.value)}
-                      placeholder="Ví dụ: Phòng 301, Tòa Alpha (tùy chọn)"
-                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
-                    />
-                  </FormField>
-                  <FormField label="Sức chứa tối đa (sinh viên)" required error={editErrors.capacity}>
-                    <input
-                      type="number"
-                      min={session.enrolledStudents || 1}
-                      max={500}
-                      value={editMaxCapacity}
-                      onChange={(e) => setEditMaxCapacity(e.target.value)}
-                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
-                    />
-                  </FormField>
+                  <FormField
+                    label="Max Capacity (students)"
+                    type="number"
+                    required
+                    min={session.enrolledStudents || 1}
+                    max={500}
+                    value={editMaxCapacity}
+                    error={editErrors.capacity}
+                    onChange={(e) => {
+                      setEditMaxCapacity(e.target.value)
+                      if (editErrors.capacity) setEditErrors((prev) => ({ ...prev, capacity: undefined }))
+                    }}
+                  />
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Thời gian bắt đầu" required error={editErrors.time}>
-                    <input
-                      type="datetime-local"
-                      value={editStartTime}
-                      onChange={(e) => setEditStartTime(e.target.value)}
-                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
-                    />
-                  </FormField>
-                  <FormField label="Thời gian kết thúc" required>
-                    <input
-                      type="datetime-local"
-                      value={editEndTime}
-                      onChange={(e) => setEditEndTime(e.target.value)}
-                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none"
-                    />
-                  </FormField>
+                  <FormField
+                    label="Start Time"
+                    type="datetime-local"
+                    required
+                    error={editErrors.time}
+                    value={editStartTime}
+                    onChange={(e) => {
+                      setEditStartTime(e.target.value)
+                      if (editErrors.time) setEditErrors((prev) => ({ ...prev, time: undefined }))
+                    }}
+                  />
+                  <FormField
+                    label="End Time"
+                    type="datetime-local"
+                    required
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                  />
                 </div>
               </div>
             ) : (
               <div className="rounded-2xl border bg-card p-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                  Thông tin chung
+                  General Information
                 </h4>
                 <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                   {facts.map((f) => (
@@ -600,7 +624,7 @@ function SessionDetail({
                   <div className="flex items-center gap-2">
                     <Layers className="size-4 text-brand" />
                     <h4 className="font-semibold text-sm">
-                      Bộ đề thi cấu hình ({editExamIds.length})
+                      Configured Exam Papers ({editExamIds.length})
                     </h4>
                   </div>
                 </div>
@@ -616,12 +640,12 @@ function SessionDetail({
                       <div key={id} className="flex items-center justify-between rounded-xl border bg-background p-3 text-xs shadow-xs">
                         <div className="min-w-0 pr-2">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-mono font-bold text-brand">{ex?.examCode ?? `Đề #${id}`}</span>
+                            <span className="font-mono font-bold text-brand">{ex?.examCode ?? `Exam #${id}`}</span>
                             <span className="truncate font-medium text-foreground">{ex?.title ?? ''}</span>
                           </div>
                           {ex && (
                             <p className="text-muted-foreground mt-0.5">
-                              {'totalQuestions' in ex ? ex.totalQuestions : (ex.maxQuestions ?? ex.questions?.length ?? 0)} câu · {ex.durationMinutes} phút
+                              {'totalQuestions' in ex ? ex.totalQuestions : (ex.maxQuestions ?? ex.questions?.length ?? 0)} questions · {ex.durationMinutes} mins
                             </p>
                           )}
                         </div>
@@ -631,7 +655,7 @@ function SessionDetail({
                           variant="ghost"
                           onClick={() => handleRemoveExamFromEdit(id)}
                           disabled={editExamIds.length <= 1}
-                          title={editExamIds.length <= 1 ? 'Ca thi phải có ít nhất 1 bộ đề' : 'Gỡ đề thi'}
+                          title={editExamIds.length <= 1 ? 'Session must have at least 1 exam' : 'Remove exam'}
                           className="text-muted-foreground hover:text-destructive size-7 shrink-0"
                         >
                           <X className="size-3.5" />
@@ -649,14 +673,14 @@ function SessionDetail({
                     className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-xs focus:border-brand outline-none"
                   >
                     <option value="" disabled>
-                      + Chọn thêm đề thi vào ca thi...
+                      + Add more exam papers to session...
                     </option>
                     {teacherExams
                       .filter((e) => !editExamIds.includes(e.examId))
                       .filter((e) => !session.courseId || e.courseId === session.courseId)
                       .map((e) => (
                         <option key={e.examId} value={e.examId}>
-                          {e.examCode} — {e.title} ({e.maxQuestions ?? e.questions?.length ?? 0} câu, {e.durationMinutes} phút)
+                          {e.examCode} — {e.title} ({e.maxQuestions ?? e.questions?.length ?? 0} questions, {e.durationMinutes} mins)
                         </option>
                       ))}
                   </select>
@@ -668,7 +692,7 @@ function SessionDetail({
                   <div className="flex items-center gap-2">
                     <Layers className="size-4 text-brand" />
                     <h4 className="font-semibold text-sm">
-                      Bộ đề thi cấu hình ({exams.length > 0 ? exams.length : 1})
+                      Configured Exam Papers ({exams.length > 0 ? exams.length : 1})
                     </h4>
                   </div>
                 </div>
@@ -683,12 +707,12 @@ function SessionDetail({
                             <span className="truncate font-medium text-foreground">{ex.title}</span>
                           </div>
                           <p className="text-muted-foreground mt-0.5">
-                            {ex.totalQuestions} câu · {ex.durationMinutes} phút
+                            {ex.totalQuestions} questions · {ex.durationMinutes} mins
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
                           <span className="rounded-full bg-brand-soft px-2.5 py-0.5 font-semibold text-brand text-[11px]">
-                            {ex.assignedStudentsCount} SV
+                            {ex.assignedStudentsCount} students
                           </span>
                         </div>
                       </div>
@@ -696,7 +720,7 @@ function SessionDetail({
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Đề thi: <strong>{session.examTitle}</strong> ({session.examCode})
+                    Exam: <strong>{session.examTitle}</strong> ({session.examCode})
                   </p>
                 )}
               </section>
@@ -709,10 +733,10 @@ function SessionDetail({
                   <div className="flex items-center gap-2">
                     <Clock className="size-4 text-brand" aria-hidden="true" />
                     <h4 id="session-slots" className="font-semibold text-sm">
-                      Cấu hình Kíp thi ({slots.length} kíp)
+                      Time Slots Configuration ({slots.length} slots)
                     </h4>
                     <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
-                      {session.durationMinutes} phút/kíp
+                      {session.durationMinutes} mins/slot
                     </span>
                   </div>
                   {notStarted && (
@@ -724,24 +748,26 @@ function SessionDetail({
                       className="h-7 text-xs text-brand hover:bg-brand-soft gap-1"
                     >
                       <Sparkles className="size-3.5" />
-                      Cấu hình lại kíp
+                      Reconfigure slots
                     </Button>
                   )}
                 </div>
 
-                <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {slots.map((sl) => {
                     const now = Date.now()
                     const slotStart = parseApiDate(sl.startTime).getTime()
                     const slotEnd = parseApiDate(sl.endTime).getTime()
                     const isHappening = now >= slotStart && now <= slotEnd
                     const isPassed = now > slotEnd
+                    const slotCode = sl.slotCode || `${session.sessionCode}-S${sl.slotIndex}`
+                    const slotDuration = Math.max(1, Math.round((slotEnd - slotStart) / 60000))
 
                     return (
                       <div
                         key={sl.slotId}
                         className={cn(
-                          'flex items-center justify-between rounded-xl border p-3 text-xs shadow-xs transition-all',
+                          'flex flex-col justify-between rounded-xl border p-3.5 text-xs shadow-xs transition-all gap-3',
                           isHappening
                             ? 'border-emerald-300 bg-emerald-50/70 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
                             : isPassed
@@ -749,29 +775,50 @@ function SessionDetail({
                             : 'border-input bg-card'
                         )}
                       >
-                        <div className="min-w-0 pr-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-foreground">{sl.slotName}</span>
-                            {isHappening && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.2 text-[10px] font-semibold animate-pulse">
-                                <span className="size-1.5 rounded-full bg-emerald-600" />
-                                Đang thi
-                              </span>
-                            )}
-                            {isPassed && (
-                              <span className="rounded-full bg-muted text-muted-foreground px-1.5 py-0.2 text-[10px]">
-                                Đã xong
-                              </span>
-                            )}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-foreground text-sm">{sl.slotName}</span>
+                              {isHappening && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 text-[10px] font-semibold animate-pulse">
+                                  <span className="size-1.5 rounded-full bg-emerald-600" />
+                                  In progress
+                                </span>
+                              )}
+                              {isPassed && (
+                                <span className="rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-[10px] font-medium">
+                                  Ended
+                                </span>
+                              )}
+                              {!isHappening && !isPassed && (
+                                <span className="rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300 px-2 py-0.5 text-[10px] font-medium">
+                                  Upcoming
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-brand font-medium flex items-center gap-1 font-mono">
+                              <Clock className="size-3.5 shrink-0" />
+                              <span>{formatTimeRange(parseApiDate(sl.startTime), parseApiDate(sl.endTime))}</span>
+                              <span className="text-muted-foreground font-sans font-normal">({slotDuration} mins)</span>
+                            </p>
                           </div>
-                          <p className="text-brand font-mono font-medium mt-1">
-                            {formatTimeRange(parseApiDate(sl.startTime), parseApiDate(sl.endTime))}
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <span className="rounded-full bg-brand-soft px-2.5 py-0.5 font-semibold text-brand text-[11px]">
-                            {sl.assignedStudentsCount ?? 0} SV
+
+                          <span className="rounded-full bg-brand-soft px-2.5 py-0.5 font-semibold text-brand text-[11px] shrink-0">
+                            {sl.assignedStudentsCount ?? 0} students
                           </span>
+                        </div>
+
+                        {/* Slot Code with Copy Button */}
+                        <div className="rounded-lg border bg-muted/30 p-2.5 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground block">
+                              Mã kíp thi (Slot Join Code)
+                            </span>
+                            <span className="font-mono text-xs font-bold tracking-wider text-brand truncate block">
+                              {slotCode}
+                            </span>
+                          </div>
+                          <CopyButton value={slotCode} label="Copy code" />
                         </div>
                       </div>
                     )
@@ -786,9 +833,9 @@ function SessionDetail({
                     <Clock className="size-4.5" />
                   </span>
                   <div>
-                    <h4 className="text-sm font-semibold text-foreground">Ca thi chưa chia Kíp thi</h4>
+                    <h4 className="text-sm font-semibold text-foreground">Session has no Time Slots yet</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Chia ca thi thành nhiều khung giờ nhỏ để chia đợt sinh viên vào thi, kiểm soát phòng thi và chống lộ đề.
+                      Split session into smaller time windows to stagger student entry, manage room capacity, and prevent exam leaking.
                     </p>
                   </div>
                 </div>
@@ -800,7 +847,7 @@ function SessionDetail({
                     className="shrink-0 gap-1.5 text-xs shadow-xs"
                   >
                     <Sparkles className="size-3.5" />
-                    Thiết lập Kíp thi
+                    Configure Time Slots
                   </Button>
                 )}
               </div>
@@ -823,7 +870,7 @@ function SessionDetail({
                     disabled={savingEdit}
                     onClick={cancelEditing}
                   >
-                    Hủy bỏ
+                    Cancel
                   </Button>
                   <Button
                     type="button"
@@ -835,12 +882,12 @@ function SessionDetail({
                     {savingEdit ? (
                       <>
                         <Loader2 className="size-3.5 animate-spin" />
-                        Đang lưu...
+                        Saving...
                       </>
                     ) : (
                       <>
                         <Save className="size-3.5" />
-                        Lưu thay đổi
+                        Save Changes
                       </>
                     )}
                   </Button>
@@ -852,7 +899,7 @@ function SessionDetail({
                   {confirming && (
                     <p role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 px-4 py-3 text-xs text-amber-900 dark:text-amber-200">
                       {confirming === 'DELETE'
-                        ? 'Xác nhận xóa ca thi này vĩnh viễn? Mã ca thi sẽ bị hủy. Thao tác không thể hoàn tác.'
+                        ? 'Permanently delete this exam session? The join code will be invalidated. This action cannot be undone.'
                         : ACTION[confirming].confirm}
                     </p>
                   )}
@@ -866,7 +913,7 @@ function SessionDetail({
                     {notStarted && !confirming && (
                       <Button variant="outline" size="sm" disabled={busy} onClick={startEditing}>
                         <Pencil className="size-3.5 mr-1.5" aria-hidden="true" />
-                        Chỉnh sửa ca thi
+                        Edit Session
                       </Button>
                     )}
                     {transitions.map((target) => {
@@ -883,7 +930,7 @@ function SessionDetail({
                         >
                           {action.icon}
                           <span className="ml-1.5">
-                            {isConfirming ? `Xác nhận: ${action.label.toLowerCase()}` : action.label}
+                            {isConfirming ? `Confirm: ${action.label.toLowerCase()}` : action.label}
                           </span>
                         </Button>
                       )
@@ -897,18 +944,18 @@ function SessionDetail({
                         onClick={() => void deleteSession()}
                       >
                         <Trash2 className="size-3.5 mr-1.5" aria-hidden="true" />
-                        {confirming === 'DELETE' ? 'Xác nhận xóa ca thi' : 'Xóa ca thi'}
+                        {confirming === 'DELETE' ? 'Confirm Delete Session' : 'Delete Session'}
                       </Button>
                     )}
                     {confirming && (
                       <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>
-                        Hủy thao tác
+                        Cancel Action
                       </Button>
                     )}
                   </div>
                   {deletableStatus && session.enrolledStudents > 0 && !confirming && (
                     <p className="text-[12px] text-muted-foreground">
-                      Ca thi đã có sinh viên đăng ký không thể xóa. Hãy gỡ toàn bộ sinh viên trước hoặc hủy ca thi.
+                      Sessions with enrolled students cannot be deleted. Please remove all students first or cancel the session.
                     </p>
                   )}
                 </div>
@@ -918,7 +965,7 @@ function SessionDetail({
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 2: THÍ SINH & PHÂN BỔ */}
+        {/* TAB 2: STUDENTS & ALLOCATION */}
         {/* ========================================================================= */}
         {activeTab === 'STUDENTS' && (
           <div className="space-y-4">
@@ -932,7 +979,7 @@ function SessionDetail({
               <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border bg-muted/20 p-3.5">
                 <div className="flex items-center gap-2">
                   <Shuffle className="size-4 text-brand" />
-                  <span className="text-xs font-semibold">Công cụ trộn & phân bổ:</span>
+                  <span className="text-xs font-semibold">Distribution & Shuffle Tools:</span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -944,7 +991,7 @@ function SessionDetail({
                     className="h-8 text-xs border-brand text-brand hover:bg-brand-soft gap-1.5"
                   >
                     <Sparkles className="size-3.5" />
-                    {slots.length > 0 ? 'Chia lại Kíp thi' : '⚡ Chia Kíp thi tự động'}
+                    {slots.length > 0 ? 'Reconfigure Time Slots' : '⚡ Auto-slice Time Slots'}
                   </Button>
 
                   {/* Multi-exam distribution button */}
@@ -957,7 +1004,7 @@ function SessionDetail({
                       className="h-8 text-xs border-brand text-brand hover:bg-brand-soft"
                     >
                       <Shuffle className={cn('size-3.5 mr-1.5', distributing && 'animate-spin')} />
-                      {distributing ? 'Đang phân bổ đề…' : 'Trộn & Phân bổ đề thi'}
+                      {distributing ? 'Distributing exams…' : 'Shuffle & Distribute Exams'}
                     </Button>
                   )}
 
@@ -969,10 +1016,10 @@ function SessionDetail({
                           value={slotExamMode}
                           onChange={(e) => setSlotExamMode(e.target.value as 'EXAM_PER_SLOT' | 'SHUFFLE_IN_SLOT')}
                           className="h-8 rounded-lg border border-input bg-background px-2 text-xs font-medium outline-none focus:border-brand"
-                          aria-label="Chế độ chia đề thi cho kíp"
+                          aria-label="Slot exam assignment mode"
                         >
-                          <option value="EXAM_PER_SLOT">Mỗi kíp 1 đề (Cố định)</option>
-                          <option value="SHUFFLE_IN_SLOT">Trộn đề trong từng kíp</option>
+                          <option value="EXAM_PER_SLOT">One fixed exam per slot</option>
+                          <option value="SHUFFLE_IN_SLOT">Shuffle exams within slot</option>
                         </select>
                       )}
                       <Button
@@ -983,7 +1030,7 @@ function SessionDetail({
                         className="h-8 text-xs border-brand text-brand hover:bg-brand-soft"
                       >
                         <Shuffle className={cn('size-3.5 mr-1.5', distributingSlots && 'animate-spin')} />
-                        {distributingSlots ? 'Đang phân bổ kíp…' : 'Phân bổ SV vào kíp'}
+                        {distributingSlots ? 'Distributing slots…' : 'Distribute Students to Slots'}
                       </Button>
                     </div>
                   )}
@@ -996,11 +1043,11 @@ function SessionDetail({
               <Alert className="bg-emerald-50 text-emerald-900 border-emerald-200 py-2.5">
                 <Check className="size-4 text-emerald-600" />
                 <AlertDescription className="text-xs">
-                  Đã phân bổ thành công <strong>{distributeResult.totalStudents}</strong> sinh viên cho <strong>{distributeResult.totalExams}</strong> bộ đề ngẫu nhiên cân bằng:
+                  Successfully distributed <strong>{distributeResult.totalStudents}</strong> students across <strong>{distributeResult.totalExams}</strong> exams with balanced randomness:
                   <span className="mt-1 flex flex-wrap gap-1.5 font-mono">
                     {distributeResult.allocations.map((a) => (
                       <span key={a.examId} className="bg-emerald-100/80 px-2 py-0.5 rounded text-[11px]">
-                        {a.examCode}: {a.studentCount} SV
+                        {a.examCode}: {a.studentCount} students
                       </span>
                     ))}
                   </span>
@@ -1012,11 +1059,11 @@ function SessionDetail({
               <Alert className="bg-emerald-50 text-emerald-900 border-emerald-200 py-2.5">
                 <Check className="size-4 text-emerald-600" />
                 <AlertDescription className="text-xs">
-                  Đã phân bổ thành công <strong>{distributeSlotsResult.totalStudents}</strong> sinh viên đều cho <strong>{distributeSlotsResult.totalSlots}</strong> kíp thi:
+                  Successfully distributed <strong>{distributeSlotsResult.totalStudents}</strong> students evenly across <strong>{distributeSlotsResult.totalSlots}</strong> time slots:
                   <span className="mt-1 flex flex-wrap gap-1.5 font-mono">
                     {distributeSlotsResult.allocations.map((a) => (
                       <span key={a.slotId} className="bg-emerald-100/80 px-2 py-0.5 rounded text-[11px]">
-                        {a.slotName}: {a.studentCount} SV
+                        {a.slotName}: {a.studentCount} students
                       </span>
                     ))}
                   </span>
@@ -1033,7 +1080,7 @@ function SessionDetail({
 
             {/* Student list states */}
             {monitor.state.status === 'loading' && (
-              <p className="text-xs text-muted-foreground">Đang tải danh sách thí sinh…</p>
+              <p className="text-xs text-muted-foreground">Loading students…</p>
             )}
             {monitor.state.status === 'error' && (
               <p className="text-xs text-destructive">{monitor.state.message}</p>
@@ -1044,7 +1091,7 @@ function SessionDetail({
               if (allStudents.length === 0) {
                 return (
                   <p className="rounded-2xl border border-dashed p-6 text-center text-xs text-muted-foreground">
-                    Chưa có sinh viên nào trong ca thi. Hãy nhập MSSV/Email ở trên hoặc sinh viên có thể tự vào bằng Mã ca thi.
+                    No students in this session yet. Enter Student Codes/Emails above or students can join using the Join Code.
                   </p>
                 )
               }
@@ -1068,7 +1115,7 @@ function SessionDetail({
                             : 'bg-background hover:bg-muted text-muted-foreground'
                         )}
                       >
-                        Tất cả ({allStudents.length})
+                        All ({allStudents.length})
                       </button>
                       {slots.map((sl) => {
                         const count = allStudents.filter((st) => st.assignedSlotId === sl.slotId).length
@@ -1113,14 +1160,14 @@ function SessionDetail({
                           <div className="flex items-center">
                             {notStarted ? (
                               <select
-                                aria-label={`Gán kíp cho ${s.studentName}`}
+                                aria-label={`Assign slot to ${s.studentName}`}
                                 value={s.assignedSlotId ?? ''}
                                 disabled={reassigningSlotStudentId === s.studentId}
                                 onChange={(e) => handleAssignStudentSlot(s.studentId, Number(e.target.value))}
                                 className="h-7 rounded-lg border border-input bg-background px-2 text-xs font-medium outline-none focus:border-brand"
                               >
                                 <option value="" disabled>
-                                  -- Chọn kíp --
+                                  -- Select slot --
                                 </option>
                                 {slots.map((sl) => (
                                   <option key={sl.slotId} value={sl.slotId}>
@@ -1130,7 +1177,7 @@ function SessionDetail({
                               </select>
                             ) : (
                               <span className="rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 px-2 py-0.5 text-xs font-medium">
-                                {s.assignedSlotName ?? 'Chưa gán kíp'}
+                                {s.assignedSlotName ?? 'Unassigned slot'}
                               </span>
                             )}
                           </div>
@@ -1140,14 +1187,14 @@ function SessionDetail({
                         <div className="flex items-center gap-2">
                           {notStarted && exams.length > 1 ? (
                             <select
-                              aria-label={`Gán đề cho ${s.studentName}`}
+                              aria-label={`Assign exam to ${s.studentName}`}
                               value={s.assignedExamId ?? ''}
                               disabled={reassigningStudentId === s.studentId}
                               onChange={(e) => handleAssignStudentExam(s.studentId, Number(e.target.value))}
                               className="h-7 rounded-lg border border-input bg-background px-2 text-xs font-mono font-medium outline-none focus:border-brand"
                             >
                               <option value="" disabled>
-                                -- Chọn đề --
+                                -- Select exam --
                               </option>
                               {exams.map((ex) => (
                                 <option key={ex.examId} value={ex.examId}>
@@ -1176,7 +1223,7 @@ function SessionDetail({
                                   disabled={busy}
                                   onClick={() => void removeStudent(s.studentId)}
                                 >
-                                  Xóa
+                                  Remove
                                 </Button>
                                 <Button
                                   size="sm"
@@ -1185,7 +1232,7 @@ function SessionDetail({
                                   disabled={busy}
                                   onClick={() => setRemovingId(null)}
                                 >
-                                  Hủy
+                                  Cancel
                                 </Button>
                               </div>
                             ) : (
@@ -1193,8 +1240,8 @@ function SessionDetail({
                                 size="icon-sm"
                                 variant="ghost"
                                 disabled={busy}
-                                aria-label={`Xóa ${s.studentName} khỏi ca thi`}
-                                title="Xóa khỏi ca thi"
+                                aria-label={`Remove ${s.studentName} from session`}
+                                title="Remove from session"
                                 onClick={() => setRemovingId(s.studentId)}
                                 className="text-muted-foreground hover:text-destructive size-7"
                               >

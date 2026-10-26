@@ -7,9 +7,9 @@ import { sessionsApi } from '../api/sessionsApi'
 import type { BulkEnrollResult, EnrollOutcome } from '../types'
 
 const SKIP_LABEL: Record<Exclude<EnrollOutcome, 'added'>, string> = {
-  already_enrolled: 'Đã có trong ca thi',
-  not_student: 'Tài khoản không phải sinh viên',
-  not_found: 'Không tìm thấy tài khoản (sai MSSV/Email/ID)',
+  already_enrolled: 'Already in this session',
+  not_student: 'Account is not a student',
+  not_found: 'Account not found (invalid Student Code/Email/ID)',
 }
 
 /** Max IDs/Identifiers per request, matching backend limit. */
@@ -33,10 +33,10 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
     setResult(null)
     const tokens = text.split(/[\s,;]+/).map((t) => t.trim()).filter(Boolean)
     if (tokens.length === 0) {
-      return setError('Vui lòng nhập ít nhất một Mã SV (MSSV), Email hoặc ID số.')
+      return setError('Please enter at least one Student Code, Email, or numeric ID.')
     }
     if (tokens.length > MAX_IDENTIFIERS) {
-      return setError(`Chỉ thêm tối đa ${MAX_IDENTIFIERS} sinh viên một lần.`)
+      return setError(`Maximum ${MAX_IDENTIFIERS} students can be added at once.`)
     }
 
     setError(null)
@@ -49,7 +49,7 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
         onAdded()
       }
     } catch (err) {
-      setError(toApiError(err, 'Không thể thêm sinh viên vào ca thi.').message)
+      setError(toApiError(err, 'Could not add students to the session.').message)
     } finally {
       setSubmitting(false)
     }
@@ -66,7 +66,7 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
         onAdded()
       }
     } catch (err) {
-      setError(toApiError(err, 'Không thể nhập sinh viên từ môn học.').message)
+      setError(toApiError(err, 'Could not import students from course.').message)
     } finally {
       setImportingCourse(false)
     }
@@ -78,7 +78,7 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
     <div className="flex flex-col gap-3 rounded-2xl border bg-muted/30 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label htmlFor={inputId} className="text-sm font-semibold text-foreground">
-          Thêm sinh viên vào ca thi
+          Add students to session
         </label>
         <Button
           type="button"
@@ -87,14 +87,14 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
           disabled={importingCourse || submitting}
           onClick={handleImportCourseStudents}
           className="h-8 gap-1.5 border-brand/40 text-brand hover:bg-brand-soft text-xs"
-          title="Tự động thêm tất cả sinh viên đã đăng ký vào môn học của ca thi"
+          title="Automatically add all students enrolled in the course"
         >
           {importingCourse ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
             <GraduationCap className="size-3.5" />
           )}
-          {importingCourse ? 'Đang nhập…' : 'Nhập từ môn học'}
+          {importingCourse ? 'Importing…' : 'Import from course'}
         </Button>
       </div>
 
@@ -108,7 +108,7 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
               setText(e.target.value)
               if (error) setError(null)
             }}
-            placeholder="Dán hoặc gõ MSSV (SE160001), Email (sv@fpt.edu.vn) hoặc ID... Phân cách bằng dấu phẩy, khoảng trắng hoặc xuống dòng"
+            placeholder="Paste or type Student Codes (e.g. SE160001), Emails (student@fpt.edu.vn), or IDs... Separated by spaces, commas, or line breaks"
             aria-invalid={Boolean(error)}
             aria-describedby={`${inputId}-hint`}
             className={cn(
@@ -127,12 +127,12 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
             ) : (
               <UserPlus className="size-4" />
             )}
-            {submitting ? 'Đang thêm…' : 'Thêm sinh viên'}
+            {submitting ? 'Adding…' : 'Add students'}
           </Button>
         </div>
 
         <p id={`${inputId}-hint`} className="text-[12px] text-muted-foreground">
-          Hỗ trợ nhập hỗn hợp Mã SV, Email trường hoặc ID. Hệ thống tự động đối soát, kiểm tra trùng lặp và phân bổ đề thi.
+          Supports mixed Student Codes, university emails, or IDs. The system automatically reconciles, checks duplicates, and allocates exams.
         </p>
 
         {error && (
@@ -147,11 +147,11 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
             <div className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="size-4 text-emerald-600" />
               <span className="text-emerald-700">
-                Đã thêm thành công <strong>{result.addedCount}</strong> sinh viên.
+                Successfully added <strong>{result.addedCount}</strong> students.
               </span>
               {skipped.length > 0 && (
                 <span className="text-muted-foreground">
-                  (Bỏ qua {skipped.length} mục)
+                  (Skipped {skipped.length} items)
                 </span>
               )}
             </div>
@@ -170,7 +170,7 @@ export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
                   </li>
                 ))}
                 {skipped.length > 10 && (
-                  <li className="italic">… và {skipped.length - 10} sinh viên khác.</li>
+                  <li className="italic">… and {skipped.length - 10} other students.</li>
                 )}
               </ul>
             )}

@@ -131,8 +131,13 @@ public class ExamSessionService : IExamSessionService
             throw new ArgumentException("SessionCode is required.");
 
         var normalizedSessionCode = request.SessionCode.Trim().ToUpperInvariant();
-        var session = await _sessionRepository.GetBySessionCodeAsync(normalizedSessionCode)
-            ?? throw new KeyNotFoundException("Invalid or expired Enroll Code.");
+        var (session, slot) = await _sessionRepository.GetBySessionOrSlotCodeAsync(normalizedSessionCode);
+        if (session is null)
+        {
+            session = await _sessionRepository.GetBySessionCodeAsync(normalizedSessionCode);
+        }
+        if (session is null)
+            throw new KeyNotFoundException("Invalid or expired Enroll Code.");
 
         if (session.Status != SessionStatus.NOT_STARTED && session.Status != SessionStatus.IN_PROGRESS)
             throw new InvalidOperationException("This session is not open for enrollment.");
@@ -173,6 +178,7 @@ public class ExamSessionService : IExamSessionService
             SessionId = session.SessionId,
             StudentId = studentId,
             AssignedExamId = assignedExamId,
+            AssignedSlotId = slot?.SlotId,
             Status = SessionStatus.NOT_STARTED,
             EnrolledAt = DateTime.UtcNow
         };
@@ -263,11 +269,24 @@ public class ExamSessionService : IExamSessionService
             MaxCapacity = session.MaxCapacity,
             CurrentEnrollment = session.CurrentEnrollment,
             Exams = sessionExams,
+            Slots = session.Slots?.OrderBy(slot => slot.SlotIndex).Select(slot => new ExamSessionSlotDto
+            {
+                SlotId = slot.SlotId,
+                SessionId = slot.SessionId,
+                SlotIndex = slot.SlotIndex,
+                SlotName = slot.SlotName,
+                SlotCode = slot.SlotCode ?? $"{session.SessionCode}-S{slot.SlotIndex}",
+                StartTime = slot.StartTime,
+                EndTime = slot.EndTime,
+                MaxCapacity = slot.MaxCapacity,
+                AssignedStudentsCount = session.SessionEnrollments.Count(en => en.AssignedSlotId == slot.SlotId)
+            }).ToList() ?? new List<ExamSessionSlotDto>(),
             Students = session.SessionEnrollments.Select(e =>
             {
                 var studentResult = session.Results.FirstOrDefault(r => r.StudentId == e.StudentId);
                 var answeredCount = studentResult?.Answers?.Count ?? 0;
                 var studentExam = e.AssignedExam ?? (e.AssignedExamId.HasValue ? session.SessionExams?.FirstOrDefault(se => se.ExamId == e.AssignedExamId)?.Exam : null) ?? session.Exam;
+                var assignedSlot = e.AssignedSlot ?? (e.AssignedSlotId.HasValue ? session.Slots?.FirstOrDefault(sl => sl.SlotId == e.AssignedSlotId.Value) : null);
                 return new StudentProgressDto
                 {
                     SessionEnrollmentId = e.SessionEnrollmentId,
@@ -283,7 +302,11 @@ public class ExamSessionService : IExamSessionService
                     AnsweredQuestions = answeredCount,
                     AssignedExamId = e.AssignedExamId,
                     AssignedExamCode = studentExam?.ExamCode,
-                    AssignedExamTitle = studentExam?.Title
+                    AssignedExamTitle = studentExam?.Title,
+                    AssignedSlotId = e.AssignedSlotId,
+                    AssignedSlotName = assignedSlot?.SlotName,
+                    SlotStartTime = assignedSlot?.StartTime,
+                    SlotEndTime = assignedSlot?.EndTime
                 };
             }).ToList()
         };
@@ -362,7 +385,19 @@ public class ExamSessionService : IExamSessionService
                 DurationMinutes = se.Exam?.DurationMinutes ?? 0,
                 TotalQuestions = se.Exam?.ExamQuestions?.Count ?? se.Exam?.MaxQuestions ?? 0,
                 AssignedStudentsCount = session.SessionEnrollments?.Count(e => e.AssignedExamId == se.ExamId) ?? 0
-            }).ToList() ?? new List<SessionExamSummaryDto>()
+            }).ToList() ?? new List<SessionExamSummaryDto>(),
+            Slots = session.Slots?.OrderBy(slot => slot.SlotIndex).Select(slot => new ExamSessionSlotDto
+            {
+                SlotId = slot.SlotId,
+                SessionId = slot.SessionId,
+                SlotIndex = slot.SlotIndex,
+                SlotName = slot.SlotName,
+                SlotCode = slot.SlotCode ?? $"{session.SessionCode}-S{slot.SlotIndex}",
+                StartTime = slot.StartTime,
+                EndTime = slot.EndTime,
+                MaxCapacity = slot.MaxCapacity,
+                AssignedStudentsCount = session.SessionEnrollments?.Count(e => e.AssignedSlotId == slot.SlotId) ?? 0
+            }).ToList() ?? new List<ExamSessionSlotDto>()
         };
     }
 
@@ -391,7 +426,19 @@ public class ExamSessionService : IExamSessionService
                 DurationMinutes = se.Exam?.DurationMinutes ?? 0,
                 TotalQuestions = se.Exam?.ExamQuestions?.Count ?? se.Exam?.MaxQuestions ?? 0,
                 AssignedStudentsCount = session.SessionEnrollments?.Count(e => e.AssignedExamId == se.ExamId) ?? 0
-            }).ToList() ?? new List<SessionExamSummaryDto>()
+            }).ToList() ?? new List<SessionExamSummaryDto>(),
+            Slots = session.Slots?.OrderBy(slot => slot.SlotIndex).Select(slot => new ExamSessionSlotDto
+            {
+                SlotId = slot.SlotId,
+                SessionId = slot.SessionId,
+                SlotIndex = slot.SlotIndex,
+                SlotName = slot.SlotName,
+                SlotCode = slot.SlotCode ?? $"{session.SessionCode}-S{slot.SlotIndex}",
+                StartTime = slot.StartTime,
+                EndTime = slot.EndTime,
+                MaxCapacity = slot.MaxCapacity,
+                AssignedStudentsCount = session.SessionEnrollments?.Count(e => e.AssignedSlotId == slot.SlotId) ?? 0
+            }).ToList() ?? new List<ExamSessionSlotDto>()
         };
     }
 }
