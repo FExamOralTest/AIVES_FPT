@@ -486,6 +486,8 @@
 ```
 - **Response:** `200 OK` - ResultForReviewDto
 - **Precondition:** Result status is `PENDING_REVIEW` or `REVIEWED`
+- Review scores must be between zero and the configured maximum: `aiAnalysis.maxTotalScore` for the result and `answers[].maxScore` for each answer (default maximum 10 when unset).
+- Empty feedback strings clear previously saved feedback.
 - **Errors:** `400`, `409`
 
 #### POST /api/results/{resultId}/publish
