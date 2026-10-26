@@ -102,6 +102,11 @@ Lấy tất cả kết quả PENDING_REVIEW của tất cả sessions do Teacher
     "examTitle": "Bài kiểm tra AI 1",
     "aiScore": 75.5,
     "aiFeedback": "Câu trả lời tốt, cần cải thiện phần giải thích",
+    "aiAnalysis": {
+      "maxTotalScore": 100.0,
+      "percentage": 75.5,
+      "studySuggestions": []
+    },
     "finalScore": null,
     "finalFeedback": null,
     "status": "PENDING_REVIEW",
@@ -160,6 +165,7 @@ Lấy chi tiết một Result để review, bao gồm transcript, audio URL, AI 
       "answerId": 1,
       "questionId": 1,
       "questionText": "Giải thích khái niệm Machine Learning?",
+      "maxScore": 10.0,
       "studentAnswer": "Machine Learning là...",
       "transcript": "Machine Learning là một nhánh của AI...",
       "audioUrl": "https://storage.example.com/audio/answer1.mp3",
@@ -173,6 +179,7 @@ Lấy chi tiết một Result để review, bao gồm transcript, audio URL, AI 
       "answerId": 2,
       "questionId": 2,
       "questionText": "Follow-up: Cho ví dụ cụ thể?",
+      "maxScore": 10.0,
       "studentAnswer": "Ví dụ như...",
       "transcript": "Ví dụ như supervised learning...",
       "audioUrl": "https://storage.example.com/audio/answer2.mp3",
@@ -217,9 +224,10 @@ Review và lưu điểm cuối cùng, feedback; cập nhật status = REVIEWED.
 ```
 
 **Validation:**
-- `finalScore`: 0-100 (optional)
-- `answerReviews[].finalScore`: 0-100 (optional)
+- `finalScore`: 0 to `aiAnalysis.maxTotalScore` (optional)
+- `answerReviews[].finalScore`: 0 to that answer's `maxScore` (optional; defaults to 10 when not configured)
 - `answerReviews[].answerId`: required, must exist
+- Empty `finalFeedback` and `teacherComment` values clear previously saved feedback.
 
 **Response Codes:**
 - 200: Review thành công, trả về Result đã cập nhật
@@ -230,7 +238,7 @@ Review và lưu điểm cuối cùng, feedback; cập nhật status = REVIEWED.
 - 409: Conflict (result không ở trạng thái PENDING_REVIEW)
 
 **Business Rules:**
-- Chỉ review được kết quả ở trạng thái PENDING_REVIEW
+- Chỉ review được kết quả ở trạng thái PENDING_REVIEW hoặc REVIEWED
 - Không ghi đè ai_score/ai_feedback
 - Cập nhật reviewed_by và reviewed_at (UTC)
 - BR-15: Lưu đầy đủ dữ liệu để đối soát
