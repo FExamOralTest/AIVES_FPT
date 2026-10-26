@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Aives.Application.AI.DTOs;
 
 namespace Aives.Application.Exams.DTOs;
@@ -33,6 +32,7 @@ public class AnswerForReviewDto
     public string Status { get; set; } = "PROCESSING";
     public int QuestionId { get; set; }
     public string QuestionText { get; set; } = null!;
+    public float? MaxScore { get; set; }
     public string? StudentAnswer { get; set; }
     public string? Transcript { get; set; }
     public string? AudioUrl { get; set; }
@@ -47,7 +47,6 @@ public class AnswerForReviewDto
 
 public class ReviewResultRequest
 {
-    [Range(0, 100)]
     public float? FinalScore { get; set; }
     public string? FinalFeedback { get; set; }
     public List<AnswerReviewItem> AnswerReviews { get; set; } = new();
@@ -56,7 +55,6 @@ public class ReviewResultRequest
 public class AnswerReviewItem
 {
     public int AnswerId { get; set; }
-    [Range(0, 100)]
     public float? FinalScore { get; set; }
     public string? TeacherComment { get; set; }
 }

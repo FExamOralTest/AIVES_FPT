@@ -38,6 +38,8 @@ export interface FeatureDef {
   icon: LucideIcon
   summary: string
   status: FeatureStatus
+  /** `flush` pages fill the content area edge to edge and draw their own bars; default is a padded column. */
+  layout?: 'flush'
   /** Only for pending features: what the placeholder page lists as still needed. */
   endpoints?: FeatureEndpoint[]
   blockers?: string[]
@@ -52,6 +54,7 @@ export const FEATURES: FeatureDef[] = [
     icon: Users,
     summary: 'Create staff, examiner and student accounts, edit details and change roles.',
     status: 'done',
+    layout: 'flush',
   },
   {
     role: 'ADMIN',
@@ -60,6 +63,7 @@ export const FEATURES: FeatureDef[] = [
     icon: BookOpen,
     summary: 'Create courses and assign the staff member in charge.',
     status: 'done',
+    layout: 'flush',
   },
   {
     role: 'ADMIN',
@@ -76,6 +80,7 @@ export const FEATURES: FeatureDef[] = [
     icon: ListChecks,
     summary: 'Browse every exam session and open it to see each student’s result.',
     status: 'done',
+    layout: 'flush',
   },
 
   // ── Staff ──────────────────────────────────────────────────────────
@@ -110,6 +115,7 @@ export const FEATURES: FeatureDef[] = [
     icon: CalendarClock,
     summary: 'Schedule sessions, share the join code, start or close a session and monitor it live.',
     status: 'done',
+    layout: 'flush',
   },
 
   // ── Examiner ───────────────────────────────────────────────────────

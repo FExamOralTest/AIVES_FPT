@@ -82,7 +82,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthLayout aside={<RegisterPanel />}>
+    <AuthLayout
+      aside={<RegisterPanel />}
+      className="lg:grid-cols-[639fr_753fr]"
+      // The form outgrows the screen; the panel stays viewport-sized beside it, as in the design.
+      asideClassName="rounded-[9px] lg:sticky lg:top-[33px] lg:mt-[17px] lg:mr-[31px] lg:mb-5 lg:h-[calc(100svh-70px)] lg:self-start"
+    >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[26px]">
         <div className="flex flex-col gap-2.5">
           <h1 className="font-heading text-[40px] leading-[1.1] font-medium tracking-tight">Create a student account</h1>

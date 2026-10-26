@@ -25,7 +25,12 @@ Use at most four decimal places for scores. Do not use percentages or generic cr
 Write a substantive model answer supported by CONTENT and aligned with LEARNING_OUTCOMES.
 Vary question types and difficulty; never repeat already_generated_questions.
 Use the language of the documents. expected_keywords must contain 1-50 domain concepts
-that represent important answer points. Do not include additional fields or commentary."""
+that represent important answer points supported by CONTENT and sample_answer.
+Return a non-empty JSON array of distinct short terms or phrases for every question.
+Do not use generic labels such as "concept", "example", "khái niệm", or "ví dụ".
+Keywords guide semantic scoring; synonyms and paraphrases must remain acceptable.
+Do not omit expected_keywords or return null, empty strings, or an empty array.
+Do not include additional fields or commentary."""
 
 
 class QuestionBankService:

@@ -1,14 +1,19 @@
-import { CircleAlert, RotateCw } from 'lucide-react'
+import { CalendarDays, CircleAlert, LayoutDashboard, ListChecks, RotateCw, SlidersHorizontal } from 'lucide-react'
+import { Popover } from 'radix-ui'
 import { useMemo, useState } from 'react'
+import { PageBar, TableSkeleton, TOOLBAR_BUTTON } from '@/components/common/FlatPage'
 import { Button } from '@/components/ui/button'
+import { ROLE_HOME } from '@/features/auth'
 import { parseApiDate } from '@/lib/format/date'
 import { useApi } from '@/lib/http/useApi'
+import { cn } from '@/lib/utils'
 import { adminReportsApi } from '../api/adminReportsApi'
 import { SessionResultsDialog } from '../components/SessionResultsDialog'
-import { SessionTable } from '../components/SessionTable'
+import { SessionTable } from '@/features/exam-sessions/components/SessionTable'
 import type { ExamSessionSummary, SessionStatus } from '../types'
 
-const inputClass = 'mt-1 block w-full rounded-xl border bg-background px-3 py-2 text-sm'
+const dateInputClass =
+  'mt-1 block h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand/15'
 
 export default function AdminReportsPage() {
   const [fromDate, setFromDate] = useState('')
@@ -28,46 +33,70 @@ export default function AdminReportsPage() {
     })
   }, [sessions.state, fromDate, toDate])
 
+  const activeDates = Number(Boolean(fromDate)) + Number(Boolean(toDate))
+
+  // The date range lives behind a toolbar "Filter" button so the toolbar stays on one row.
+  const dateFilter = (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <Button variant="outline" className={cn(TOOLBAR_BUTTON, activeDates && 'border-brand/40 text-brand')}>
+          <SlidersHorizontal aria-hidden="true" />
+          Filter
+          {activeDates > 0 && (
+            <span className="rounded-md bg-brand-soft px-1.5 text-xs tabular-nums">{activeDates}</span>
+          )}
+        </Button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={6}
+          aria-label="Filter by date"
+          className="z-50 w-72 rounded-xl border bg-background p-4 text-sm shadow-[0_12px_32px_-12px_rgba(17,17,20,0.25)]"
+        >
+          <p className="flex items-center gap-2 font-medium">
+            <CalendarDays className="size-4 text-muted-foreground" aria-hidden="true" />
+            Session start date
+          </p>
+          <div className="mt-3 grid gap-3">
+            <label className="block text-muted-foreground">
+              From
+              <input type="date" className={dateInputClass} value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} />
+            </label>
+            <label className="block text-muted-foreground">
+              To
+              <input type="date" className={dateInputClass} value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} />
+            </label>
+          </div>
+          <Button
+            variant="ghost"
+            className="mt-3 h-8 w-full rounded-lg text-sm font-medium"
+            disabled={!activeDates}
+            onClick={() => {
+              setFromDate('')
+              setToDate('')
+            }}
+          >
+            Clear dates
+          </Button>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-3xl font-medium tracking-tight">Exams &amp; results</h1>
-          <p className="mt-1.5 max-w-2xl text-muted-foreground">
-            Every exam session in the system. Open a session to see each student's result.
-          </p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={sessions.reload} disabled={sessions.state.status === 'loading'}>
-          <RotateCw aria-hidden="true" />
-          Refresh
-        </Button>
-      </header>
+      <PageBar
+        parent={{ label: 'Administration', to: ROLE_HOME.ADMIN, icon: LayoutDashboard }}
+        title="Exams & results"
+        icon={ListChecks}
+        actions={[{ label: 'Reload list', icon: RotateCw, onSelect: sessions.reload }]}
+      />
 
-      <section aria-label="Date range" className="mt-6 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end lg:max-w-xl">
-        <label className="block text-sm">
-          From
-          <input type="date" className={inputClass} value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} />
-        </label>
-        <label className="block text-sm">
-          To
-          <input type="date" className={inputClass} value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} />
-        </label>
-        <Button
-          variant="outline"
-          disabled={!fromDate && !toDate}
-          onClick={() => {
-            setFromDate('')
-            setToDate('')
-          }}
-        >
-          Clear dates
-        </Button>
-      </section>
-
-      <section aria-label="Exam sessions" aria-busy={sessions.state.status === 'loading'} className="mt-6">
-        {sessions.state.status === 'loading' && <div className="h-80 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />}
+      <section aria-label="Exam sessions" aria-busy={sessions.state.status === 'loading'}>
+        {sessions.state.status === 'loading' && <TableSkeleton />}
         {sessions.state.status === 'error' && (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border px-6 py-10 text-center">
+          <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
             <CircleAlert className="size-7 text-destructive" aria-hidden="true" />
             <p className="max-w-sm text-muted-foreground">{sessions.state.message}</p>
             <Button variant="secondary" size="sm" onClick={sessions.reload}>
@@ -77,7 +106,13 @@ export default function AdminReportsPage() {
           </div>
         )}
         {sessions.state.status === 'ready' && (
-          <SessionTable sessions={datedSessions} status={status} onStatusChange={setStatus} onOpen={setViewing} />
+          <SessionTable
+            sessions={datedSessions}
+            status={status}
+            onStatusChange={setStatus}
+            onOpen={setViewing}
+            controls={dateFilter}
+          />
         )}
       </section>
 

@@ -1,29 +1,73 @@
-import { Check, CircleCheck, FileText } from 'lucide-react'
+import { Check, FileText } from 'lucide-react'
+import robotArmsOpen from '@/assets/images/robot-mini-arms-open.webp'
+import robotMiniWave from '@/assets/images/robot-mini-wave.webp'
+import { designFrame } from '@/lib/designFrame'
 import { COURSE_FILES, FEATURES } from '../content'
 import { Reveal, RevealItem } from './Reveal'
 import { SectionHeading } from './SectionHeading'
+
+// Course documents artwork, in the design's 584.2 × 520.3 frame.
+const { u, box } = designFrame(584.2)
+
+/*
+ * File card position and the robot beside it. A card's row is the regular file row blown
+ * up by `scale`; the design draws the two rows at slightly different sizes and offsets.
+ */
+const FILE_CARDS = [
+  {
+    x: 162.5,
+    y: 104.4,
+    padLeft: 27.5,
+    scale: 1.5946,
+    dy: -0.6,
+    robot: { src: robotMiniWave, x: 10.5, y: 88.7, w: 147.75, h: 150.75 },
+  },
+  {
+    x: 11.1,
+    y: 358,
+    padLeft: 18,
+    scale: 1.554,
+    dy: -3.3,
+    robot: { src: robotArmsOpen, x: 405.1, y: 344.7, w: 165.75, h: 144 },
+  },
+]
 
 export function FeaturesSection() {
   return (
     <section id="features" className="scroll-mt-6 px-4 pt-28 sm:px-6">
       <Reveal className="mx-auto grid max-w-[1200px] items-center gap-14 lg:grid-cols-2">
-        <RevealItem className="relative flex flex-col gap-3 overflow-hidden rounded-[32px] bg-muted px-8 py-12 sm:px-10">
-          <div aria-hidden="true" className="absolute -top-[70px] -left-[70px] size-[220px] rounded-full bg-sun" />
-          <span className="relative text-[13px] font-semibold text-muted-foreground">Course documents</span>
-          {COURSE_FILES.map((file) => (
-            <div key={file.name} className="relative flex items-center gap-3.5 rounded-2xl bg-white px-[18px] py-4">
-              <span className="inline-flex size-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                <FileText className="size-[18px]" />
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-sm font-semibold">{file.name}</span>
-                <span className="text-xs text-muted-foreground">{file.kind}</span>
-              </div>
-              <CircleCheck className="size-5 text-green-600" aria-label="Uploaded" />
-            </div>
-          ))}
-          <div className="relative mt-2 self-end rounded-2xl bg-brand px-4 py-3 text-[13px] font-semibold text-white">
-            The AI only asks within these 2 files
+        <RevealItem className="@container">
+          <div className="relative aspect-[584.2/520.3] bg-[#fbbb14]" style={{ borderRadius: u(64) }}>
+            {COURSE_FILES.map((file, i) => {
+              const { x, y, padLeft, scale, dy, robot } = FILE_CARDS[i]
+              const s = (px: number) => u(px * scale)
+              return (
+                <div key={file.name} className="contents">
+                  <img src={robot.src} alt="" aria-hidden="true" className="absolute" style={box(robot.x, robot.y, robot.w, robot.h)} />
+                  <div
+                    className="absolute flex items-center bg-white"
+                    style={{ ...box(x, y, 394, 117.7), borderRadius: u(37), paddingLeft: u(padLeft) }}
+                  >
+                    <div className="flex items-center" style={{ gap: s(14), translate: `0 ${u(dy)}` }}>
+                      <span
+                        className="inline-flex shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand"
+                        style={{ width: s(40), height: s(40) }}
+                      >
+                        <FileText style={{ width: s(18), height: s(18) }} />
+                      </span>
+                      <div className="flex flex-col" style={{ gap: s(2) }}>
+                        <span className="leading-tight font-semibold" style={{ fontSize: s(14) }}>
+                          {file.name}
+                        </span>
+                        <span className="leading-tight text-muted-foreground" style={{ fontSize: s(12) }}>
+                          {file.kind}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </RevealItem>
 
