@@ -23,6 +23,16 @@ public partial class Exam
 
     public ExamStatus? ExamStatus { get; set; }
 
+    /// <summary>
+    /// Soft-delete flag. Khi <c>false</c>, exam bị ẩn khỏi các API đọc mặc định
+    /// (ví dụ <c>GET /api/admin/exams</c> với <c>includeInactive=false</c>) nhưng vẫn còn trong DB.
+    /// </summary>
+    /// <remarks>
+    /// Mặc định <c>true</c> để exam mới luôn hiện diện. Soft-delete là thao tác UPDATE
+    /// (không phải INSERT) nên không bị ảnh hưởng bởi sentinel value của EF Core.
+    /// </remarks>
+    public bool IsActive { get; set; } = true;
+
     public DateTime? CreatedAt { get; set; }
 
     public virtual Course Course { get; set; } = null!;

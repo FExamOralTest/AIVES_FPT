@@ -1,6 +1,7 @@
 import {
   BookOpen,
   CalendarClock,
+  ChartColumn,
   ClipboardCheck,
   FileText,
   KeyRound,
@@ -37,6 +38,8 @@ export interface FeatureDef {
   icon: LucideIcon
   summary: string
   status: FeatureStatus
+  /** `flush` pages fill the content area edge to edge and draw their own bars; default is a padded column. */
+  layout?: 'flush'
   /** Only for pending features: what the placeholder page lists as still needed. */
   endpoints?: FeatureEndpoint[]
   blockers?: string[]
@@ -51,6 +54,7 @@ export const FEATURES: FeatureDef[] = [
     icon: Users,
     summary: 'Create staff, examiner and student accounts, edit details and change roles.',
     status: 'done',
+    layout: 'flush',
   },
   {
     role: 'ADMIN',
@@ -59,20 +63,24 @@ export const FEATURES: FeatureDef[] = [
     icon: BookOpen,
     summary: 'Create courses and assign the staff member in charge.',
     status: 'done',
+    layout: 'flush',
+  },
+  {
+    role: 'ADMIN',
+    path: 'statistics',
+    title: 'Statistics',
+    icon: ChartColumn,
+    summary: 'Sessions, attempts, scores and review progress for the whole system or one course.',
+    status: 'done',
   },
   {
     role: 'ADMIN',
     path: 'reports',
     title: 'Exams & results',
     icon: ListChecks,
-    summary: 'Track exams and student results across the whole system.',
-    status: 'pending',
-    endpoints: [
-      { method: 'GET', path: '/api/admin/exams', state: 'missing', note: 'Proposed: all exams in the system.' },
-      { method: 'GET', path: '/api/admin/reports/summary', state: 'missing', note: 'Proposed: sessions, attempts, average scores, pending reviews.' },
-      { method: 'GET', path: '/api/results/pending', state: 'ok', note: 'Results waiting for review (ADMIN can call it).' },
-    ],
-    blockers: ['The backend has no API yet for admins to list exams and results.'],
+    summary: 'Browse every exam session and open it to see each student’s result.',
+    status: 'done',
+    layout: 'flush',
   },
 
   // ── Staff ──────────────────────────────────────────────────────────
@@ -107,6 +115,7 @@ export const FEATURES: FeatureDef[] = [
     icon: CalendarClock,
     summary: 'Schedule sessions, share the join code, start or close a session and monitor it live.',
     status: 'done',
+    layout: 'flush',
   },
 
   // ── Examiner ───────────────────────────────────────────────────────

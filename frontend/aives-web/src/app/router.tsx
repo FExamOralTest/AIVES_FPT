@@ -1,6 +1,8 @@
 import type { ComponentType } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { AdminCoursesPage } from '@/features/admin-courses'
+import { AdminReportsPage } from '@/features/admin-reports'
+import { AdminStatisticsPage } from '@/features/admin-statistics'
 import { UsersPage } from '@/features/admin-users'
 import { GuestRoute, LoginPage, ProtectedRoute, RegisterPage, ROLE_HOME, type UserRole } from '@/features/auth'
 import { EnrollPage } from '@/features/enroll'
@@ -25,6 +27,8 @@ const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'EXAMINER', 'STUDENT']
 const PAGES: Record<string, ComponentType> = {
   'ADMIN/users': UsersPage,
   'ADMIN/courses': AdminCoursesPage,
+  'ADMIN/statistics': AdminStatisticsPage,
+  'ADMIN/reports': AdminReportsPage,
   'STAFF/courses': TeacherCoursesPage,
   'STAFF/questions': TeacherQuestionsPage,
   'STAFF/exams': ExamsPage,

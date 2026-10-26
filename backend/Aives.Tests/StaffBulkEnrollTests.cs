@@ -50,11 +50,11 @@ public class StaffBulkEnrollTests : IDisposable
     [Fact]
     public async Task AddStudentsToSession_AllValid_AddsAllAndIncrementsCounter()
     {
-        var (session, _, _, _, _, s1, s2, s3) = await SeedAsync(maxCapacity: 50);
+        var (session, teacher, _, _, _, s1, s2, s3) = await SeedAsync(maxCapacity: 50);
 
         var req = new StaffAddEnrollmentsRequest { StudentIds = new[] { s1.UserId, s2.UserId, s3.UserId } };
 
-        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1);
+        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId);
 
         Assert.Equal(3, result.AddedCount);
         Assert.Equal(0, result.SkippedCount);
@@ -65,7 +65,7 @@ public class StaffBulkEnrollTests : IDisposable
     [Fact]
     public async Task AddStudentsToSession_DuplicateIds_AreDeduplicated_AndAddedOnce()
     {
-        var (session, _, _, _, _, s1, s2, _) = await SeedAsync();
+        var (session, teacher, _, _, _, s1, s2, _) = await SeedAsync();
 
         // Trùng s1 3 lần + s2 1 lần → distinct count = 2
         var req = new StaffAddEnrollmentsRequest
@@ -73,7 +73,7 @@ public class StaffBulkEnrollTests : IDisposable
             StudentIds = new[] { s1.UserId, s1.UserId, s1.UserId, s2.UserId }
         };
 
-        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1);
+        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId);
 
         Assert.Equal(2, result.AddedCount);
         Assert.Equal(0, result.SkippedCount);
@@ -88,7 +88,7 @@ public class StaffBulkEnrollTests : IDisposable
     [Fact]
     public async Task AddStudentsToSession_AlreadyEnrolled_Skipped_NotReadded()
     {
-        var (session, _, _, _, _, s1, s2, s3) = await SeedAsync();
+        var (session, teacher, _, _, _, s1, s2, s3) = await SeedAsync();
 
         // Pre-enroll s1
         _db.SessionEnrollments.Add(new SessionEnrollment
@@ -103,7 +103,7 @@ public class StaffBulkEnrollTests : IDisposable
 
         var req = new StaffAddEnrollmentsRequest { StudentIds = new[] { s1.UserId, s2.UserId, s3.UserId } };
 
-        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1);
+        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId);
 
         Assert.Equal(2, result.AddedCount);
         Assert.Equal(1, result.SkippedCount);
@@ -115,14 +115,14 @@ public class StaffBulkEnrollTests : IDisposable
     [Fact]
     public async Task AddStudentsToSession_NonExistentUser_MarkedNotFound()
     {
-        var (session, _, _, _, _, s1, _, _) = await SeedAsync();
+        var (session, teacher, _, _, _, s1, _, _) = await SeedAsync();
 
         var req = new StaffAddEnrollmentsRequest
         {
             StudentIds = new[] { s1.UserId, 99999 }   // 99999 không tồn tại
         };
 
-        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1);
+        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId);
 
         Assert.Equal(1, result.AddedCount);
         Assert.Equal(1, result.SkippedCount);
@@ -141,7 +141,7 @@ public class StaffBulkEnrollTests : IDisposable
             StudentIds = new[] { s1.UserId, teacher.UserId }
         };
 
-        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1);
+        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId);
 
         Assert.Equal(1, result.AddedCount);
         Assert.Equal(1, result.SkippedCount);
@@ -152,7 +152,7 @@ public class StaffBulkEnrollTests : IDisposable
     [Fact]
     public async Task AddStudentsToSession_ExceedsCapacity_Throws()
     {
-        var (session, _, _, _, _, s1, s2, s3) = await SeedAsync(maxCapacity: 2);
+        var (session, teacher, _, _, _, s1, s2, s3) = await SeedAsync(maxCapacity: 2);
 
         var req = new StaffAddEnrollmentsRequest
         {
@@ -160,7 +160,7 @@ public class StaffBulkEnrollTests : IDisposable
         };
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1));
+            _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId));
 
         // Verify nothing was added (transaction rolled back)
         var dbCount = await _db.SessionEnrollments
@@ -172,31 +172,31 @@ public class StaffBulkEnrollTests : IDisposable
     [Fact]
     public async Task AddStudentsToSession_CompletedSession_Throws()
     {
-        var (session, _, _, _, _, s1, _, _) = await SeedAsync();
+        var (session, teacher, _, _, _, s1, _, _) = await SeedAsync();
         session.Status = SessionStatus.COMPLETED;
         await _db.SaveChangesAsync();
 
         var req = new StaffAddEnrollmentsRequest { StudentIds = new[] { s1.UserId } };
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1));
+            _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId));
     }
 
     [Fact]
     public async Task AddStudentsToSession_EmptyArray_Throws()
     {
-        var (session, _, _, _, _, _, _, _) = await SeedAsync();
+        var (session, teacher, _, _, _, _, _, _) = await SeedAsync();
 
         var req = new StaffAddEnrollmentsRequest { StudentIds = Array.Empty<int>() };
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1));
+            _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId));
     }
 
     [Fact]
     public async Task AddStudentsToSession_InvalidIds_AreFiltered()
     {
-        var (session, _, _, _, _, s1, _, _) = await SeedAsync();
+        var (session, teacher, _, _, _, s1, _, _) = await SeedAsync();
 
         // id = 0, -1 bị filter; s1 hợp lệ
         var req = new StaffAddEnrollmentsRequest
@@ -204,7 +204,7 @@ public class StaffBulkEnrollTests : IDisposable
             StudentIds = new[] { 0, -1, s1.UserId }
         };
 
-        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1);
+        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: teacher.UserId);
 
         Assert.Equal(1, result.AddedCount);
         Assert.Equal(0, result.SkippedCount);
@@ -258,12 +258,14 @@ public class StaffBulkEnrollTests : IDisposable
     private async Task<(ExamSession session, User teacher, Course course, Exam exam, QuestionBank qb,
         User s1, User s2, User s3)> SeedAsync(int maxCapacity = 50)
     {
+        // Role must be STAFF: EnsureStaffCanManageCourseAsync rejects any actor whose
+        // Role != STAFF (ADMIN bypasses the check), and this user is the course's TeacherId.
         var teacher = new User
         {
             Username = "t1",
             Email = "t1@x.com",
             FullName = "Teacher 1",
-            Role = UserRole.EXAMINER,
+            Role = UserRole.STAFF,
             PasswordHash = "x"
         };
         _db.Users.Add(teacher);

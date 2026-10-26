@@ -1,9 +1,10 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Aives.Application.AI;
 using Aives.Application.AI.DTOs;
 using Aives.Application.AI.Interfaces;
+using Aives.Application.Queue.Contracts.Stt;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -95,14 +96,7 @@ public class AiServiceClient : IAiServiceClient
                     // Older deployments and proxies may return a different error body.
                 }
 
-                var code = (int)response.StatusCode switch
-                {
-                    400 or 404 => "AUDIO_CORRUPTED",
-                    413 or 415 => "UNSUPPORTED_FORMAT",
-                    422 => "EMPTY_TRANSCRIPT",
-                    408 or 504 => "TIMEOUT",
-                    _ => "INTERNAL_ERROR"
-                };
+                var code = SttContract.MapHttpStatusToCode((int)response.StatusCode);
                 return SttFailure(code, $"AI STT service returned status {(int)response.StatusCode}.");
             }
 
@@ -115,12 +109,12 @@ public class AiServiceClient : IAiServiceClient
         }
         catch (OperationCanceledException)
         {
-            return SttFailure("TIMEOUT", "AI STT request timed out.");
+            return SttFailure(SttContract.CodeTimeout, "AI STT request timed out.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception calling AI STT service at {BaseAddress}", _httpClient.BaseAddress);
-            return SttFailure("INTERNAL_ERROR", "Could not complete AI STT request.");
+            return SttFailure(SttContract.CodeInternalError, "Could not complete AI STT request.");
         }
     }
 
@@ -153,43 +147,66 @@ public class AiServiceClient : IAiServiceClient
                     // Proxies may return an HTML error page instead of the STT contract.
                 }
 
-                var code = (int)response.StatusCode switch
-                {
-                    400 or 404 => "AUDIO_CORRUPTED",
-                    413 or 415 => "UNSUPPORTED_FORMAT",
-                    422 => "EMPTY_TRANSCRIPT",
-                    408 or 504 => "TIMEOUT",
-                    _ => "INTERNAL_ERROR"
-                };
+                var code = SttContract.MapHttpStatusToCode((int)response.StatusCode);
                 return SttFailure(code, $"AI STT service returned status {(int)response.StatusCode}.");
             }
 
             var result = await response.Content.ReadFromJsonAsync<StoredSpeechToTextResponse>(cancellationToken);
             if (result == null || result.AnswerId != answerId)
-                return SttFailure("INVALID_RESPONSE", "STT response does not match the requested answer.");
+                return SttFailure(SttContract.CodeInvalidResponse, "STT response does not match the requested answer.");
 
             if (!result.Success)
             {
+                var error = result.Error ?? new SttErrorPayload
+                {
+                    Code = SttContract.CodeInternalError,
+                    Message = "Stored audio transcription failed.",
+                    Retryable = true
+                };
+
+                // Chuẩn hoá error code về taxonomy của contract + đồng bộ cờ retryable.
+                // Code KHÔNG nhận diện được được giữ nguyên (forward-compatibility) —
+                // orchestrator sẽ map về SttErrorCode.Unknown và log cảnh báo để
+                // Backend cập nhật taxonomy.
+                var normalizedCode = error.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+                if (normalizedCode.Length == 0)
+                    normalizedCode = SttContract.CodeInternalError;
+
+                var retryable = SttContract.IsKnownCode(normalizedCode)
+                    ? SttContract.IsRetryableCode(normalizedCode)
+                    : error.Retryable;
+
                 return new SpeechToTextResponse
                 {
                     Success = false,
                     Message = result.Error?.Message ?? result.Message ?? "Stored audio transcription failed.",
-                    Error = result.Error ?? SttFailure(
-                        (int)response.StatusCode is 408 or 504 ? "TIMEOUT" : "INTERNAL_ERROR",
-                        "Stored audio transcription failed.").Error
+                    Error = new SttErrorPayload
+                    {
+                        Code = normalizedCode,
+                        Message = error.Message,
+                        Retryable = retryable
+                    }
                 };
             }
 
-            if (result.Error != null || string.IsNullOrWhiteSpace(result.Language) || result.Language.Length > 20
-                || !double.IsFinite(result.Duration) || result.Duration < 0 || result.Duration > float.MaxValue)
-                return SttFailure("INVALID_RESPONSE", "STT returned invalid audio metadata.");
-
-            return new SpeechToTextResponse
+            // Task 1.5 — validate response theo STT contract trước khi dùng.
+            var mapped = new SpeechToTextResponse
             {
+                Success = true,
                 Transcript = result.Transcript,
                 LanguageDetected = result.Language,
                 Duration = result.Duration
             };
+
+            if (!SttContract.TryValidate(mapped, out var contractError))
+            {
+                _logger.LogWarning(
+                    "Stored audio transcription violated the STT contract: {Error}", contractError?.Message);
+                return SttFailure(SttContract.CodeInvalidResponse,
+                    contractError?.Message ?? "STT returned invalid audio metadata.");
+            }
+
+            return mapped;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -197,17 +214,17 @@ public class AiServiceClient : IAiServiceClient
         }
         catch (OperationCanceledException)
         {
-            return SttFailure("TIMEOUT", "AI STT request timed out.");
+            return SttFailure(SttContract.CodeTimeout, "AI STT request timed out.");
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             _logger.LogWarning(ex, "Stored audio transcription returned an invalid response.");
-            return SttFailure("INVALID_RESPONSE", "STT returned an invalid response.");
+            return SttFailure(SttContract.CodeInvalidResponse, "STT returned an invalid response.");
         }
         catch (HttpRequestException ex)
         {
             _logger.LogWarning(ex, "Could not connect to the STT service.");
-            return SttFailure("INTERNAL_ERROR", "Could not connect to the STT service.");
+            return SttFailure(SttContract.CodeInternalError, "Could not connect to the STT service.");
         }
     }
 
@@ -219,7 +236,8 @@ public class AiServiceClient : IAiServiceClient
         {
             Code = code,
             Message = message,
-            Retryable = code is "TIMEOUT" or "INTERNAL_ERROR"
+            // Cờ retryable lấy từ contract (task 1.5) để không lệch với taxonomy.
+            Retryable = SttContract.IsRetryableCode(code)
         }
     };
 
@@ -324,7 +342,13 @@ public class AiServiceClient : IAiServiceClient
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Session evaluation failed with status {StatusCode}", response.StatusCode);
-                return EvaluationFailure("http_error", $"AI evaluation returned HTTP {(int)response.StatusCode}.");
+                // Phân biệt lỗi server (5xx / 429 — tạm thời, retry được) với lỗi client
+                // (4xx — request sai, retry cũng ra kết quả y hệt → dead-letter ngay).
+                var statusCode = (int)response.StatusCode;
+                var code = statusCode >= 500 || statusCode == 429
+                    ? "http_error"
+                    : "http_client_error";
+                return EvaluationFailure(code, $"AI evaluation returned HTTP {statusCode}.");
             }
 
             var result = await response.Content.ReadFromJsonAsync<EvaluateSessionResponse>(cancellationToken);
@@ -388,7 +412,7 @@ public class AiServiceClient : IAiServiceClient
         Message = $"Internal auth failed at {endpoint}. Check AI:ApiKey configuration.",
         Error = new SttErrorPayload
         {
-            Code = "AUTH_FAILED",
+            Code = SttContract.CodeAuthFailed,
             Message = "Internal service authentication failed.",
             Retryable = false
         }

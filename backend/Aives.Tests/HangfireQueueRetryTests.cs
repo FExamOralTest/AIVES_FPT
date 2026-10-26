@@ -48,6 +48,12 @@ public class HangfireQueueRetryTests : IDisposable
         _repoMock.Setup(r => r.MarkFailedAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        // BR-17: attempt count is tracked in the database. Default the mock to 1 (first attempt).
+        _repoMock.Setup(r => r.IncrementAttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _repoMock.Setup(r => r.SetJobIdAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _job = new AnswerProcessingJob(
             _orchestratorMock.Object,
             _repoMock.Object,
@@ -148,11 +154,10 @@ public class HangfireQueueRetryTests : IDisposable
     }
 
     [Fact]
-    public async Task A5_ExecuteAsync_EvaluationError_ThrowsNonRetryable_DeadLetter()
+    public async Task A5_ExecuteAsync_TransientEvaluationError_ThrowsRetryableJobException()
     {
-        // Path lỗi Eval (không qua STT) → NonRetryable + dead-letter.
-        // Lý do: AI2 evaluation trả Success=false là business-level failure
-        // (không phải transient như timeout). Retry sẽ cho cùng kết quả.
+        // Transient evaluation errors (timeout / connection_error / internal_error) are retried
+        // by Hangfire while the attempt budget allows it.
         var metadata = NewMetadata();
         _orchestratorMock.Setup(o => o.ProcessAnswerAsync(1, 1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new OrchestrationResult
@@ -162,10 +167,87 @@ public class HangfireQueueRetryTests : IDisposable
                 Message = "Eval crash"
             });
 
+        await Assert.ThrowsAsync<AnswerProcessingJob.RetryableJobException>(
+            () => _job.ExecuteAsync(metadata, CancellationToken.None));
+        Assert.Equal(QueueJobStatus.Failed, metadata.Status);
+        Assert.Equal("Eval crash", metadata.LastError);
+    }
+
+    [Fact]
+    public async Task A5b_ExecuteAsync_BusinessEvaluationError_ThrowsNonRetryable_DeadLetter()
+    {
+        // Business-level evaluation errors (invalid response…) always produce the same outcome,
+        // so they are dead-lettered immediately without consuming the retry budget.
+        var metadata = NewMetadata();
+        _orchestratorMock.Setup(o => o.ProcessAnswerAsync(1, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrchestrationResult
+            {
+                Success = false,
+                EvaluationErrorCode = "invalid_response",
+                Message = "Eval returned invalid payload"
+            });
+
         await Assert.ThrowsAsync<AnswerProcessingJob.NonRetryableJobException>(
             () => _job.ExecuteAsync(metadata, CancellationToken.None));
         Assert.Equal(QueueJobStatus.DeadLetter, metadata.Status);
-        Assert.Equal("Eval crash", metadata.LastError);
+    }
+
+    [Fact]
+    public async Task A5c_ExecuteAsync_RetryableError_OnLastAttempt_DeadLettersWithoutRetry()
+    {
+        // Attempt budget exhausted (3/3) → no more retries allowed (BR-17).
+        _repoMock.Setup(r => r.IncrementAttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(QueueLimits.MaxTotalAttempts);
+
+        var metadata = NewMetadata();
+        _orchestratorMock.Setup(o => o.ProcessAnswerAsync(1, QueueLimits.MaxTotalAttempts, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrchestrationResult
+            {
+                Success = false,
+                SttError = new SttError
+                {
+                    Code = SttErrorCode.Timeout,
+                    Message = "AI STT timed out.",
+                    Retryable = true
+                }
+            });
+
+        await Assert.ThrowsAsync<AnswerProcessingJob.NonRetryableJobException>(
+            () => _job.ExecuteAsync(metadata, CancellationToken.None));
+        Assert.Equal(QueueJobStatus.DeadLetter, metadata.Status);
+        _repoMock.Verify(r => r.MarkFailedAsync(
+            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task A8_ExecuteAsync_AnswerNotFound_DeadLetters()
+    {
+        // IncrementAttemptAsync returns 0 when the answer does not exist.
+        _repoMock.Setup(r => r.IncrementAttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        var metadata = NewMetadata();
+        await Assert.ThrowsAsync<AnswerProcessingJob.NonRetryableJobException>(
+            () => _job.ExecuteAsync(metadata, CancellationToken.None));
+        Assert.Equal(QueueJobStatus.DeadLetter, metadata.Status);
+        _orchestratorMock.Verify(
+            o => o.ProcessAnswerAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task A9_ExecuteAsync_IncrementsAttemptCounterAndSyncsMetadata()
+    {
+        var metadata = NewMetadata();
+        _repoMock.Setup(r => r.IncrementAttemptAsync(1, metadata.JobId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
+        _orchestratorMock.Setup(o => o.ProcessAnswerAsync(1, 2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrchestrationResult { Success = true });
+
+        await _job.ExecuteAsync(metadata, CancellationToken.None);
+
+        Assert.Equal(2, metadata.Attempt);
+        _repoMock.Verify(r => r.IncrementAttemptAsync(1, metadata.JobId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -203,9 +285,63 @@ public class HangfireQueueRetryTests : IDisposable
         var attr = typeof(AnswerProcessingJob)
             .GetCustomAttribute<AutomaticRetryAttribute>();
         Assert.NotNull(attr);
-        Assert.Equal(3, attr!.Attempts);
+        // BR-17: max 3 total attempts. Hangfire's `Attempts = N` means N retries (N+1 executions),
+        // so N = MaxTotalAttempts - 1 = 2.
+        Assert.Equal(QueueLimits.MaxTotalAttempts - 1, attr!.Attempts);
         Assert.Equal(new[] { 30, 120, 300 }, attr.DelaysInSeconds);
         Assert.Equal(AttemptsExceededAction.Delete, attr.OnAttemptsExceeded);
+    }
+
+    [Fact]
+    public void D2_AutomaticRetryAttribute_OnlyRetriesRetryableJobException()
+    {
+        var attr = typeof(AnswerProcessingJob)
+            .GetCustomAttribute<AutomaticRetryAttribute>();
+        Assert.NotNull(attr);
+        Assert.NotNull(attr!.OnlyOn);
+        // Only retryable failures are retried — non-retryable ones go straight to dead-letter.
+        Assert.Contains(typeof(AnswerProcessingJob.RetryableJobException), attr.OnlyOn!);
+        Assert.DoesNotContain(typeof(AnswerProcessingJob.NonRetryableJobException), attr.OnlyOn!);
+    }
+
+    [Fact]
+    public void D3_QueueLimits_MaxTotalAttempts_IsThree()
+    {
+        Assert.Equal(3, QueueLimits.MaxTotalAttempts);
+        Assert.Equal(new[] { 30, 120, 300 }, QueueLimits.RetryDelaysInSeconds);
+        Assert.False(QueueLimits.IsExhausted(2));
+        Assert.True(QueueLimits.IsExhausted(3));
+    }
+
+    [Fact]
+    public void D4_QueueLimits_RetryableEvaluationErrors_AreOnlyTransient()
+    {
+        // Lỗi tạm thời (timeout, mạng, 5xx) → retry được.
+        Assert.True(QueueLimits.IsRetryableEvaluationError("timeout"));
+        Assert.True(QueueLimits.IsRetryableEvaluationError("connection_error"));
+        Assert.True(QueueLimits.IsRetryableEvaluationError("internal_error"));
+        Assert.True(QueueLimits.IsRetryableEvaluationError("http_error"));
+
+        // Lỗi nghiệp vụ / request sai → retry cho kết quả y hệt → dead-letter ngay.
+        Assert.False(QueueLimits.IsRetryableEvaluationError("invalid_response"));
+        Assert.False(QueueLimits.IsRetryableEvaluationError("evaluation_failed"));
+        Assert.False(QueueLimits.IsRetryableEvaluationError("question_not_found"));
+        Assert.False(QueueLimits.IsRetryableEvaluationError("internal_auth_failed"));
+        Assert.False(QueueLimits.IsRetryableEvaluationError("http_client_error"));
+        Assert.False(QueueLimits.IsRetryableEvaluationError(null));
+        Assert.False(QueueLimits.IsRetryableEvaluationError(""));
+    }
+
+    [Fact]
+    public void D5_QueueLimits_GetRetryDelaySeconds_UsesBackoffSequence()
+    {
+        Assert.Equal(30, QueueLimits.GetRetryDelaySeconds(1));
+        Assert.Equal(120, QueueLimits.GetRetryDelaySeconds(2));
+        Assert.Equal(300, QueueLimits.GetRetryDelaySeconds(3));
+        // Vượt quá danh sách → dùng delay cuối cùng.
+        Assert.Equal(300, QueueLimits.GetRetryDelaySeconds(99));
+        // Attempt <= 0 → delay đầu tiên.
+        Assert.Equal(30, QueueLimits.GetRetryDelaySeconds(0));
     }
 
     // ===================================================================
@@ -315,6 +451,112 @@ public class HangfireQueueRetryTests : IDisposable
         Assert.False(string.IsNullOrEmpty(id1));
         Assert.False(string.IsNullOrEmpty(id2));
         Assert.NotEqual(id1, id2);
+    }
+
+    // ===================================================================
+    // F. Regression: job-level attributes must survive enqueue (BR-17)
+    // ===================================================================
+
+    [Fact]
+    public void F1_Enqueue_UsesConcreteClass_SoAutomaticRetryAttributeIsPickedUp()
+    {
+        // Hangfire đọc job filter từ `Job.Method.DeclaringType`. Nếu enqueue qua interface
+        // (IAnswerProcessingJob) thì DeclaringType là interface → [AutomaticRetry] trên class
+        // implementation KHÔNG được áp dụng → Hangfire fallback về policy mặc định
+        // (10 lần retry cho MỌI exception), làm hỏng BR-17 (audio hỏng/transcript rỗng
+        // vẫn bị retry thay vì dead-letter ngay).
+        UseFreshMemoryStorage();
+        var jobClient = new BackgroundJobClient(_currentStorage);
+        var svc = new HangfireQueueService(
+            jobClient, NullLogger<HangfireQueueService>.Instance);
+
+        var metadata = new QueueJobMetadata { AnswerId = 5150, ResultId = 1, ObjectKey = "k", Attempt = 1 };
+
+        JobStorage.Current = _currentStorage;
+        try
+        {
+            var jobId = svc.EnqueueAnswerProcessing(metadata);
+            Assert.False(string.IsNullOrEmpty(jobId));
+
+            using var connection = _currentStorage.GetConnection();
+            var jobData = connection.GetJobData(jobId);
+            Assert.NotNull(jobData);
+
+            // DeclaringType phải là concrete class để attribute job-level được áp dụng.
+            Assert.Equal(typeof(AnswerProcessingJob), jobData!.Job.Method.DeclaringType);
+        }
+        finally
+        {
+            try { JobStorage.Current = null!; } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public async Task F2_NonRetryableFailure_ThroughRealHangfire_IsNotRetried()
+    {
+        // Test end-to-end: job được enqueue qua HangfireQueueService (đường production),
+        // fail với lỗi KHÔNG retryable → Hangfire KHÔNG được retry lần nữa.
+        UseFreshMemoryStorage();
+
+        var orchestratorMock = new Mock<IAnswerOrchestrator>();
+        orchestratorMock.Setup(o => o.ProcessAnswerAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrchestrationResult
+            {
+                Success = false,
+                SttError = new SttError
+                {
+                    Code = SttErrorCode.AudioCorrupted,
+                    Message = "bad",
+                    Retryable = false
+                }
+            });
+
+        var repoMock = new Mock<IAnswerRepository>();
+        repoMock.Setup(r => r.IncrementAttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => repoMock.Invocations.Count + 1);
+        repoMock.Setup(r => r.MarkFailedAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var job = new AnswerProcessingJob(
+            orchestratorMock.Object, repoMock.Object, NullLogger<AnswerProcessingJob>.Instance);
+
+        var previousActivator = JobActivator.Current;
+        JobActivator.Current = new SingleJobActivator(job);
+        JobStorage.Current = _currentStorage;
+
+        try
+        {
+            using var server = StartServer();
+
+            var svc = new HangfireQueueService(
+                new BackgroundJobClient(_currentStorage), NullLogger<HangfireQueueService>.Instance);
+
+            var metadata = new QueueJobMetadata { AnswerId = 6160, ResultId = 1, ObjectKey = "k", Attempt = 1 };
+            var jobId = svc.EnqueueAnswerProcessing(metadata);
+            Assert.False(string.IsNullOrEmpty(jobId));
+
+            await WaitForJobStateAsync(jobId, FailedState.StateName, TimeSpan.FromSeconds(15));
+
+            // Không retry: orchestrator chỉ được gọi đúng 1 lần.
+            Assert.Single(orchestratorMock.Invocations);
+        }
+        finally
+        {
+            JobActivator.Current = previousActivator;
+            try { JobStorage.Current = null!; } catch { /* ignore */ }
+        }
+    }
+
+    /// <summary>
+    /// Job activator trả về đúng 1 instance job cố định (tránh cần DI container trong test).
+    /// </summary>
+    private sealed class SingleJobActivator : JobActivator
+    {
+        private readonly AnswerProcessingJob _job;
+
+        public SingleJobActivator(AnswerProcessingJob job) => _job = job;
+
+        public override object ActivateJob(Type type) => _job;
     }
 
     // ===================================================================

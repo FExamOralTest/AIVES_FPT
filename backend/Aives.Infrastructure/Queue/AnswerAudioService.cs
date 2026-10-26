@@ -105,21 +105,23 @@ public class AnswerAudioService : IAnswerAudioService
         await _answerRepository.UpdateAudioUrlAsync(answerId, audioKey, cancellationToken);
 
         // 8. Enqueue Hangfire job STT + AI eval.
-        var metadata = new QueueJobMetadata
-        {
-            AnswerId = answerId,
-            ResultId = answer.ResultId,
-            ObjectKey = audioKey,
-            Attempt = 1,
-            Status = QueueJobStatus.Pending,
-            EnqueuedAt = DateTime.UtcNow
-        };
+        // Metadata được tạo qua factory của contract (task 1.4) để mọi call site
+        // sinh ra metadata giống hệt nhau.
+        var metadata = QueueJobContract.Create(
+            answerId,
+            answer.ResultId,
+            audioKey,
+            attempt: 1);
         var jobId = _queueService.EnqueueAnswerProcessing(metadata);
 
         if (string.IsNullOrEmpty(jobId))
             _logger.LogWarning("Job dedup triggered for AnswerId={AnswerId}.", answerId);
         else
+        {
+            // Lưu JobId vào DB để tra cứu job không chỉ từ Hangfire dashboard.
+            await _answerRepository.SetJobIdAsync(answerId, jobId, cancellationToken);
             _logger.LogInformation("Hangfire job enqueued: AnswerId={AnswerId}, JobId={JobId}", answerId, jobId);
+        }
 
         return new UploadAnswerAudioResponse
         {

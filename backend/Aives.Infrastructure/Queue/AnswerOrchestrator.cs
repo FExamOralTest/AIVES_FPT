@@ -130,30 +130,35 @@ public class AnswerOrchestrator : IAnswerOrchestrator
 
             if (!stt.Success)
             {
-                var code = stt.Error?.Code?.ToUpperInvariant() switch
-                {
-                    "EMPTY_AUDIO" or "AUDIO_CORRUPTED" => SttErrorCode.AudioCorrupted,
-                    "NO_SPEECH" or "EMPTY_TRANSCRIPT" => SttErrorCode.EmptyTranscript,
-                    "UNSUPPORTED_FORMAT" => SttErrorCode.UnsupportedFormat,
-                    "TIMEOUT" => SttErrorCode.Timeout,
-                    _ => SttErrorCode.InternalError
-                };
-                return SttFail(code, stt.Error?.Message ?? stt.Message ?? "STT failed.",
-                    stt.Error?.Retryable ?? (code is SttErrorCode.Timeout or SttErrorCode.InternalError));
+                // Task 1.5 — taxonomy lấy từ STT contract, không hard-code ở call site.
+                var code = SttContract.MapToErrorCode(stt.Error?.Code);
+                var retryable = stt.Error?.Retryable
+                                ?? SttContract.IsRetryableCode(stt.Error?.Code);
+                return SttFail(code, stt.Error?.Message ?? stt.Message ?? "STT failed.", retryable);
+            }
+
+            // Task 1.5 — validate success response theo STT contract.
+            // Vi phạm contract = AI1 trả sai → retry cũng ra kết quả y hệt → không retry.
+            if (!SttContract.TryValidate(stt, out var contractError))
+            {
+                _logger.LogWarning(
+                    "STT response for Answer {AnswerId} violated the STT contract: {Error}",
+                    answer.AnswerId, contractError?.Message);
+                return SttFail(
+                    SttErrorCode.InternalError,
+                    contractError?.Message ?? "STT returned an invalid response.",
+                    retryable: false);
             }
 
             if (string.IsNullOrWhiteSpace(stt.Transcript))
                 return SttFail(SttErrorCode.EmptyTranscript, "Audio has no speech content.", false);
 
-            if (!double.IsFinite(stt.Duration) || stt.Duration < 0 || stt.Duration > float.MaxValue
-                || string.IsNullOrWhiteSpace(stt.LanguageDetected) || stt.LanguageDetected.Length > 20)
-                return SttFail(SttErrorCode.InternalError, "STT returned invalid audio metadata.", false);
-
             return new OrchestrationResult
             {
                 Success = true,
                 Transcript = stt.Transcript,
-                DetectedLanguage = stt.LanguageDetected,
+                // Ngôn ngữ được chuẩn hoá về ISO-639-1 (vd: "vi-VN" → "vi") trước khi lưu DB.
+                DetectedLanguage = SttContract.NormalizeLanguage(stt.LanguageDetected),
                 DurationSeconds = (float)stt.Duration
             };
         }

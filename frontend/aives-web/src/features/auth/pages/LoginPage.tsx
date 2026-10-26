@@ -52,7 +52,11 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout aside={<LoginPanel />}>
+    <AuthLayout
+      aside={<LoginPanel />}
+      className="lg:grid-cols-[740fr_652fr]"
+      asideClassName="rounded-[9px] lg:mt-7 lg:mr-3 lg:mb-2.5"
+    >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-7">
         <div className="flex flex-col gap-2.5">
           <h1 className="font-heading text-[40px] leading-[1.1] font-medium tracking-tight">Welcome back</h1>

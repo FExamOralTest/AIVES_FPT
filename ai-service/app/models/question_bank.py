@@ -3,7 +3,7 @@ import re
 import unicodedata
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -59,7 +59,22 @@ class GeneratedQuestion(BaseModel):
     max_score: float = Field(gt=0, le=100, allow_inf_nan=False, strict=True)
     level: int = Field(ge=1, le=3, strict=True)
     is_follow_up_allowed: bool = Field(strict=True)
-    expected_keywords: list[Text] = Field(default_factory=list, max_length=50)
+    expected_keywords: list[Text] = Field(min_length=1, max_length=50)
+
+    @field_validator("expected_keywords")
+    @classmethod
+    def validate_keywords(cls, keywords: list[str]) -> list[str]:
+        unique = []
+        seen = set()
+        for keyword in keywords:
+            keyword = " ".join(keyword.split())
+            key = unicodedata.normalize("NFKC", keyword).casefold()
+            if not any(character.isalnum() for character in key):
+                raise ValueError("Expected keywords must contain meaningful concepts")
+            if key not in seen:
+                unique.append(keyword)
+                seen.add(key)
+        return unique
 
     @model_validator(mode="after")
     def validate_rubric(self) -> "GeneratedQuestion":

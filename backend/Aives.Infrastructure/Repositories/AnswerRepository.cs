@@ -87,7 +87,34 @@ public class AnswerRepository : IAnswerRepository
         answer.AiAnalysis = null;
         answer.Status = AnswerStatus.PROCESSING;
         answer.AnsweredAt = null;
+        // AttemptCount và JobId được giữ nguyên có chủ đích:
+        // BR-17 giới hạn "retry tối đa 3 lần thử tổng cộng" — bộ đếm phải tích luỹ qua
+        // mọi lần retry (cả retry tự động của Hangfire lẫn retry thủ công từ UI).
         answer.ErrorMessage = null;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<int> IncrementAttemptAsync(
+        int answerId, string? jobId, CancellationToken cancellationToken = default)
+    {
+        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        if (answer == null) return 0;
+
+        answer.AttemptCount += 1;
+        if (!string.IsNullOrWhiteSpace(jobId))
+            answer.JobId = jobId;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return answer.AttemptCount;
+    }
+
+    public async Task SetJobIdAsync(
+        int answerId, string? jobId, CancellationToken cancellationToken = default)
+    {
+        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        if (answer == null) return;
+        if (!string.IsNullOrWhiteSpace(jobId))
+            answer.JobId = jobId;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -107,6 +134,11 @@ public class AnswerRepository : IAnswerRepository
         answer.Status = AnswerStatus.PROCESSING;
         answer.AnsweredAt = DateTime.UtcNow;
         answer.ErrorMessage = null;
+        // Upload audio mới = một vòng xử lý mới → reset ngân sách attempt (BR-17).
+        // Bộ đếm chỉ tích luỹ trong vòng đời của một lần submit, không qua các lần
+        // upload lại (vì nội dung audio đã thay đổi hoàn toàn).
+        answer.AttemptCount = 0;
+        answer.JobId = null;
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -1,90 +1,53 @@
-import { ArrowUpRight, Mic } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import studentImg from '@/assets/images/student.webp'
-import { DotGrid } from '@/components/common/DotGrid'
-import { Waveform } from '@/components/common/Waveform'
-import { Badge } from '@/components/ui/badge'
+import robotImg from '@/assets/images/robot-hero-graduate.webp'
 import { Button } from '@/components/ui/button'
 
-const chipShadow = 'shadow-[0_12px_24px_-12px_rgba(15,108,230,0.6)]'
+const navyButton = 'bg-navy text-white hover:bg-navy-hover focus-visible:ring-navy/40'
 
 export function HeroSection() {
   return (
     <section id="top" className="px-4 pt-10 sm:px-6">
-      <div className="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-2">
-        <div className="flex flex-col items-start gap-7">
-          <Badge variant="secondary" className="h-[30px] px-3.5 text-[13px] text-foreground/75">
-            #ThiVanDapAI
-          </Badge>
-          <h1 className="max-w-[13ch] font-heading text-5xl leading-[1.08] font-medium tracking-[-0.03em] sm:text-[64px]">
+      {/* Two columns at every width: on small screens the text and the robot shrink instead of stacking. */}
+      <div className="mx-auto grid max-w-[1200px] grid-cols-[1.05fr_1fr] items-center gap-3 sm:gap-8 lg:gap-10">
+        <div className="flex min-w-0 flex-col items-start gap-3 sm:gap-5 lg:gap-7">
+          <h1 className="max-w-[13ch] font-heading text-[22px] leading-[1.08] font-semibold tracking-[-0.03em] text-foreground/90 [text-shadow:0_4px_12px_rgba(17,17,20,0.28)] min-[420px]:text-[28px] sm:text-[40px] sm:[text-shadow:0_6px_18px_rgba(17,17,20,0.28)] md:text-5xl lg:text-[64px]">
             Viva exams with an AI examiner
           </h1>
-          <p className="max-w-[30rem] text-[17px] leading-relaxed text-muted-foreground">
+          <p className="max-w-[30rem] text-[11px] leading-snug text-foreground/80 min-[420px]:text-xs sm:text-sm sm:leading-relaxed md:text-[15px] lg:text-[17px]">
             Enter your join code, listen to the questions and answer by voice. The AI scores against the course content,
             and an examiner reviews before the score is published.
           </p>
-          <div className="flex items-center gap-1.5">
-            <Button asChild>
+          {/* Below 420px the column is too narrow for both; the round button only repeats the main link, so it hides. */}
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <Button
+              asChild
+              size="lg"
+              className={`h-8 rounded-full px-3 text-[11px] sm:h-10 sm:px-5 sm:text-sm lg:h-12 lg:px-7 ${navyButton}`}
+            >
               <Link to="/register">Create a student account</Link>
             </Button>
-            <Button asChild size="icon" aria-label="Create a student account">
+            <Button
+              asChild
+              size="icon"
+              className={`hidden size-8 rounded-full min-[420px]:inline-flex sm:size-10 lg:size-12 ${navyButton}`}
+              aria-label="Create a student account"
+            >
               <Link to="/register">
-                <ArrowUpRight />
+                <ChevronRight className="size-4 lg:size-5" />
               </Link>
             </Button>
           </div>
         </div>
 
-        {/* Visual panel */}
-        <div className="relative h-[520px] overflow-hidden rounded-[32px] bg-muted sm:h-[580px]">
-          <div aria-hidden="true" className="absolute -bottom-30 left-1/2 size-[420px] -translate-x-1/2 rounded-full bg-sun" />
-          <DotGrid className="absolute top-10 left-9" />
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 120 90"
-            className="absolute right-[70px] bottom-[150px] hidden h-[90px] w-[120px] text-brand sm:block"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          >
-            <path d="M6 70c18-30 40-48 62-40 18 7 10 30-6 26-14-4-4-30 22-40 10-4 22-4 30 0" />
-            <path d="M104 10l10 6-10 6" />
-          </svg>
-
-          <img
-            src={studentImg}
-            alt="Smiling student holding books and a backpack"
-            className="absolute bottom-0 left-1/2 h-[92%] w-auto max-w-none -translate-x-[46%]"
-            width={460}
-            height={551}
-          />
-
-          <div className={`absolute top-10 right-6 flex items-center gap-2.5 rounded-2xl bg-brand px-4 py-3 text-white ${chipShadow}`}>
-            <span className="inline-flex size-8 items-center justify-center rounded-full bg-white/20">
-              <Mic className="size-4" />
-            </span>
-            <div className="flex flex-col">
-              <span className="text-[13px] font-semibold">Answer by voice</span>
-              <span className="text-[11px] opacity-85">Automatically transcribed</span>
-            </div>
-          </div>
-
-          <div className="absolute top-[210px] right-6 hidden w-[220px] flex-col gap-2.5 rounded-[18px] bg-white px-4 py-3.5 shadow-[0_20px_40px_-20px_rgba(17,17,20,0.35)] sm:flex">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-muted-foreground">AI examiner, question 2/5</span>
-              <span className="size-[7px] rounded-full bg-brand" />
-            </div>
-            <span className="text-[13px] leading-snug font-medium">Why use an interface instead of inheritance?</span>
-            <Waveform className="h-[26px] gap-0.5" barClassName="w-[3px]" />
-          </div>
-
-          <div className={`absolute bottom-12 left-6 flex flex-col gap-0.5 rounded-2xl bg-brand px-[18px] py-3.5 text-white ${chipShadow}`}>
-            <span className="self-start rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold">Result</span>
-            <span className="font-heading text-[26px] leading-tight font-semibold">8.5 / 10</span>
-            <span className="text-[11px] opacity-85">Waiting for examiner review</span>
-          </div>
-        </div>
+        {/* The design's robot, graduation cap, diploma and stars, cut from it as one transparent image. */}
+        <img
+          src={robotImg}
+          alt=""
+          width={1100}
+          height={1045}
+          className="h-auto w-full"
+        />
       </div>
     </section>
   )

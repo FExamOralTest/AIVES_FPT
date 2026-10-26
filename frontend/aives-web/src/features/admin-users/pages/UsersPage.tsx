@@ -1,7 +1,37 @@
-import { CircleAlert, CircleCheck, Eye, Pencil, Plus, RotateCw, Search, Trash2, UserRound } from 'lucide-react'
+import {
+  BookOpen,
+  CircleAlert,
+  ClipboardCheck,
+  Eye,
+  GraduationCap,
+  LayoutDashboard,
+  LayoutGrid,
+  Pencil,
+  PlusCircle,
+  RotateCw,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { ROLE_LABEL, useAuth } from '@/features/auth'
+import {
+  ActionMenu,
+  FilterTabs,
+  FlashBar,
+  GradientTile,
+  PageBar,
+  SortHeader,
+  SortMenu,
+  TableCheckbox,
+  TableSkeleton,
+  Toolbar,
+  ToolbarSearch,
+  TOOLBAR_BUTTON,
+} from '@/components/common/FlatPage'
+import { ROLE_HOME, ROLE_LABEL, useAuth } from '@/features/auth'
 import { toApiError } from '@/lib/http/apiError'
 import { cn } from '@/lib/utils'
 import { usersApi } from '../api/usersApi'
@@ -13,21 +43,32 @@ import type { User, UserRole } from '../types'
 
 type Filter = 'ALL' | UserRole
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'ALL', label: 'All' },
-  { value: 'STAFF', label: ROLE_LABEL.STAFF },
-  { value: 'EXAMINER', label: ROLE_LABEL.EXAMINER },
-  { value: 'STUDENT', label: ROLE_LABEL.STUDENT },
-  { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
+const FILTERS: { value: Filter; label: string; icon: LucideIcon }[] = [
+  { value: 'ALL', label: 'All users', icon: LayoutGrid },
+  { value: 'STAFF', label: ROLE_LABEL.STAFF, icon: BookOpen },
+  { value: 'EXAMINER', label: ROLE_LABEL.EXAMINER, icon: ClipboardCheck },
+  { value: 'STUDENT', label: ROLE_LABEL.STUDENT, icon: GraduationCap },
+  { value: 'ADMIN', label: ROLE_LABEL.ADMIN, icon: ShieldCheck },
 ]
 
 const ROLE_ORDER: Record<UserRole, number> = { ADMIN: 0, STAFF: 1, EXAMINER: 2, STUDENT: 3 }
 
-const ROLE_TONE: Record<UserRole, string> = {
-  ADMIN: 'bg-brand-soft text-brand',
-  STAFF: 'bg-success-soft text-success',
-  EXAMINER: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
-  STUDENT: 'bg-muted text-foreground',
+// Soft tag colours, one hue per role.
+const ROLE_TAG: Record<UserRole, string> = {
+  ADMIN: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300',
+  STAFF: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300',
+  EXAMINER: 'bg-orange-50 text-orange-600 dark:bg-orange-950/50 dark:text-orange-300',
+  STUDENT: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+}
+
+type SortKey = 'role' | 'fullName' | 'username' | 'email'
+type Sort = { key: SortKey; dir: 'asc' | 'desc' }
+
+const SORT_LABEL: Record<SortKey, string> = { role: 'Role', fullName: 'Name', username: 'Username', email: 'Email' }
+
+function compareUsers(a: User, b: User, key: SortKey) {
+  if (key === 'role') return ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.fullName.localeCompare(b.fullName, 'vi')
+  return (a[key] ?? '').localeCompare(b[key] ?? '', 'vi')
 }
 
 type LoadState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready' }
@@ -37,11 +78,15 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [load, setLoad] = useState<LoadState>({ status: 'loading' })
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [filter, setFilter] = useState<Filter>('ALL')
+  const [sort, setSort] = useState<Sort>({ key: 'role', dir: 'asc' })
+  const [selected, setSelected] = useState<Set<number>>(new Set())
   const [dialog, setDialog] = useState<UserFormMode | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const [deleting, setDeleting] = useState<User | null>(null)
+  // Either one row from its menu, or every selected row.
+  const [deleting, setDeleting] = useState<User[] | null>(null)
   const [deletePending, setDeletePending] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [viewing, setViewing] = useState<User | null>(null)
@@ -50,15 +95,29 @@ export default function UsersPage() {
     if (!deleting || deletePending) return
     setDeletePending(true)
     setDeleteError(null)
-    try {
-      await usersApi.delete(deleting.userId)
-      setUsers((previous) => previous.filter((user) => user.userId !== deleting.userId))
-      setFlash(`Deleted account ${deleting.username}.`)
+    const deleted: number[] = []
+    const failed: string[] = []
+    for (const user of deleting) {
+      try {
+        await usersApi.delete(user.userId)
+        deleted.push(user.userId)
+      } catch (err) {
+        failed.push(deleting.length === 1 ? toApiError(err).message : user.username)
+      }
+    }
+    setUsers((previous) => previous.filter((user) => !deleted.includes(user.userId)))
+    setSelected((previous) => new Set([...previous].filter((id) => !deleted.includes(id))))
+    setDeletePending(false)
+    if (failed.length === 0) {
+      setFlash(deleted.length === 1 ? `Deleted account ${deleting[0].username}.` : `Deleted ${deleted.length} accounts.`)
       setDeleting(null)
-    } catch (err) { setDeleteError(toApiError(err).message) }
-    finally { setDeletePending(false) }
+    } else if (deleting.length === 1) {
+      setDeleteError(failed[0])
+    } else {
+      setDeleting((previous) => previous?.filter((user) => !deleted.includes(user.userId)) ?? null)
+      setDeleteError(`Deleted ${deleted.length}. These accounts have related data and were kept: ${failed.join(', ')}.`)
+    }
   }
-
 
   useEffect(() => {
     let cancelled = false
@@ -83,14 +142,47 @@ export default function UsersPage() {
     return c
   }, [users])
 
-
   const visible = useMemo(() => {
     const q = normalize(query)
+    const sign = sort.dir === 'asc' ? 1 : -1
     return users
       .filter((u) => filter === 'ALL' || u.role === filter)
       .filter((u) => !q || [u.fullName, u.username, u.email ?? ''].some((s) => normalize(s).includes(q)))
-      .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.fullName.localeCompare(b.fullName, 'vi'))
-  }, [users, query, filter])
+      .sort((a, b) => sign * compareUsers(a, b, sort.key))
+  }, [users, query, filter, sort])
+
+  // You cannot delete your own account, so it is never selectable.
+  const selectable = visible.filter((u) => u.userId !== me?.userId)
+  const selectedVisible = selectable.filter((u) => selected.has(u.userId))
+
+  function toggleAll() {
+    setSelected((previous) => {
+      const next = new Set(previous)
+      const allOn = selectable.length > 0 && selectedVisible.length === selectable.length
+      for (const u of selectable) {
+        if (allOn) next.delete(u.userId)
+        else next.add(u.userId)
+      }
+      return next
+    })
+  }
+
+  function toggleOne(userId: number) {
+    setSelected((previous) => {
+      const next = new Set(previous)
+      if (!next.delete(userId)) next.add(userId)
+      return next
+    })
+  }
+
+  function sortBy(key: SortKey) {
+    setSort((previous) => ({ key, dir: previous.key === key && previous.dir === 'asc' ? 'desc' : 'asc' }))
+  }
+
+  function reload() {
+    setLoad({ status: 'loading' })
+    setAttempt((n) => n + 1)
+  }
 
   function handleSaved(saved: User, created: boolean) {
     setUsers((prev) => (created ? [...prev, saved] : prev.map((u) => (u.userId === saved.userId ? saved : u))))
@@ -98,77 +190,68 @@ export default function UsersPage() {
     setDialog(null)
   }
 
+  const header = (key: SortKey, label: string, count?: number) => (
+    <SortHeader label={label} count={count} active={sort.key === key} dir={sort.dir} onSort={() => sortBy(key)} />
+  )
+
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-3xl font-medium tracking-tight">Users</h1>
-          <p className="mt-1.5 max-w-2xl text-muted-foreground">
-            Create staff, examiner, student and admin accounts; edit details and change roles.
-          </p>
-        </div>
-        <Button onClick={() => setDialog({ type: 'create' })}>
-          <Plus aria-hidden="true" />
-          Add user
-        </Button>
-      </header>
-      <div role="status" aria-live="polite">
-        {flash && (
-          <p className="mt-6 flex items-center gap-2 rounded-[14px] bg-success-soft px-4 py-3 text-sm text-success">
-            <CircleCheck className="size-4 shrink-0" aria-hidden="true" />
-            {flash}
-          </p>
-        )}
-      </div>
+      <PageBar
+        parent={{ label: 'Administration', to: ROLE_HOME.ADMIN, icon: LayoutDashboard }}
+        title="Users"
+        icon={Users}
+        actions={[
+          { label: 'New user', icon: PlusCircle, onSelect: () => setDialog({ type: 'create' }) },
+          { label: 'Reload list', icon: RotateCw, onSelect: reload },
+        ]}
+      />
+      <FlashBar message={flash} />
 
-      <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div role="group" aria-label="Filter by role" className="flex gap-1 overflow-x-auto">
-          {FILTERS.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setFilter(value)}
-              aria-pressed={filter === value}
-              className={cn(
-                'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm transition-colors',
-                filter === value ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {label}
-              <span className={cn('tabular-nums', filter === value ? 'text-background/70' : 'text-muted-foreground/80')}>
-                {counts[value]}
-              </span>
-            </button>
-          ))}
-        </div>
-        <label className="relative block lg:w-72">
-          <span className="sr-only">Search users</span>
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, username or email"
-            className="h-10 w-full rounded-full border border-input bg-background pr-4 pl-10 text-sm outline-none focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand/15"
+      <section aria-label="User list">
+        <Toolbar>
+          <FilterTabs
+            label="Filter by role"
+            tabs={FILTERS.map((f) => ({ ...f, count: counts[f.value] }))}
+            value={filter}
+            onChange={setFilter}
           />
-        </label>
-      </div>
+          <div className="flex items-center gap-2">
+            {selectedVisible.length > 0 && (
+              <Button
+                variant="destructive"
+                className={TOOLBAR_BUTTON}
+                onClick={() => {
+                  setDeleting(selectedVisible)
+                  setDeleteError(null)
+                }}
+              >
+                <Trash2 aria-hidden="true" />
+                Delete {selectedVisible.length}
+              </Button>
+            )}
+            <SortMenu labels={SORT_LABEL} sort={sort} onSort={setSort} />
+            <ToolbarSearch
+              open={searchOpen}
+              onOpenChange={setSearchOpen}
+              value={query}
+              onChange={setQuery}
+              label="Search users"
+              placeholder="Search name, username or email"
+            />
+            <Button variant="brand" className={TOOLBAR_BUTTON} onClick={() => setDialog({ type: 'create' })}>
+              <PlusCircle aria-hidden="true" />
+              New user
+            </Button>
+          </div>
+        </Toolbar>
 
-      <section aria-label="User list" className="mt-4 overflow-hidden rounded-2xl border">
-        {load.status === 'loading' && <ListSkeleton />}
+        {load.status === 'loading' && <TableSkeleton />}
 
         {load.status === 'error' && (
           <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
             <CircleAlert className="size-7 text-destructive" aria-hidden="true" />
             <p className="max-w-sm text-muted-foreground">{load.message}</p>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setLoad({ status: 'loading' })
-                setAttempt((n) => n + 1)
-              }}
-            >
+            <Button variant="secondary" size="sm" onClick={reload}>
               <RotateCw aria-hidden="true" />
               Try again
             </Button>
@@ -185,34 +268,70 @@ export default function UsersPage() {
         )}
 
         {load.status === 'ready' && visible.length > 0 && (
-          <ul className="divide-y">
-            <li
-              aria-hidden="true"
-              className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_8rem_8rem] gap-4 bg-muted/60 px-5 py-2.5 text-xs font-medium text-muted-foreground uppercase md:grid"
-            >
-              <span>User</span>
-              <span>Email</span>
-              <span>Role</span>
-              <span className="text-right">Actions</span>
-            </li>
-            {visible.map((u) => (
-              <UserRow
-                key={u.userId}
-                user={u}
-                isSelf={u.userId === me?.userId}
-                onView={() => setViewing(u)}
-                onDelete={() => { setDeleting(u); setDeleteError(null) }}
-                onEdit={() => {
-                  setFlash(null)
-                  setDialog({ type: 'edit', user: u })
-                }}
-              />
-            ))}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] table-fixed text-left text-[15px]">
+              <colgroup>
+                <col className="w-12 sm:w-14" />
+                <col className="w-[31%]" />
+                <col className="w-[22%]" />
+                <col />
+                <col className="w-40" />
+              </colgroup>
+              <thead>
+                <tr className="border-b">
+                  <th scope="col" className="py-3 pr-1 pl-4 sm:pl-6">
+                    <TableCheckbox
+                      label="Select all users"
+                      checked={selectable.length > 0 && selectedVisible.length === selectable.length}
+                      indeterminate={selectedVisible.length > 0 && selectedVisible.length < selectable.length}
+                      disabled={selectable.length === 0}
+                      onChange={toggleAll}
+                    />
+                  </th>
+                  {header('fullName', 'User', visible.length)}
+                  {header('username', 'Username')}
+                  {header('email', 'Email')}
+                  {header('role', 'Role')}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {visible.map((u) => (
+                  <UserRow
+                    key={u.userId}
+                    user={u}
+                    isSelf={u.userId === me?.userId}
+                    selected={selected.has(u.userId)}
+                    onToggle={() => toggleOne(u.userId)}
+                    onView={() => setViewing(u)}
+                    onDelete={() => {
+                      setDeleting([u])
+                      setDeleteError(null)
+                    }}
+                    onEdit={() => {
+                      setFlash(null)
+                      setDialog({ type: 'edit', user: u })
+                    }}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
-      <ConfirmDialog open={deleting !== null} title="Delete user?" description={`Delete account ${deleting?.username ?? ''}? Accounts with related data cannot be deleted.`} pending={deletePending} error={deleteError} onClose={() => setDeleting(null)} onConfirm={() => void handleDelete()} />
+      <ConfirmDialog
+        open={deleting !== null}
+        title={deleting && deleting.length > 1 ? `Delete ${deleting.length} users?` : 'Delete user?'}
+        description={
+          deleting && deleting.length > 1
+            ? `Delete ${deleting.length} accounts? Accounts with related data cannot be deleted.`
+            : `Delete account ${deleting?.[0]?.username ?? ''}? Accounts with related data cannot be deleted.`
+        }
+        pending={deletePending}
+        error={deleteError}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => void handleDelete()}
+      />
       {viewing && <UserDetail user={viewing} onClose={() => setViewing(null)} />}
 
       <UserFormDialog
@@ -225,55 +344,66 @@ export default function UsersPage() {
   )
 }
 
-function UserRow({ user, isSelf, onEdit, onDelete, onView }: { user: User; isSelf: boolean; onEdit: () => void; onDelete: () => void; onView: () => void }) {
+function UserRow({
+  user,
+  isSelf,
+  selected,
+  onToggle,
+  onEdit,
+  onDelete,
+  onView,
+}: {
+  user: User
+  isSelf: boolean
+  selected: boolean
+  onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
+  onView: () => void
+}) {
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_8rem_8rem]">
-      <div className="flex min-w-0 items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground"
-        >
-          {initials(user.fullName)}
-        </span>
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 truncate font-medium">
-            <span className="truncate">{user.fullName}</span>
-            {isSelf && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">You</span>}
-          </p>
-          <p className="truncate text-sm text-muted-foreground">@{user.username}</p>
+    <tr className={cn('transition-colors hover:bg-muted/50', selected && 'bg-brand-soft/50 hover:bg-brand-soft/70')}>
+      <td className="py-3.5 pr-1 pl-4 sm:pl-6">
+        <TableCheckbox label={`Select ${user.fullName}`} checked={selected} disabled={isSelf} onChange={onToggle} />
+      </td>
+      <td className="max-w-0 px-3 py-3.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <GradientTile seed={user.userId} />
+          <span className="truncate">{user.fullName}</span>
+          {isSelf && <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">You</span>}
+          <ActionMenu
+            label={`Actions for ${user.fullName}`}
+            actions={[
+              { label: 'View details', icon: Eye, onSelect: onView },
+              { label: 'Edit', icon: Pencil, onSelect: onEdit },
+              {
+                label: isSelf ? 'Cannot delete yourself' : 'Delete account',
+                icon: Trash2,
+                onSelect: onDelete,
+                disabled: isSelf,
+                destructive: true,
+                separated: true,
+              },
+            ]}
+          />
         </div>
-      </div>
-
-      <p className="col-span-2 row-start-2 truncate pl-12 text-sm text-muted-foreground md:col-span-1 md:row-start-auto md:pl-0 md:text-foreground">
-        {user.email ?? 'No email'}
-      </p>
-
-      <span
-        className={cn(
-          'col-start-2 row-start-1 w-fit rounded-full px-2.5 py-1 text-xs font-medium md:col-start-auto md:row-start-auto',
-          ROLE_TONE[user.role],
+      </td>
+      <td className="max-w-0 truncate px-3 py-3.5 text-muted-foreground">@{user.username}</td>
+      <td className="max-w-0 truncate px-3 py-3.5">
+        {user.email ? (
+          <a href={`mailto:${user.email}`} className="text-brand hover:underline">
+            {user.email}
+          </a>
+        ) : (
+          <span className="text-muted-foreground">No email</span>
         )}
-      >
-        {ROLE_LABEL[user.role]}
-      </span>
-
-      <div className="col-span-2 row-start-3 flex justify-end gap-1 md:col-span-1 md:row-start-auto">
-        <Button variant="ghost" size="icon-sm" onClick={onView} aria-label={`View ${user.fullName}`} title="View"><Eye aria-hidden="true" /></Button>
-        <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label={`Edit ${user.fullName}`} title="Edit">
-          <Pencil aria-hidden="true" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          disabled={isSelf}
-          onClick={onDelete}
-          aria-label={`Delete ${user.fullName}`}
-          title={isSelf ? 'You cannot delete your own account' : 'Delete account'}
-        >
-          <Trash2 aria-hidden="true" />
-        </Button>
-      </div>
-    </li>
+      </td>
+      <td className="px-3 py-3.5">
+        <span className={cn('inline-flex rounded-md px-2 py-0.5 text-[13px] font-medium', ROLE_TAG[user.role])}>
+          {ROLE_LABEL[user.role]}
+        </span>
+      </td>
+    </tr>
   )
 }
 
@@ -287,25 +417,6 @@ function UserDetail({ user, onClose }: { user: User; onClose: () => void }) {
   </DialogContent></Dialog>
 }
 
-function ListSkeleton() {
-  return (
-    <ul aria-busy="true" aria-label="Loading" className="divide-y">
-      {Array.from({ length: 4 }, (_, i) => (
-        <li key={i} className="flex items-center gap-3 px-5 py-4">
-          <span className="size-9 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
-          <span className="h-4 w-40 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-          <span className="ml-auto h-4 w-20 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/)
-  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0]?.slice(0, 2) ?? ''
-  return letters.toUpperCase()
-}
 function normalize(s: string) {
   return s
     .normalize('NFD')

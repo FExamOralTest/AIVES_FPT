@@ -46,6 +46,10 @@ Value: <configured-secret-key>
 
 ## 3. Speech-to-Text (STT)
 
+> **Contract chính thức:** [queue-and-stt-contract.md](queue-and-stt-contract.md) — mục 2 (STT Response Contract).
+> Đây là hợp đồng **ràng buộc** mà AI1 (Faster-Whisper) phải tuân thủ: error taxonomy, cờ `retryable`,
+> và quy tắc validate mà Backend áp dụng. Đọc mục 2 trước khi deploy.
+
 ### 3.1 Endpoint
 
 ```
@@ -552,3 +556,31 @@ Response: `200 OK` if service is healthy
 | `ai_provider_unavailable` | 503 | External AI down | Yes |
 | `timeout` | 504 | Request timeout | Yes |
 | `connection_error` | 503 | Cannot reach service | Yes |
+
+---
+
+## 13. STT Error Taxonomy (bắt buộc)
+
+Bảng dưới đây là taxonomy **chuẩn** cho endpoint STT. `code` trong `error` phải thuộc đúng
+danh sách này và cờ `retryable` phải khớp — Backend validate và reject response không tuân thủ.
+
+| Code | HTTP | `retryable` | Nghĩa |
+|---|---|---|---|
+| `AUDIO_CORRUPTED` | 400, 404 | `false` | File hỏng / không decode được |
+| `EMPTY_AUDIO` | 400 | `false` | File 0 byte |
+| `EMPTY_TRANSCRIPT` | 422 | `false` | Whisper chạy xong, không có lời |
+| `NO_SPEECH` | 422 | `false` | Audio không có tiếng nói |
+| `UNSUPPORTED_FORMAT` | 413, 415 | `false` | Định dạng / sample rate không hỗ trợ |
+| `TIMEOUT` | 408, 504 | `true` | Xử lý quá thời gian |
+| `INTERNAL_ERROR` | 500, 503 | `true` | Lỗi nội bộ AI1 (GPU OOM, model load fail…) |
+| `INVALID_RESPONSE` | 502 | `false` | Response sai contract |
+| `AUTH_FAILED` | 401, 403 | `false` | Internal token sai |
+
+**Lưu ý forward-compatibility:** nếu AI1 thêm code mới, Backend sẽ chấp nhận và mặc định
+`retryable = true` — **trừ khi** AI1 khai `retryable = false` cho code mới, khi đó Backend
+reject response cho tới khi taxonomy được cập nhật.
+
+**Quy tắc quan trọng:** retry chỉ hợp lý cho lỗi **tạm thời**. `retryable = false` với lỗi
+vĩnh viễn để Backend dead-letter ngay, tránh tốn compute và tránh chờ sinh viên.
+
+Chi tiết đầy đủ: [queue-and-stt-contract.md](queue-and-stt-contract.md) — mục 2.
