@@ -36,6 +36,8 @@ eggs/
 lib/
 # Python's lib/ rule must not hide the frontend's source folders (src/lib, src/features/*/lib, ...)
 !frontend/aives-web/src/**/lib/
+!frontend/aives-desktop/lib/
+!frontend/aives-desktop/lib/**
 lib64/
 parts/
 sdist/
