@@ -73,35 +73,37 @@ class _AivesAppState extends State<AivesApp> with WindowListener {
     theme: ThemeData(
       useMaterial3: true,
       fontFamily: 'Segoe UI',
-      scaffoldBackgroundColor: const Color(0xfff5f7fb),
+      scaffoldBackgroundColor: const Color(0xfffafbfc),
       colorScheme: ColorScheme.fromSeed(
         seedColor: brand,
         primary: brand,
         surface: Colors.white,
       ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xfffafbfc),
+        surfaceTintColor: Colors.transparent,
+        toolbarHeight: 64,
+        elevation: 0,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xfff8fafc),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         enabledBorder: OutlineInputBorder(
           borderSide: const BorderSide(color: Color(0xffdce3ee)),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     ),
