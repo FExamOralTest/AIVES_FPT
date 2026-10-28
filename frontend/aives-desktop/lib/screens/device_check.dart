@@ -16,7 +16,13 @@ class DeviceReady {
 class DeviceCheck extends StatefulWidget {
   final LocalStore store;
   final CloseGuard closeGuard;
-  const DeviceCheck({super.key, required this.store, required this.closeGuard});
+  final bool resuming;
+  const DeviceCheck({
+    super.key,
+    required this.store,
+    required this.closeGuard,
+    this.resuming = false,
+  });
   @override
   State<DeviceCheck> createState() => _DeviceCheckState();
 }
@@ -96,105 +102,136 @@ class _DeviceCheckState extends State<DeviceCheck> {
     canPop: false,
     child: Dialog(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
-          child: ListenableBuilder(
-            listenable: _capture,
-            builder: (context, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Device check',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Put on your headphones, record a short test and play it back to check the audio. Your exam has not started yet.',
-                ),
-                const SizedBox(height: 22),
-                DropdownButtonFormField<String>(
-                  initialValue: '',
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Microphone'),
-                  items: [
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text('Windows default device'),
-                    ),
-                    ..._devices.map(
-                      (d) => DropdownMenuItem(
-                        value: d.id,
-                        child: Text(d.label, overflow: TextOverflow.ellipsis),
+        constraints: const BoxConstraints(maxWidth: 540),
+        child: ListenableBuilder(
+          listenable: _capture,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Check your microphone',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
-                  onChanged: _capture.recording || _action
-                      ? null
-                      : (id) {
-                          _run(() async {
-                            await _capture.clear();
-                            if (!mounted) return;
-                            setState(() {
-                              _selected = id == ''
-                                  ? null
-                                  : _devices.firstWhere((d) => d.id == id);
-                              _heard = false;
-                              _played = false;
-                            });
-                          });
-                        },
-                ),
-                const SizedBox(height: 22),
-                if (_error != null) ...[
-                  Notice(_error!, error: true),
-                  const SizedBox(height: 16),
-                ],
-                RecordingPanel(
-                  capture: _capture,
-                  enabled: !_action,
-                  onStart: () => _run(_start),
-                  onStop: () => _run(_capture.stop),
-                  onPlay: () => _run(() async {
-                    if (_capture.playing) {
-                      await _capture.stopPlayback();
-                    } else {
-                      await _capture.play();
-                      if (mounted) setState(() => _played = true);
-                    }
-                  }),
-                ),
-                const SizedBox(height: 20),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _heard,
-                  title: const Text(
-                    'I can hear the test recording clearly through my headphones',
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Record a short test and listen with headphones.',
+                      ),
+                      const SizedBox(height: 20),
+                      DropdownButtonFormField<String>(
+                        initialValue: '',
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Microphone',
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: '',
+                            child: Text('Windows default device'),
+                          ),
+                          ..._devices.map(
+                            (d) => DropdownMenuItem(
+                              value: d.id,
+                              child: Text(
+                                d.label,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: _capture.recording || _action
+                            ? null
+                            : (id) {
+                                _run(() async {
+                                  await _capture.clear();
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _selected = id == ''
+                                        ? null
+                                        : _devices.firstWhere(
+                                            (d) => d.id == id,
+                                          );
+                                    _heard = false;
+                                    _played = false;
+                                  });
+                                });
+                              },
+                      ),
+                      const SizedBox(height: 20),
+                      if (_error != null) ...[
+                        Notice(_error!, error: true),
+                        const SizedBox(height: 16),
+                      ],
+                      RecordingPanel(
+                        capture: _capture,
+                        enabled: !_action,
+                        onStart: () => _run(_start),
+                        onStop: () => _run(_capture.stop),
+                        onPlay: () => _run(() async {
+                          if (_capture.playing) {
+                            await _capture.stopPlayback();
+                          } else {
+                            await _capture.play();
+                            if (mounted) setState(() => _played = true);
+                          }
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _heard,
+                        title: const Text('I can hear my recording clearly'),
+                        onChanged: _played && !_capture.recording && !_action
+                            ? (v) => setState(() => _heard = v ?? false)
+                            : null,
+                      ),
+                    ],
                   ),
-                  onChanged: _played && !_capture.recording && !_action
-                      ? (v) => setState(() => _heard = v ?? false)
-                      : null,
                 ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    OutlinedButton(
-                      onPressed: _action ? null : () => _done(false),
-                      child: const Text('Back'),
+                    Text(
+                      widget.resuming ? 'Your exam timer is still running.' : 'Start exam begins the timer. It keeps running if you close the app.',
+                      style: const TextStyle(color: muted, fontSize: 12),
                     ),
-                    FilledButton(
-                      onPressed: _heard && !_capture.recording && !_action
-                          ? () => _done(true)
-                          : null,
-                      child: const Text('Devices are ready'),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: _action ? null : () => _done(false),
+                          child: const Text('Back'),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _heard && !_capture.recording && !_action
+                              ? () => _done(true)
+                              : null,
+                          child: Text(
+                            widget.resuming ? 'Resume exam' : 'Start exam',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

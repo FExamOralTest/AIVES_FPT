@@ -10,7 +10,6 @@ import '../widgets.dart';
 import 'device_check.dart';
 import 'exam.dart';
 import 'reauth.dart';
-import 'result.dart';
 
 class DashboardScreen extends StatefulWidget {
   final AivesApi api;
@@ -31,11 +30,15 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final _form = GlobalKey<FormState>();
   final _code = TextEditingController();
   List<ExamSession> _sessions = [];
+  int? _selectedId;
   bool _loading = true, _joining = false, _entering = false;
-  String? _error, _notice;
+  String? _error;
   Timer? _clock;
+  bool get _busy => _joining || _entering;
+
   @override
   void initState() {
     super.initState();
@@ -69,22 +72,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _join() async {
-    if (_joining || _code.text.trim().isEmpty) return;
+    if (_busy || _loading || !_form.currentState!.validate()) return;
     setState(() {
       _joining = true;
       _error = null;
-      _notice = null;
+      _selectedId = null;
     });
     try {
-      await widget.api.enroll(_code.text);
-      _code.clear();
-      if (mounted) {
-        setState(
-          () => _notice =
-              'Session joined. Wait for the proctor to open the session.',
-        );
-      }
+      final id = await widget.api.enroll(_code.text);
+      if (!mounted) return;
+      setState(() => _selectedId = id);
       await _load();
+      if (!mounted) return;
+      final selected = _sessions.where((s) => s.id == id).firstOrNull;
+      if (selected == null && _error == null) {
+        setState(
+          () => _error = 'Exam joined. Refresh joined exams to continue.',
+        );
+      } else if (selected?.canEnter == true) {
+        await _enter(selected!);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -99,17 +106,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final ready = await showDialog<DeviceReady>(
         context: context,
         barrierDismissible: false,
-        builder: (_) =>
-            DeviceCheck(store: widget.store, closeGuard: widget.closeGuard),
+        builder: (_) => DeviceCheck(
+          store: widget.store,
+          closeGuard: widget.closeGuard,
+          resuming: enrollment.enrollmentStatus == 'IN_PROGRESS',
+        ),
       );
       if (!mounted || ready == null) return;
-      final accepted = await confirm(
-        context,
-        'Start this exam?',
-        'The timer starts when you first enter the exam and keeps running when the app is closed.',
-        action: 'Enter exam',
-      );
-      if (!mounted || !accepted) return;
       final session = await widget.api.start(enrollment);
       final folder = await widget.store.sessionFolder(
         widget.api.http.options.baseUrl,
@@ -139,246 +142,177 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      toolbarHeight: 78,
-      title: const BrandMark(),
-      actions: [
-        TextButton.icon(
-          onPressed: _entering || _joining
-              ? null
-              : () async {
-                  await reauthenticate(context, widget.api, widget.student);
-                  if (mounted) await _load();
-                },
-          icon: const Icon(Icons.key),
-          label: const Text('Verify account'),
-        ),
-        TextButton.icon(
-          onPressed: _entering || _joining ? null : widget.onLogout,
-          icon: const Icon(Icons.logout),
-          label: const Text('Sign out'),
-        ),
-        const SizedBox(width: 16),
-      ],
-    ),
-    body: Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1120),
-        child: ListView(
+  Widget build(BuildContext context) {
+    final selected = _sessions.where((s) => s.id == _selectedId).firstOrNull;
+    return Scaffold(
+      appBar: AppBar(
+        title: const BrandMark(),
+        actions: [
+          TextButton.icon(
+            onPressed: _busy
+                ? null
+                : () async {
+                    await reauthenticate(context, widget.api, widget.student);
+                    if (mounted) await _load();
+                  },
+            icon: const Icon(Icons.help_outline, size: 20),
+            label: const Text('Account help'),
+          ),
+          TextButton(
+            onPressed: _busy ? null : widget.onLogout,
+            child: const Text('Sign out'),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+      body: Center(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(28),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                color: const Color(0xff18366a),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'YOUR EXAM WORKSPACE',
-                    style: TextStyle(
-                      color: Color(0xff9fc7ff),
-                      letterSpacing: 2,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Hello, ${widget.student.name}',
-                    style: const TextStyle(
-                      fontSize: 29,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Prepare your headphones and microphone. Each answer is recorded and submitted to AIVES.',
-                    style: TextStyle(fontSize: 15, color: Color(0xffdfebff)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Surface(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Join an exam session',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Enter the session code provided by your proctor.',
-                    style: TextStyle(color: muted),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _code,
-                          enabled: !_joining && !_entering,
-                          onSubmitted: (_) => _join(),
-                          decoration: const InputDecoration(
-                            labelText: 'Session code',
-                            prefixIcon: Icon(
-                              Icons.confirmation_number_outlined,
-                            ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  widget.student.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: muted),
+                ),
+                const SizedBox(height: 20),
+                Surface(
+                  padding: const EdgeInsets.all(32),
+                  child: Form(
+                    key: _form,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Enter your exam code',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                            color: ink,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 14),
-                      FilledButton(
-                        onPressed: _joining || _entering ? null : _join,
-                        child: Text(_joining ? 'Joining...' : 'Join'),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Use the code provided by your proctor.',
+                          style: TextStyle(color: muted),
+                        ),
+                        const SizedBox(height: 28),
+                        TextFormField(
+                          controller: _code,
+                          autofocus: true,
+                          enabled: !_busy,
+                          textCapitalization: TextCapitalization.characters,
+                          textInputAction: TextInputAction.go,
+                          onFieldSubmitted: (_) => _join(),
+                          decoration: const InputDecoration(
+                            labelText: 'Exam code',
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Enter the exam code from your proctor.'
+                              : null,
+                        ),
+                        const SizedBox(height: 18),
+                        FilledButton(
+                          onPressed: _busy || _loading ? null : _join,
+                          child: Text(
+                            _joining || _entering
+                                ? 'Opening exam...'
+                                : 'Continue',
+                          ),
+                        ),
+                        if (_loading) ...[
+                          const SizedBox(height: 16),
+                          const LinearProgressIndicator(),
+                        ],
+                        if (_error != null) ...[
+                          const SizedBox(height: 18),
+                          Notice(_error!, error: true),
+                          TextButton.icon(
+                            onPressed: _busy || _loading ? null : _load,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Refresh joined exams'),
+                          ),
+                        ],
+                        if (selected != null) ...[
+                          const SizedBox(height: 24),
+                          _sessionTile(selected),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                if (_sessions.any((s) => s.id != _selectedId)) ...[
+                  const SizedBox(height: 16),
+                  ExpansionTile(
+                    title: const Text('Joined exams'),
+                    subtitle: const Text('Continue an exam you already joined'),
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+                    children: [
+                      ..._sessions
+                          .where((s) => s.id != _selectedId)
+                          .map(_sessionTile),
+                      TextButton.icon(
+                        onPressed: _loading || _busy ? null : _load,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Refresh'),
                       ),
                     ],
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (_error != null) ...[
-              Notice(_error!, error: true),
-              const SizedBox(height: 16),
-            ],
-            if (_notice != null) ...[
-              Notice(_notice!),
-              const SizedBox(height: 16),
-            ],
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'My exam sessions',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _loading || _entering ? null : _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh'),
-                ),
               ],
             ),
-            const SizedBox(height: 18),
-            if (_loading) const LinearProgressIndicator(),
-            if (!_loading && _sessions.isEmpty && _error == null)
-              const Surface(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(
-                    child: Text(
-                      'You have not joined any exam sessions. Enter a session code above.',
-                    ),
-                  ),
-                ),
-              ),
-            ..._sessions.map(
-              (session) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: Surface(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xffeaf3ff),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(
-                              Icons.record_voice_over_outlined,
-                              color: brand,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  session.title,
-                                  style: const TextStyle(
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  '${session.course} · ${session.name}',
-                                  style: const TextStyle(color: muted),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Chip(label: Text(session.label)),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      Wrap(
-                        spacing: 20,
-                        runSpacing: 12,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            '${_date(session.start)} — ${_date(session.end)}',
-                            style: const TextStyle(color: muted),
-                          ),
-                          if (session.canEnter)
-                            FilledButton.icon(
-                              onPressed: _entering
-                                  ? null
-                                  : () => _enter(session),
-                              icon: const Icon(Icons.arrow_forward),
-                              label: Text(
-                                _entering
-                                    ? 'Opening...'
-                                    : session.enrollmentStatus == 'IN_PROGRESS'
-                                    ? 'Resume exam'
-                                    : 'Enter exam',
-                              ),
-                            ),
-                          if (session.completed)
-                            OutlinedButton.icon(
-                              onPressed: _entering
-                                  ? null
-                                  : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => ResultScreen(
-                                          api: widget.api,
-                                          sessionId: session.id,
-                                        ),
-                                      ),
-                                    ),
-                              icon: const Icon(Icons.assignment_outlined),
-                              label: const Text('View results'),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'Server: ${widget.api.http.options.baseUrl}',
-              style: const TextStyle(color: muted, fontSize: 12),
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _sessionTile(ExamSession session) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          session.title,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(session.name, style: const TextStyle(color: muted)),
+        const SizedBox(height: 8),
+        Text(session.label, style: const TextStyle(color: muted)),
+        if (!session.canEnter && !session.completed) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${_date(session.start)} – ${_date(session.end)}',
+            style: const TextStyle(color: muted, fontSize: 12),
+          ),
+        ],
+        if (session.canEnter) ...[
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _busy || _loading ? null : () => _enter(session),
+            child: Text(
+              session.enrollmentStatus == 'IN_PROGRESS'
+                  ? 'Resume exam'
+                  : 'Continue to microphone check',
+            ),
+          ),
+        ] else if (session.completed) ...[
+          const SizedBox(height: 4),
+          const Text(
+            'View official results on the AIVES website.',
+            style: TextStyle(color: muted, fontSize: 12),
+          ),
+        ] else if (session.label == 'Waiting for session to open')
+          TextButton.icon(
+            onPressed: _busy || _loading ? null : _load,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Check again'),
+          ),
+      ],
     ),
   );
 }

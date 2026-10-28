@@ -168,7 +168,7 @@ void main() {
   test('real HTTP contract: login, enroll, WAV answer, follow-up, finish and result', () async {
     final user = await api.login(' student@example.com ', 'password');
     expect(user.id, 7);
-    await api.enroll(' JOIN123 ');
+    expect(await api.enroll(' JOIN123 '), 5);
     final sessions = await api.sessions();
     expect(sessions.single.canEnter, isTrue);
     final session = await api.start(sessions.single);
