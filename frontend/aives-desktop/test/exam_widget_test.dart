@@ -116,6 +116,24 @@ void main() {
     },
   );
 
+  testWidgets('recording recovery remains available through exam help', (
+    tester,
+  ) async {
+    await mount(tester, _ExamApi(), withQuestion: true);
+    expect(find.text('Local recordings'), findsNothing);
+    await tester.tap(find.byTooltip('Exam help'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Local recordings'));
+    await tester.pumpAndSettle();
+    expect(find.text('unused-test-recordings'), findsOneWidget);
+    expect(find.text('Open recordings folder'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
   testWidgets(
     'completion requires the final confirmation and server acknowledgement',
     (tester) async {

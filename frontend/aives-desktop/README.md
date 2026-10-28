@@ -52,18 +52,20 @@ Start the backend only after explicitly configuring a development database. Foll
 ## Examination workflow
 
 1. Sign in with a STUDENT account; access tokens remain in memory.
-2. Join a session using the code supplied by the proctor.
-3. Select a microphone, record a test, listen through headphones and confirm readiness.
-4. Start the exam, record WAV mono 16 kHz answers, play back or record again, then submit.
+2. Enter the exam code and select **Continue**. An open session goes directly to the microphone check. If the proctor has not opened it, select **Check again** when instructed.
+3. Record a microphone test, listen through headphones and confirm that the recording is clear. Select **Start exam** to start the timer.
+4. Read the question and record WAV mono 16 kHz answers in the same panel, play back or record again, then submit.
 5. Answer follow-ups returned by the backend.
 6. Finish and wait for backend confirmation.
-7. View official results after publication on the website.
+7. Close the app or return to the exam code screen. View official results after publication on the website.
+
+The home screen focuses on the exam code. Expand **Joined exams** to resume an existing enrollment, including after an already-enrolled response. Use **Account help** to verify an expired login. The exam toolbar's **Exam help** menu contains account verification and local recording recovery. Server settings remain collapsed on the sign-in screen.
 
 The timer uses backend startedAt and session end time; reopening does not reset it. Early submission and leaving require confirmation. At timeout, the app attempts to submit the current recording and finish; failures preserve the recording. Session codes are existing enrollment codes, not separate one-time activation codes. Admission and scheduling remain backend responsibilities.
 
 ## Recordings and recovery
 
-Stopped recordings and draft journals are saved in the Windows Application Support directory. Use **Local recordings > Open recordings folder** to locate them. Data is separated by backend, student and session. Passwords and tokens are not persisted.
+Stopped recordings and draft journals are saved in the Windows Application Support directory. Use **Exam help > Local recordings > Open recordings folder** to locate them. Data is separated by backend, student and session. Passwords and tokens are not persisted.
 
 Resume on the same computer, account and backend to recover a draft. Normal window closure stops and saves recording. Forced termination or power failure can leave an incomplete WAV. Recovery does not provide offline exams: questions and submissions require the backend. Recordings are not automatically deleted; define a retention policy. The upload limit is 48 MB per answer.
 

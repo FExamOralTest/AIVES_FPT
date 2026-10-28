@@ -19,7 +19,7 @@ class Surface extends StatelessWidget {
     padding: padding,
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(12),
       border: Border.all(color: const Color(0xffe2e8f0)),
     ),
     child: child,
@@ -61,7 +61,7 @@ class BrandMark extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Container(
-        padding: const EdgeInsets.all(9),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: light
               ? Colors.white.withValues(alpha: .15)
@@ -71,16 +71,16 @@ class BrandMark extends StatelessWidget {
         child: Icon(
           Icons.graphic_eq_rounded,
           color: light ? Colors.white : brand,
-          size: 28,
+          size: 22,
         ),
       ),
       const SizedBox(width: 10),
       Text(
         'AIVES',
         style: TextStyle(
-          fontSize: 25,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.4,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: .6,
           color: light ? Colors.white : ink,
         ),
       ),

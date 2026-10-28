@@ -113,12 +113,13 @@ class AivesApi {
       (await _request('GET', '/api/student/enrollments') as List)
           .map((e) => ExamSession.fromJson(e as Json))
           .toList();
-  Future<void> enroll(String code) async {
-    await _request(
+  Future<int> enroll(String code) async {
+    final result = await _request(
       'POST',
       '/api/enroll/session',
       data: {'sessionCode': code.trim()},
-    );
+    ) as Json;
+    return result['sessionId'] as int;
   }
 
   Future<VivaSession> start(ExamSession session) async => VivaSession.fromJson(

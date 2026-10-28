@@ -14,7 +14,7 @@ void main() {
     await tester.pumpWidget(const AivesApp());
 
     expect(find.text('AIVES'), findsOneWidget);
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Student sign in'), findsOneWidget);
     expect(find.text('Flutter Demo Home Page'), findsNothing);
 
     await tester.tap(find.text('Sign in'));

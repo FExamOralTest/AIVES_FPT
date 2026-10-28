@@ -42,20 +42,20 @@ These historical values do not guarantee availability. Create fresh sessions for
 ## Full test
 
 1. Sign out and sign in as the student. Backend: http://localhost:5000.
-2. Enter ESS-D3270001 and select Join while available.
-3. Select Enter exam, choose a microphone, record a test and listen through headphones.
-4. Confirm readiness. Record, stop, play back and submit each answer.
+2. Enter ESS-D3270001 and select Continue while available. For an existing enrollment, expand Joined exams and select Resume exam or Continue to microphone check.
+3. Choose a microphone, record a test and listen through headphones.
+4. Confirm that the test is clear and select Start exam (or Resume exam). Record, stop, play back and submit each answer.
 5. Wait for confirmed completion. Official scores stay hidden until publication.
 6. Sign into http://localhost:5173 as EXAMINER.
 7. Open /examiner/results?sessionId=38. Direct lookup can be used if the default queue omits sessions scheduled by another staff member. Check audio, transcript and AI scores.
 8. Enter answer scores, total and feedback; save review and publish.
-9. Desktop: select View results. Scores and feedback must match the website.
+9. Student website: view published results. Scores and feedback must match the examiner review.
 
 ```mermaid
 flowchart LR
   login["Student signs in"] --> join["Join session"] --> devices["Check devices"]
   devices --> exam["Record and submit three answers"] --> confirm["Backend confirms completion"]
-  confirm --> review["Web examiner reviews and publishes"] --> results["Desktop displays official results"]
+  confirm --> review["Web examiner reviews and publishes"] --> results["Student views official results on website"]
 ```
 
 ## English fixture questions

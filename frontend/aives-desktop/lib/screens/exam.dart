@@ -374,6 +374,47 @@ class _ExamScreenState extends State<ExamScreen> {
     super.dispose();
   }
 
+  Future<void> _showRecordings() => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Local recordings'),
+      content: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(
+                widget.draft.folder.path,
+                style: const TextStyle(color: muted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  try {
+                    await Process.run('explorer.exe', [
+                      widget.draft.folder.path,
+                    ]);
+                  } catch (e) {
+                    if (context.mounted) showFailure(context, e);
+                  }
+                },
+                icon: const Icon(Icons.folder_open),
+                label: const Text('Open recordings folder'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: _done,
@@ -385,19 +426,32 @@ class _ExamScreenState extends State<ExamScreen> {
     child: Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        toolbarHeight: 76,
+        toolbarHeight: 64,
         title: const BrandMark(),
         actions: [
-          if (!_done)
-            TextButton.icon(
-              onPressed: _busy || _recordAction || _capture.recording
-                  ? null
-                  : () async {
-                      await reauthenticate(context, widget.api, widget.student);
-                    },
-              icon: const Icon(Icons.key),
-              label: const Text('Verify account'),
-            ),
+          PopupMenuButton<String>(
+            tooltip: 'Exam help',
+            enabled: !_busy && !_recordAction && !_capture.recording,
+            onSelected: (value) async {
+              if (value == 'account') {
+                await reauthenticate(context, widget.api, widget.student);
+              } else {
+                await _showRecordings();
+              }
+            },
+            itemBuilder: (_) => [
+              if (!_done)
+                const PopupMenuItem(
+                  value: 'account',
+                  child: Text('Verify account'),
+                ),
+              const PopupMenuItem(
+                value: 'recordings',
+                child: Text('Local recordings'),
+              ),
+            ],
+            icon: const Icon(Icons.help_outline),
+          ),
           TextButton(
             onPressed: _busy || _recordAction
                 ? null
@@ -406,7 +460,7 @@ class _ExamScreenState extends State<ExamScreen> {
                       Navigator.of(context).pop();
                     }
                   },
-            child: Text(_done ? 'Back to exam sessions' : 'Leave exam'),
+            child: Text(_done ? 'Back to exam code' : 'Leave exam'),
           ),
           const SizedBox(width: 18),
         ],
@@ -414,7 +468,7 @@ class _ExamScreenState extends State<ExamScreen> {
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1040),
+          constraints: const BoxConstraints(maxWidth: 820),
           child: ListView(
             padding: const EdgeInsets.all(28),
             children: [
@@ -439,7 +493,7 @@ class _ExamScreenState extends State<ExamScreen> {
                 Notice(_notice ?? 'The backend confirmed your submission.'),
                 const SizedBox(height: 16),
                 const Text(
-                  'Official results will appear after review and publication.',
+                  'You can close the app. Official results will be available on the AIVES website.',
                   textAlign: TextAlign.center,
                 ),
               ] else ...[
@@ -452,7 +506,7 @@ class _ExamScreenState extends State<ExamScreen> {
                           Text(
                             widget.session.title,
                             style: const TextStyle(
-                              fontSize: 27,
+                              fontSize: 22,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -533,44 +587,18 @@ class _ExamScreenState extends State<ExamScreen> {
                         _question?.text ??
                             'Select Finish and submit to complete your exam.',
                         style: const TextStyle(
-                          fontSize: 24,
+                          fontSize: 22,
                           height: 1.5,
                           fontWeight: FontWeight.w600,
                           color: ink,
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      LinearProgressIndicator(
-                        value: widget.session.total == 0
-                            ? 0
-                            : ((_question?.index ?? widget.session.total) /
-                                      widget.session.total)
-                                  .clamp(0.0, 1.0),
-                        minHeight: 6,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if (_question != null)
-                  Surface(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Your answer',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
+
+                      if (_question != null) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Divider(height: 1),
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Speak clearly, stop recording and play it back before submitting your answer.',
-                          style: TextStyle(color: muted),
-                        ),
-                        const SizedBox(height: 24),
                         RecordingPanel(
                           capture: _capture,
                           enabled:
@@ -606,8 +634,9 @@ class _ExamScreenState extends State<ExamScreen> {
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
+                ),
                 if (_busy) ...[
                   const SizedBox(height: 18),
                   LinearProgressIndicator(
@@ -634,47 +663,25 @@ class _ExamScreenState extends State<ExamScreen> {
                 const SizedBox(height: 24),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: OutlinedButton.icon(
-                    onPressed: _ready && !_busy && !_recordAction && !_uncertain
-                        ? () => _finish()
-                        : null,
-                    icon: const Icon(Icons.task_alt),
-                    label: const Text('Finish and submit'),
-                  ),
+                  child: _question == null
+                      ? FilledButton.icon(
+                          onPressed:
+                              _ready && !_busy && !_recordAction && !_uncertain
+                              ? () => _finish()
+                              : null,
+                          icon: const Icon(Icons.task_alt),
+                          label: const Text('Finish and submit'),
+                        )
+                      : TextButton(
+                          onPressed:
+                              _ready && !_busy && !_recordAction && !_uncertain
+                              ? () => _finish()
+                              : null,
+                          child: const Text('Submit exam early'),
+                        ),
                 ),
               ],
               const SizedBox(height: 28),
-              ExpansionTile(
-                title: const Text('Local recordings'),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SelectableText(
-                          widget.draft.folder.path,
-                          style: const TextStyle(color: muted, fontSize: 12),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            try {
-                              await Process.run('explorer.exe', [
-                                widget.draft.folder.path,
-                              ]);
-                            } catch (e) {
-                              if (context.mounted) showFailure(context, e);
-                            }
-                          },
-                          icon: const Icon(Icons.folder_open),
-                          label: const Text('Open recordings folder'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
