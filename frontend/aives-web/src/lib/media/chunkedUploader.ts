@@ -3,20 +3,37 @@ import { clearChunks, isOpfsSupported, readChunk, writeChunk } from './opfsStore
 
 /**
  * Chunked audio uploader — chia file ghi âm thành nhiều chunk nhỏ ở máy người dùng,
- * upload từng chunk lên R2 (S3 multipart), rồi gọi complete để R2 gộp thành
- * DUY NHẤT 1 file lớn giống hệt file ghi âm gốc.
+ * upload từng chunk lên server. Server gộp chunks thành 1 file local hoàn chỉnh
+ * tại C:\audio_review\{studentId}\{courseName}\{questionId}\q_{questionId}.webm,
+ * rồi upload CHÍNH FILE LOCAL đó lên Cloudflare R2 (1 object duy nhất).
  *
  * Luồng:
- *   1. init(sessionId, questionId, file) → server tạo multipart session trên R2, trả uploadId
- *   2. chia blob thành chunks 5 MB → ghi tạm vào OPFS → PUT từng chunk (tuần tự)
- *   3. complete(uploadId) → R2 gộp parts thành 1 object → xóa toàn bộ chunk tạm
+ *   1. init(sessionId, questionId, file) → server tạo phiên upload + thư mục local
+ *   2. chia blob thành chunks 5 MB → ghi tạm vào OPFS → POST từng chunk lên server
+ *   3. complete(uploadId) → server gộp local → upload file local lên R2 → xóa chunk tạm
+ *   4. xóa toàn bộ chunk tạm trên máy người dùng (giữ file gốc trong RAM để nghe lại)
  *
- * R2 yêu cầu mỗi part ≥ 5 MB (trừ part cuối) — nên CHUNK_SIZE phải ≥ 5 MB.
- * Backend cũng giới hạn mỗi request chunk ≤ 10 MB.
+ * Chunk ở máy user chỉ tồn tại tạm thời trong lúc upload. R2 chỉ giữ 1 file lớn
+ * giống hệt file ghi âm gốc.
  */
 export const CHUNK_SIZE = 5 * 1024 * 1024
 
 const MAX_CHUNK_SIZE = 10 * 1024 * 1024
+
+/**
+ * Chuẩn hóa media type — bỏ toàn bộ tham số.
+ *
+ * MediaRecorder trả về file.type = "audio/webm;codecs=opus". Gửi nguyên xi
+ * header "Content-Type: audio/webm;codecs=opus" lên Cloudflare R2 sẽ bị R2 từ chối
+ * ("The request signature we calculated does not match the signature you provided")
+ * vì chữ ký SigV4 tính trên header gốc còn R2 canonicalize lại header.
+ * → Chỉ giữ "type/subtype".
+ */
+function normalizeContentType(raw: string | undefined | null): string {
+  if (!raw) return 'audio/webm'
+  const mainType = raw.split(';')[0]?.trim().toLowerCase()
+  return mainType || 'audio/webm'
+}
 
 export interface ChunkedUploadInitResponse {
   uploadId: string
@@ -37,11 +54,16 @@ export interface ChunkedUploadCompleteResponse {
   uploadId: string
   answerId: number
   audioKey: string
+  /** Đường dẫn file local đã gộp trên server (C:\audio_review\...). */
+  localFilePath?: string | null
   jobId?: string | null
   status: string
   completedAt: string
+  /** True nếu upload R2 thất bại — audio chỉ nằm trên đĩa local server. */
+  storageFallback?: boolean
+  storageError?: string | null
+  storageHint?: string | null
 }
-
 export interface ChunkedUploadProgress {
   /** Số chunk đã upload thành công. */
   uploaded: number
@@ -119,7 +141,9 @@ export async function uploadAudioChunked(args: ChunkedUploadArgs): Promise<Chunk
       sessionId,
       questionId,
       fileName,
-      contentType: file.type || 'audio/webm',
+      // Bỏ tham số của media type (vd "audio/webm;codecs=opus" → "audio/webm").
+      // Backend cũng chuẩn hóa lại, nhưng gửi sạch từ client giúp log/diagnostics rõ ràng.
+      contentType: normalizeContentType(file.type),
       totalSize: file.size,
       chunkSize,
       totalChunks,

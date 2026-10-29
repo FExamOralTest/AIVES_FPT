@@ -32,6 +32,68 @@ internal sealed class FakeStorageService : IStorageService
         return Task.FromResult(key);
     }
 
+    public Task<LocalFileUploadResult> UploadLocalFileAsync(
+        string objectKey,
+        string localFilePath,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        var key = objectKey.TrimStart('/');
+        _store[key] = File.ReadAllBytes(localFilePath);
+        _contentTypes[key] = contentType;
+        return Task.FromResult(new LocalFileUploadResult
+        {
+            ObjectKey = key,
+            UsedFallback = false
+        });
+    }
+
+    public Task<StorageHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(new StorageHealthResult
+        {
+            IsHealthy = true,
+            ServiceUrl = "http://localhost:9999/storage",
+            BucketName = "fake",
+            AccessKeyIdPrefix = "fake"
+        });
+
+    // -----------------------------------------------------------------------
+    // Multipart upload — không dùng trong luồng local-first nhưng phải implement
+    // để thoả interface IStorageService.
+    // -----------------------------------------------------------------------
+
+    public Task<string> InitiateMultipartUploadAsync(
+        string objectKey,
+        string contentType,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult($"fake-multipart-{objectKey}");
+
+    public Task<string> UploadPartAsync(
+        string objectKey,
+        string uploadId,
+        int partNumber,
+        byte[] data,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult($"\"fake-etag-{partNumber}\"");
+
+    public Task<string> CompleteMultipartUploadAsync(
+        string objectKey,
+        string uploadId,
+        IReadOnlyList<(int PartNumber, string ETag)> parts,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(objectKey.TrimStart('/'));
+
+    public Task AbortMultipartUploadAsync(
+        string objectKey,
+        string uploadId,
+        CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task<byte[]?> DownloadAudioAsync(
+        string objectKey,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(_store.TryGetValue(objectKey.TrimStart('/'), out var bytes) ? bytes : null);
+
     public string GeneratePresignedGetUrl(string objectKey, TimeSpan duration)
     {
         var key = objectKey.TrimStart('/');

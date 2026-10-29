@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Application.Interfaces.Services;
@@ -13,11 +14,11 @@ namespace Aives.Infrastructure.Queue;
 /// <summary>
 /// Implementation của <see cref="IChunkedAudioUploadService"/>.
 ///
-/// Flow:
-///   Init     → tạo MediaUpload record + InitiateMultipartUpload trên R2
-///   Chunk    → lưu chunk local + UploadPart trên R2 (đồng thời)
-///   Complete → gộp local thành 1 file → CompleteMultipartUpload R2 → xóa chunks local
-///              → UpdateAudioUrl trong Answer → EnqueueJob
+/// Flow (local-first):
+///   Init     → tạo MediaUpload record + chuẩn bị thư mục local C:\audio_review\{student}\{course}\{question}
+///   Chunk    → ghi chunk tạm local (chunk_{index}.bin) — CHƯA đụng tới R2
+///   Complete → gộp chunks thành 1 file local hoàn chỉnh → upload CHÍNH FILE LOCAL đó lên R2
+///              → xóa chunk tạm → giữ file local để review → UpdateAudioUrl trong Answer → EnqueueJob
 /// </summary>
 public class ChunkedAudioUploadService : IChunkedAudioUploadService
 {
@@ -63,17 +64,37 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
 
         if (existing != null)
         {
-            _logger.LogInformation(
-                "Resuming upload {UploadId} for student={StudentId} q={QuestionId}",
-                existing.UploadId, currentUserId, request.QuestionId);
+            // Bản ghi mới có kích thước khác bản ghi đang dở → không resume được.
+            // Hủy phiên cũ (dọn chunk tạm) và tạo phiên mới từ đầu.
+            var sameFile = existing.TotalChunks == request.TotalChunks
+                           && existing.TotalSize == request.TotalSize;
 
-            return new InitChunkedUploadResponse
+            if (sameFile)
             {
-                UploadId = existing.UploadId,
-                ReceivedChunks = existing.ReceivedChunkIndexes,
-                Status = existing.UploadStatus,
-                LocalFilePath = existing.LocalFilePath
-            };
+                _logger.LogInformation(
+                    "Resuming upload {UploadId} for student={StudentId} q={QuestionId}",
+                    existing.UploadId, currentUserId, request.QuestionId);
+
+                return new InitChunkedUploadResponse
+                {
+                    UploadId = existing.UploadId,
+                    ReceivedChunks = existing.ReceivedChunkIndexes,
+                    Status = existing.UploadStatus,
+                    LocalFilePath = existing.LocalFilePath
+                };
+            }
+
+            _logger.LogInformation(
+                "Discarding stale upload {UploadId} for student={StudentId} q={QuestionId}: " +
+                "chunks {OldChunks}->{NewChunks}, size {OldSize}->{NewSize}",
+                existing.UploadId, currentUserId, request.QuestionId,
+                existing.TotalChunks, request.TotalChunks,
+                existing.TotalSize, request.TotalSize);
+
+            DeleteAllLocalFiles(existing);
+            existing.UploadStatus = "ABORTED";
+            existing.ReceivedChunkIndexes = new List<int>();
+            await _uploadRepo.UpdateAsync(existing, ct);
         }
 
         // Lấy tên môn học để xây đường dẫn local
@@ -92,27 +113,13 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
         var objectKey = $"exams/{session.ExamId}/sessions/{request.SessionId}" +
                         $"/students/{currentUserId}/q_{request.QuestionId}{ext}";
 
-        // Khởi tạo multipart session trên R2 và lấy uploadId từ R2
-        // (uploadId của R2 khác với uploadId client — ta lưu cả hai)
-        string r2UploadId;
-        try
-        {
-            r2UploadId = await _storage.InitiateMultipartUploadAsync(objectKey, request.ContentType, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "R2 InitiateMultipartUpload failed for key={Key}", objectKey);
-            throw new InvalidOperationException("Không thể khởi tạo upload session trên Cloudflare R2: " + ex.Message);
-        }
-
         // File local cuối cùng: q_{questionId}.webm (gộp từ chunks)
         var localFilePath = Path.Combine(localDir, $"q_{request.QuestionId}{ext}");
 
         var upload = new MediaUpload
         {
-            // UploadId client giữ nguyên (≤64 ký tự) — R2 uploadId nằm ở cột riêng R2UploadId.
+            // UploadId client giữ nguyên (≤64 ký tự).
             UploadId = request.UploadId,
-            R2UploadId = r2UploadId,
             SessionId = request.SessionId,
             StudentId = currentUserId,
             QuestionId = request.QuestionId,
@@ -131,7 +138,7 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
         await _uploadRepo.CreateAsync(upload, ct);
 
         _logger.LogInformation(
-            "Upload session created: uploadId={UploadId}, objectKey={Key}, localPath={Path}",
+            "Upload session created (local-first): uploadId={UploadId}, objectKey={Key}, localPath={Path}",
             upload.UploadId, objectKey, localFilePath);
 
         return new InitChunkedUploadResponse
@@ -160,7 +167,19 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
             throw new UnauthorizedAccessException("Bạn không có quyền upload cho phiên này.");
 
         if (upload.UploadStatus is "COMPLETED" or "ABORTED" or "FAILED")
+        {
+            // Phiên đã xong → trả idempotent (không phải lỗi).
+            // User có thể nhấn "Submit" 2 lần / retry mạng → không được trả 400.
+            if (upload.UploadStatus == "COMPLETED")
+            {
+                _logger.LogInformation(
+                    "Chunk {ChunkIndex} sent to an already-COMPLETED upload {UploadId} — ignoring (idempotent).",
+                    request.ChunkIndex, request.UploadId);
+                return BuildChunkResponse(upload);
+            }
+
             throw new InvalidOperationException($"Phiên upload đã ở trạng thái {upload.UploadStatus}.");
+        }
 
         // Idempotent: chunk đã nhận rồi thì bỏ qua
         if (upload.ReceivedChunkIndexes.Contains(request.ChunkIndex))
@@ -170,31 +189,44 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
             return BuildChunkResponse(upload);
         }
 
-        var r2UploadId = upload.R2UploadId
-            ?? throw new InvalidOperationException("Phiên upload không có R2 uploadId — hãy gọi init lại.");
         var partNumber = request.ChunkIndex + 1; // S3 part number bắt đầu từ 1
 
-        // 1. Lưu chunk file local: chunk_{index}.bin
+        // 1. Lưu chunk file local: chunk_{uploadId}_{index}.bin
+        // Luồng local-first: chunk CHƯA đẩy lên R2. R2 chỉ nhận 1 file hoàn chỉnh sau khi gộp.
+        //
+        // TÊN FILE PHẢI CHỨA uploadId: nếu dùng chung "chunk_{index}.bin" cho mọi phiên
+        // upload của cùng (student, course, question) thì 2 phiên chạy SONG SONG sẽ tranh
+        // nhau trên cùng 1 file → "The process cannot access the file ... being used by
+        // another process" và gộp ra file âm thanh sai.
         var localDir = Path.GetDirectoryName(upload.LocalFilePath)!;
-        var chunkPath = Path.Combine(localDir, $"chunk_{request.ChunkIndex}.bin");
-        await File.WriteAllBytesAsync(chunkPath, chunkBytes, ct);
+        var chunkPath = Path.Combine(localDir, BuildChunkFileName(upload.UploadId, request.ChunkIndex));
 
-        // 2. Upload part lên R2
-        var etag = await _storage.UploadPartAsync(
-            upload.ObjectKey!, r2UploadId, partNumber, chunkBytes, ct);
+        // Serialize theo uploadId: merge (complete) không được đọc chunk đang ghi dở.
+        var uploadLock = GetUploadLock(upload.UploadId);
+        await uploadLock.WaitAsync(ct);
+        try
+        {
+            // Ghi ATOMIC: tạm file → move đè. Nếu 2 request cùng uploadId chạy song song
+            // (double-click submit / retry), ghi thẳng vào file đích sẽ ném
+            // "The process cannot access the file ... being used by another process".
+            // Với temp+move, request thứ 2 chỉ ghi đè file tạm riêng rồi move — không đụng handle của nhau.
+            var tempChunkPath = chunkPath + ".tmp";
+            await File.WriteAllBytesAsync(tempChunkPath, chunkBytes, ct);
+            File.Move(tempChunkPath, chunkPath, overwrite: true);
+        }
+        finally
+        {
+            uploadLock.Release();
+        }
 
-        // Lưu etag vào cột PartETags (JSON array) — cần cho bước CompleteMultipartUpload.
-        // Format: [{"p":1,"e":"\"etag1\""},{"p":2,"e":"\"etag2\""},...]
-        upload.PartETags = AppendEtag(upload.PartETags, partNumber, etag);
-
-        // 3. Đánh dấu chunk đã nhận
+        // 2. Đánh dấu chunk đã nhận
         upload.ReceivedChunkIndexes.Add(request.ChunkIndex);
         upload.ReceivedChunkIndexes.Sort();
         upload.UploadStatus = "UPLOADING";
         await _uploadRepo.UpdateAsync(upload, ct);
 
-        _logger.LogInformation("Chunk {ChunkIndex}/{Total} received: uploadId={UploadId}",
-            request.ChunkIndex, upload.TotalChunks, upload.UploadId);
+        _logger.LogInformation("Chunk {ChunkIndex}/{Total} saved locally: uploadId={UploadId}, path={Path}",
+            request.ChunkIndex, upload.TotalChunks, upload.UploadId, chunkPath);
 
         return BuildChunkResponse(upload);
     }
@@ -215,82 +247,128 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
         if (upload.StudentId != currentUserId && currentUserRole != UserRole.ADMIN)
             throw new UnauthorizedAccessException("Không có quyền complete phiên này.");
 
-        if (upload.UploadStatus == "COMPLETED")
+        // Lock theo thư mục local: 2 phiên upload song song của cùng (student, course, question)
+        // sẽ cùng ghi file q_{questionId}.webm → phải serialize để không đè lên nhau.
+        var localDir = Path.GetDirectoryName(upload.LocalFilePath!)!;
+        var dirLock = GetDirectoryLock(localDir.ToLowerInvariant());
+        var uploadLock = GetUploadLock(upload.UploadId);
+        await uploadLock.WaitAsync(ct);
+        await dirLock.WaitAsync(ct);
+        try
         {
-            // Idempotent — đã complete rồi, trả lại kết quả cũ
+            // RE-CHECK trạng thái BÊN TRONG lock.
+            // Nếu không, N request 'complete' song song sẽ cùng đọc trạng thái PENDING
+            // (đọc ở trên, ngoài lock) → cả N đều đi vào merge. Request thứ 2 merge lúc
+            // request thứ 1 đã xoá chunk → file gộp ra RỖNG (0 bytes) rồi upload 0 bytes lên R2.
+            upload = await _uploadRepo.GetByIdAsync(request.UploadId, ct)
+                ?? throw new KeyNotFoundException($"Upload session '{request.UploadId}' không tồn tại.");
+
+            if (upload.UploadStatus == "COMPLETED")
+            {
+                _logger.LogInformation(
+                    "Upload {UploadId} already COMPLETED — returning existing result (idempotent).",
+                    upload.UploadId);
+                return new CompleteChunkedUploadResponse
+                {
+                    UploadId = upload.UploadId,
+                    AnswerId = upload.AnswerId ?? 0,
+                    AudioKey = upload.ObjectKey!,
+                    LocalFilePath = upload.LocalFilePath,
+                    Status = "COMPLETED",
+                    CompletedAt = upload.CompletedAt ?? DateTime.UtcNow
+                };
+            }
+
+            // Kiểm tra đủ chunks chưa
+            var missing = Enumerable.Range(0, upload.TotalChunks)
+                .Except(upload.ReceivedChunkIndexes)
+                .ToList();
+            if (missing.Count > 0)
+                throw new InvalidOperationException(
+                    $"Còn thiếu {missing.Count} chunk(s): {string.Join(", ", missing.Take(10))}.");
+
+            // 1. Gộp chunks thành 1 file local hoàn chỉnh (giữ nguyên file gốc để review offline).
+            await MergeChunksToLocalFileAsync(upload, ct);
+
+            // Guard: file gộp rỗng = chunk đã bị xoá/mất → KHÔNG upload 0 bytes lên R2
+            // (sẽ ghi đè object hợp lệ bằng file rỗng).
+            var mergedSize = new FileInfo(upload.LocalFilePath!).Length;
+            if (mergedSize == 0)
+            {
+                // Dọn file rỗng để không gây nhầm lẫn cho lần upload sau.
+                try { File.Delete(upload.LocalFilePath!); } catch { /* best-effort */ }
+
+                throw new InvalidOperationException(
+                    "File âm thanh gộp ra rỗng (0 bytes) — chunk đã bị mất hoặc đã được xoá. " +
+                    "Vui lòng ghi lại và upload lại.");
+            }
+
+            // 2. Upload CHÍNH FILE LOCAL đó lên R2 (1 lần PutObject duy nhất).
+            //    R2 giữ đúng 1 object = file gốc đã gộp, giống hệt bản ghi âm ban đầu.
+            var uploadResult = await _storage.UploadLocalFileAsync(
+                upload.ObjectKey!, upload.LocalFilePath!, upload.ContentType, ct);
+
+            var objectKey = uploadResult.ObjectKey;
+
+            // Nếu R2 lỗi (sai credentials / mạng) → file chỉ nằm trên đĩa local.
+            // Ghi rõ vào log + trả cảnh báo về client để không ai tưởng audio đã lên R2.
+            if (uploadResult.UsedFallback)
+            {
+                _logger.LogWarning(
+                    "Audio for uploadId={UploadId} was NOT stored on Cloudflare R2 — only on local disk '{LocalPath}'. Reason: {Reason}. Hint: {Hint}",
+                    upload.UploadId, upload.LocalFilePath, uploadResult.ErrorMessage, uploadResult.Hint);
+            }
+
+            // 3. Xóa chunk tạm local — chỉ giữ lại file gộp cuối cùng (bản gốc để review).
+            DeleteChunkFiles(upload);
+
+            // 4. Cập nhật trạng thái upload session
+            upload.UploadStatus = "COMPLETED";
+            upload.CompletedAt = DateTime.UtcNow;
+            upload.PartETags = null;
+
+            // Nếu client đã có Answer sẵn (upload audio cho Answer cũ) → gắn luôn.
+            if (request.AnswerId > 0)
+            {
+                upload.AnswerId = request.AnswerId;
+                await _answerRepo.UpdateAudioUrlAsync(request.AnswerId, objectKey, ct);
+
+                // Enqueue STT job cho Answer này.
+                var answer = await _answerRepo.GetByIdWithDetailsAsync(request.AnswerId, ct);
+                var metadata = QueueJobContract.Create(
+                    request.AnswerId,
+                    answer?.ResultId,
+                    objectKey,
+                    attempt: 1);
+                var jobId = _queue.EnqueueAnswerProcessing(metadata);
+                if (!string.IsNullOrEmpty(jobId))
+                    await _answerRepo.SetJobIdAsync(request.AnswerId, jobId, ct);
+            }
+
+            await _uploadRepo.UpdateAsync(upload, ct);
+
+            _logger.LogInformation(
+                "Upload completed: uploadId={UploadId}, objectKey={Key}, answerId={AnswerId}",
+                upload.UploadId, objectKey, upload.AnswerId);
+
             return new CompleteChunkedUploadResponse
             {
                 UploadId = upload.UploadId,
                 AnswerId = upload.AnswerId ?? 0,
-                AudioKey = upload.ObjectKey!,
+                AudioKey = objectKey,
+                LocalFilePath = upload.LocalFilePath,
                 Status = "COMPLETED",
-                CompletedAt = upload.CompletedAt ?? DateTime.UtcNow
+                CompletedAt = upload.CompletedAt.Value,
+                StorageFallback = uploadResult.UsedFallback,
+                StorageError = uploadResult.ErrorMessage,
+                StorageHint = uploadResult.Hint
             };
         }
-
-        // Kiểm tra đủ chunks chưa
-        var missing = Enumerable.Range(0, upload.TotalChunks)
-            .Except(upload.ReceivedChunkIndexes)
-            .ToList();
-        if (missing.Count > 0)
-            throw new InvalidOperationException(
-                $"Còn thiếu {missing.Count} chunk(s): {string.Join(", ", missing.Take(10))}.");
-
-        var r2UploadId = upload.R2UploadId
-            ?? throw new InvalidOperationException("Phiên upload không có R2 uploadId — hãy gọi init lại.");
-
-        // Parse etags từ cột PartETags
-        var parts = ParseEtags(upload.PartETags);
-        if (parts.Count == 0)
-            throw new InvalidOperationException("Không tìm thấy ETag của các parts đã upload.");
-
-        // 1. Complete multipart trên R2 → R2 giữ DUY NHẤT 1 object = file gốc đã gộp.
-        var objectKey = await _storage.CompleteMultipartUploadAsync(
-            upload.ObjectKey!, r2UploadId, parts, ct);
-
-        // 2. Gộp chunks thành 1 file local hoàn chỉnh (để teacher review audio offline).
-        await MergeChunksToLocalFileAsync(upload, ct);
-
-        // 3. Xóa chunk files local — giữ lại file gộp cuối cùng (bản gốc để review).
-        DeleteChunkFiles(upload);
-
-        // 4. Cập nhật trạng thái upload session
-        upload.UploadStatus = "COMPLETED";
-        upload.CompletedAt = DateTime.UtcNow;
-        upload.PartETags = null;
-
-        // Nếu client đã có Answer sẵn (upload audio cho Answer cũ) → gắn luôn.
-        if (request.AnswerId > 0)
+        finally
         {
-            upload.AnswerId = request.AnswerId;
-            await _answerRepo.UpdateAudioUrlAsync(request.AnswerId, objectKey, ct);
-
-            // Enqueue STT job cho Answer này.
-            var answer = await _answerRepo.GetByIdWithDetailsAsync(request.AnswerId, ct);
-            var metadata = QueueJobContract.Create(
-                request.AnswerId,
-                answer?.ResultId,
-                objectKey,
-                attempt: 1);
-            var jobId = _queue.EnqueueAnswerProcessing(metadata);
-            if (!string.IsNullOrEmpty(jobId))
-                await _answerRepo.SetJobIdAsync(request.AnswerId, jobId, ct);
+            dirLock.Release();
+            uploadLock.Release();
         }
-
-        await _uploadRepo.UpdateAsync(upload, ct);
-
-        _logger.LogInformation(
-            "Upload completed: uploadId={UploadId}, objectKey={Key}, answerId={AnswerId}",
-            upload.UploadId, objectKey, upload.AnswerId);
-
-        return new CompleteChunkedUploadResponse
-        {
-            UploadId = upload.UploadId,
-            AnswerId = upload.AnswerId ?? 0,
-            AudioKey = objectKey,
-            Status = "COMPLETED",
-            CompletedAt = upload.CompletedAt.Value
-        };
     }
 
     // -----------------------------------------------------------------------
@@ -309,10 +387,9 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
         if (upload.StudentId != currentUserId)
             throw new UnauthorizedAccessException("Không có quyền abort phiên này.");
 
-        // R2 uploadId nằm ở cột riêng (R2UploadId) — KHÔNG phải client uploadId.
+        // Luồng local-first: không có multipart session nào trên R2 để abort.
+        // (Nếu có phiên multipart cũ từ trước khi đổi flow thì abort cho sạch.)
         var r2UploadId = upload.R2UploadId;
-
-        // Abort R2 multipart (chỉ khi còn uploadId của R2)
         if (!string.IsNullOrWhiteSpace(upload.ObjectKey) && !string.IsNullOrWhiteSpace(r2UploadId))
             await _storage.AbortMultipartUploadAsync(upload.ObjectKey, r2UploadId, ct);
 
@@ -331,33 +408,67 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
     // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Gộp tất cả chunk_{index}.bin theo thứ tự vào file LocalFilePath.
+    /// Gộp tất cả chunk_{uploadId}_{index}.bin theo thứ tự vào file LocalFilePath.
+    ///
+    /// Ghi vào file TẠM rồi move đè → nếu merge lỗi giữa chừng, file gốc đang có
+    /// vẫn nguyên vẹn (không bị truncate thành 0 bytes).
     /// </summary>
     private async Task MergeChunksToLocalFileAsync(MediaUpload upload, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(upload.LocalFilePath)) return;
 
         var localDir = Path.GetDirectoryName(upload.LocalFilePath)!;
-        await using var output = new FileStream(
-            upload.LocalFilePath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, true);
+        var tempOutput = upload.LocalFilePath + ".merging";
 
-        for (int i = 0; i < upload.TotalChunks; i++)
+        await using (var output = new FileStream(
+            tempOutput, FileMode.Create, FileAccess.Write, FileShare.None, 65536, true))
         {
-            var chunkPath = Path.Combine(localDir, $"chunk_{i}.bin");
-            if (!File.Exists(chunkPath))
+            for (int i = 0; i < upload.TotalChunks; i++)
             {
-                _logger.LogWarning("Chunk file missing during merge: {Path}", chunkPath);
-                continue;
-            }
+                var chunkPath = Path.Combine(localDir, BuildChunkFileName(upload.UploadId, i));
+                if (!File.Exists(chunkPath))
+                {
+                    _logger.LogWarning("Chunk file missing during merge: {Path}", chunkPath);
+                    continue;
+                }
 
-            await using var chunkStream = new FileStream(
-                chunkPath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
-            await chunkStream.CopyToAsync(output, ct);
+                await using var chunkStream = new FileStream(
+                    chunkPath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+                await chunkStream.CopyToAsync(output, ct);
+            }
         }
+
+        File.Move(tempOutput, upload.LocalFilePath, overwrite: true);
 
         _logger.LogInformation("Merged {TotalChunks} chunks → {LocalPath}",
             upload.TotalChunks, upload.LocalFilePath);
     }
+
+    /// <summary>
+    /// Tên file chunk tạm. PHẢI chứa uploadId để các phiên upload song song
+    /// của cùng (student, course, question) không tranh nhau trên 1 file.
+    /// </summary>
+    private static string BuildChunkFileName(string uploadId, int chunkIndex)
+        => $"chunk_{uploadId}_{chunkIndex}.bin";
+
+    /// <summary>
+    /// Lock theo thư mục local để 2 phiên upload của cùng (student, course, question)
+    /// không ghi đè lên nhau file q_{questionId}.webm.
+    /// Key = đường dẫn thư mục local (đã lowercase để không phân biệt hoa/thường trên Windows).
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> DirectoryLocks = new();
+
+    private static SemaphoreSlim GetDirectoryLock(string dir)
+        => DirectoryLocks.GetOrAdd(dir, _ => new SemaphoreSlim(1, 1));
+
+    /// <summary>
+    /// Lock theo uploadId — serialize việc ghi chunk + gộp cho 1 phiên upload.
+    /// Bảo đảm merge không đọc chunk đang được ghi dở.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> UploadLocks = new();
+
+    private static SemaphoreSlim GetUploadLock(string uploadId)
+        => UploadLocks.GetOrAdd(uploadId, _ => new SemaphoreSlim(1, 1));
 
     private static void DeleteChunkFiles(MediaUpload upload)
     {
@@ -366,7 +477,7 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
 
         for (int i = 0; i < upload.TotalChunks; i++)
         {
-            var chunkPath = Path.Combine(localDir, $"chunk_{i}.bin");
+            var chunkPath = Path.Combine(localDir, BuildChunkFileName(upload.UploadId, i));
             if (File.Exists(chunkPath))
                 File.Delete(chunkPath);
         }
@@ -397,38 +508,4 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
             TotalChunks = upload.TotalChunks,
             IsComplete = upload.ReceivedChunkIndexes.Count >= upload.TotalChunks
         };
-
-    // ETag storage: dùng JSON đơn giản trong LastError (field dự phòng).
-    // Format: [{"p":1,"e":"\"abc\""},{"p":2,"e":"\"def\""}]
-    private static string AppendEtag(string? existing, int partNumber, string etag)
-    {
-        var list = ParseEtagsRaw(existing);
-        list.RemoveAll(x => x.p == partNumber); // replace nếu retry
-        list.Add((partNumber, etag));
-        return System.Text.Json.JsonSerializer.Serialize(
-            list.OrderBy(x => x.p)
-                .Select(x => new { p = x.p, e = x.e })
-                .ToList());
-    }
-
-    private static List<(int PartNumber, string ETag)> ParseEtags(string? json)
-    {
-        var raw = ParseEtagsRaw(json);
-        return raw.Select(x => (x.p, x.e)).ToList();
-    }
-
-    private static List<(int p, string e)> ParseEtagsRaw(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return new();
-        try
-        {
-            var doc = System.Text.Json.JsonDocument.Parse(json);
-            return doc.RootElement.EnumerateArray()
-                .Select(el => (
-                    p: el.GetProperty("p").GetInt32(),
-                    e: el.GetProperty("e").GetString() ?? ""))
-                .ToList();
-        }
-        catch { return new(); }
-    }
 }

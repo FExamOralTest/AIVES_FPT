@@ -63,7 +63,13 @@ $done = Invoke-RestMethod -Uri "$base/api/audio/chunked/complete" -Method Post `
   -Body (@{ uploadId = $init.uploadId } | ConvertTo-Json)
 "COMPLETE    : status=$($done.status)"
 "  audioKey  : $($done.audioKey)"
-"  localPath : $($init.localFilePath)"
+"  localPath : $($done.localFilePath)"
+"  localSize : $((Get-Item $done.localFilePath).Length) bytes"
 
-@{ uploadId = $init.uploadId; audioKey = $done.audioKey; localPath = $init.localFilePath; sourceSize = $size } |
+# --- Verify local-first: file local phai ton tai, chunk tam phai bi xoa ---
+$chunkFiles = @(Get-ChildItem (Split-Path $done.localFilePath) -Filter "chunk_*.bin" -ErrorAction SilentlyContinue)
+"  local file exists : $(Test-Path $done.localFilePath)"
+"  temp chunks left  : $($chunkFiles.Count) (phai = 0)"
+
+@{ uploadId = $init.uploadId; audioKey = $done.audioKey; localPath = $done.localFilePath; sourceSize = $size } |
   ConvertTo-Json | Out-File "$env:TEMP\chunk_result.json" -Encoding utf8

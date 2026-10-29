@@ -31,6 +31,13 @@ public interface IMediaUploadRepository
     Task<Domain.Entities.MediaUpload?> GetCompletedAsync(
         int sessionId, int studentId, int questionId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Lấy phiên upload đã COMPLETED theo object key trên R2.
+    /// Fallback cho client cũ gửi objectKey thay vì uploadId.
+    /// </summary>
+    Task<Domain.Entities.MediaUpload?> GetCompletedByObjectKeyAsync(
+        string objectKey, CancellationToken ct = default);
+
     /// <summary>Xóa các bản ghi FAILED/ABORTED cũ hơn N ngày (cleanup job).</summary>
     Task DeleteStaleAsync(TimeSpan olderThan, CancellationToken ct = default);
 }

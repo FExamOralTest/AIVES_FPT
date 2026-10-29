@@ -154,11 +154,12 @@ export default function VivaRoomPage() {
     setFollowUpAlert(null)
 
     try {
-      // Bước 1: nếu có audio → chia chunk ở máy người dùng và upload lên R2.
-      // R2 gộp thành 1 file lớn duy nhất; chunk tạm trên máy user bị xóa sau đó.
-      let audioObjectKey: string | undefined
+      // Bước 1: nếu có audio → chia chunk ở máy người dùng và upload lên server.
+      // Server gộp thành 1 file local rồi upload 1 file lớn duy nhất lên R2;
+      // chunk tạm trên máy user bị xóa sau đó.
+      let audioUploadId: string | undefined
       if (audioBlob) {
-        audioObjectKey = await chunked.upload({
+        audioUploadId = await chunked.upload({
           sessionId: session.sessionId,
           questionId: currentQuestion.questionId,
           file: audioBlob,
@@ -166,11 +167,11 @@ export default function VivaRoomPage() {
         })
       }
 
-      // Bước 2: nộp câu trả lời — chỉ gửi object key nếu audio đã upload chunked.
+      // Bước 2: nộp câu trả lời — chỉ gửi uploadId nếu audio đã upload chunked.
       const res = await vivaApi.submitAnswer(
         session.sessionId,
-        answerForm(currentQuestion, audioObjectKey ? null : audioBlob, textAnswer.trim()),
-        audioObjectKey,
+        answerForm(currentQuestion, audioUploadId ? null : audioBlob, textAnswer.trim()),
+        audioUploadId,
       )
 
       if (res.transcript) {
@@ -227,10 +228,10 @@ export default function VivaRoomPage() {
       let completed = false
       if (currentQuestion && !isSubmitting && (audio || answer)) {
         try {
-          // Chunk audio trước (nếu có) rồi submit bằng object key.
-          let audioObjectKey: string | undefined
+          // Chunk audio trước (nếu có) rồi submit bằng uploadId.
+          let audioUploadId: string | undefined
           if (audio) {
-            audioObjectKey = await chunked.upload({
+            audioUploadId = await chunked.upload({
               sessionId: session.sessionId,
               questionId: currentQuestion.questionId,
               file: audio,
@@ -239,8 +240,8 @@ export default function VivaRoomPage() {
           }
           const res = await vivaApi.submitAnswer(
             session.sessionId,
-            answerForm(currentQuestion, audioObjectKey ? null : audio, answer),
-            audioObjectKey,
+            answerForm(currentQuestion, audioUploadId ? null : audio, answer),
+            audioUploadId,
           )
           completed = res.isCompleted
         } catch {
@@ -669,7 +670,7 @@ export default function VivaRoomPage() {
             <div className="mb-2 flex items-center gap-2 font-medium text-brand text-xs uppercase tracking-wider">
               <Loader2 className="size-3.5 animate-spin" />
               {chunked.progress.phase === 'completing'
-                ? 'Finalising your recording on the server…'
+                ? 'Saving your recording and uploading it to the server…'
                 : `Uploading your recording (part ${chunked.progress.uploaded}/${chunked.progress.total})`}
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand/15">
@@ -689,6 +690,25 @@ export default function VivaRoomPage() {
             >
               Cancel upload
             </button>
+          </div>
+        )}
+
+        {/* Đường dẫn file local đã lưu (local-first) — hiển thị để học sinh/giáo viên đối chiếu */}
+        {chunked.localFilePath && (
+          <div className="mt-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Saved locally: </span>
+            <code className="break-all">{chunked.localFilePath}</code>
+          </div>
+        )}
+
+        {/* Cảnh báo: audio KHÔNG lên được Cloudflare R2 — chỉ nằm trên đĩa local server */}
+        {chunked.storageWarning && (
+          <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <p className="font-medium">Your recording was saved on the local server only — it could not be uploaded to Cloudflare R2.</p>
+            <p className="mt-1 opacity-80">{chunked.storageWarning.error}</p>
+            {chunked.storageWarning.hint && (
+              <p className="mt-1 opacity-70">{chunked.storageWarning.hint}</p>
+            )}
           </div>
         )}
 

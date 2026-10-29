@@ -196,6 +196,7 @@ public class VivaSessionService : IVivaSessionService
         string transcript = string.Empty;
         string? audioUrl = null;
         string? storedObjectKey = null;
+        string? chunkedUploadId = null;
         float? audioDuration = null;
 
         // 1. Process voice audio if submitted
@@ -241,10 +242,17 @@ public class VivaSessionService : IVivaSessionService
         }
         // 1b. Audio đã upload sẵn qua luồng chunked (R2 đã có 1 object gộp sẵn).
         // Không upload lại — chỉ gắn object key và chạy STT từ storage.
-        else if (!string.IsNullOrWhiteSpace(request.AudioObjectKey))
+        // Client gửi audioUploadId (đúng) — audioObjectKey chỉ là fallback cho client cũ.
+        else if (!string.IsNullOrWhiteSpace(request.AudioUploadId)
+                 || !string.IsNullOrWhiteSpace(request.AudioObjectKey))
         {
-            storedObjectKey = await ResolveChunkedAudioKeyAsync(
-                request.AudioObjectKey, sessionId, studentId, request.QuestionId, ct);
+            var chunkedRef = request.AudioUploadId ?? request.AudioObjectKey!;
+
+            var resolved = await ResolveChunkedAudioKeyAsync(
+                chunkedRef, sessionId, studentId, request.QuestionId, ct);
+
+            storedObjectKey = resolved.ObjectKey;
+            chunkedUploadId = resolved.UploadId;
 
             audioUrl = storedObjectKey;
 
@@ -301,9 +309,9 @@ public class VivaSessionService : IVivaSessionService
         await _sessionRepository.SaveChangesAsync();
 
         // Gắn answerId vào media_upload để liên kết 2 chiều (audit).
-        if (!string.IsNullOrWhiteSpace(request.AudioObjectKey) && savedAnswer.AnswerId > 0)
+        if (!string.IsNullOrWhiteSpace(chunkedUploadId) && savedAnswer.AnswerId > 0)
         {
-            await _mediaUploadRepo.LinkAnswerAsync(request.AudioObjectKey, savedAnswer.AnswerId, ct);
+            await _mediaUploadRepo.LinkAnswerAsync(chunkedUploadId, savedAnswer.AnswerId, ct);
         }
 
         // 4. Update student enrollment state
@@ -375,15 +383,19 @@ public class VivaSessionService : IVivaSessionService
     /// Không tin giá trị của client: tra bảng media_uploads theo uploadId,
     /// rồi đối chiếu SessionId / StudentId / QuestionId và trạng thái COMPLETED.
     /// </summary>
-    private async Task<string> ResolveChunkedAudioKeyAsync(
-        string uploadId,
+    private async Task<(string ObjectKey, string UploadId)> ResolveChunkedAudioKeyAsync(
+        string uploadIdOrObjectKey,
         int sessionId,
         int studentId,
         int questionId,
         CancellationToken ct)
     {
-        var upload = await _mediaUploadRepo.GetByIdAsync(uploadId, ct)
-            ?? throw new InvalidOperationException("Phiên upload không tồn tại.");
+        // Ưu tiên tra theo uploadId; nếu client gửi object key (client cũ) thì tra
+        // theo objectKey trong bảng media_uploads.
+        var upload = await _mediaUploadRepo.GetByIdAsync(uploadIdOrObjectKey, ct)
+            ?? await _mediaUploadRepo.GetCompletedByObjectKeyAsync(uploadIdOrObjectKey, ct)
+            ?? throw new InvalidOperationException(
+                $"Phiên upload không tồn tại (đã tra theo uploadId và objectKey). Giá trị nhận: '{uploadIdOrObjectKey}'.");
 
         if (upload.SessionId != sessionId || upload.StudentId != studentId || upload.QuestionId != questionId)
             throw new UnauthorizedAccessException("Audio không thuộc phiên thi của bạn.");
@@ -394,7 +406,7 @@ public class VivaSessionService : IVivaSessionService
         if (string.IsNullOrWhiteSpace(upload.ObjectKey))
             throw new InvalidOperationException("Audio chưa được lưu lên storage.");
 
-        return upload.ObjectKey;
+        return (upload.ObjectKey, upload.UploadId);
     }
 
     public async Task<FinishVivaSessionResponse> FinishSessionAsync(

@@ -68,6 +68,13 @@ public class MediaUploadRepository : IMediaUploadRepository
             .OrderByDescending(u => u.CompletedAt)
             .FirstOrDefaultAsync(ct);
 
+    public Task<MediaUpload?> GetCompletedByObjectKeyAsync(
+        string objectKey, CancellationToken ct = default)
+        => _db.MediaUploads
+            .Where(u => u.ObjectKey == objectKey && u.UploadStatus == "COMPLETED")
+            .OrderByDescending(u => u.CompletedAt)
+            .FirstOrDefaultAsync(ct);
+
     public async Task DeleteStaleAsync(TimeSpan olderThan, CancellationToken ct = default)
     {
         var cutoff = DateTime.UtcNow - olderThan;

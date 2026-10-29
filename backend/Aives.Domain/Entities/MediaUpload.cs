@@ -42,19 +42,19 @@ public class MediaUpload
 
     /// <summary>
     /// UploadId của phiên multipart trên Cloudflare R2 (S3 multipart uploadId).
-    /// Tách khỏi <see cref="UploadId"/> vì R2 uploadId dài hơn 64 ký tự.
+    /// CHỈ dùng cho các phiên tạo trước khi chuyển sang luồng local-first.
+    /// Luồng hiện tại (local-first) gộp file local rồi PutObject 1 lần → không có multipart.
     /// </summary>
     public string? R2UploadId { get; set; }
 
     /// <summary>
-    /// ETag của từng part đã upload, theo thứ tự partNumber tăng dần.
-    /// Cần cho bước CompleteMultipartUpload — R2 dùng danh sách này để gộp parts.
+    /// ETag của từng part đã upload (JSON). Không dùng trong luồng local-first.
     /// Format JSON: [{"p":1,"e":"\"etag1\""},{"p":2,"e":"\"etag2\""}]
     /// </summary>
     public string? PartETags { get; set; }
 
     /// <summary>
-    /// R2 object key sau khi complete multipart thành công.
+    /// R2 object key sau khi upload thành công.
     /// Format: exams/{examId}/sessions/{sessionId}/students/{studentId}/q_{questionId}.webm
     /// </summary>
     public string? ObjectKey { get; set; }
@@ -62,8 +62,10 @@ public class MediaUpload
     /// <summary>
     /// Đường dẫn file local trên máy server (Windows).
     /// Format: C:\audio_review\{studentId}\{courseName}\{questionId}\q_{questionId}.webm
-    /// File local là file đã gộp hoàn chỉnh — chỉ tồn tại trong quá trình upload chunks.
-    /// Bị xóa sau khi R2 complete thành công.
+    ///
+    /// Luồng local-first: file này được tạo BẰNG CÁCH GỘP các chunk nhận từ client,
+    /// rồi chính file này được upload lên R2. File được GIỮ LẠI sau khi upload
+    /// thành công (dùng để giáo viên review offline + backup).
     /// </summary>
     public string? LocalFilePath { get; set; }
 

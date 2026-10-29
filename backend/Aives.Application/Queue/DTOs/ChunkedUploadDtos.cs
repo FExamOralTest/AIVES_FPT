@@ -28,6 +28,11 @@ public class InitChunkedUploadResponse
     /// <summary>Danh sách chunkIndex đã nhận (dùng cho resume).</summary>
     public List<int> ReceivedChunks { get; set; } = new();
     public string Status { get; set; } = "PENDING";
+
+    /// <summary>
+    /// Đường dẫn file local trên server sau khi gộp:
+    /// C:\audio_review\{studentId}\{courseName}\{questionId}\q_{questionId}.webm
+    /// </summary>
     public string? LocalFilePath { get; set; }
 }
 
@@ -78,9 +83,28 @@ public class CompleteChunkedUploadResponse
     /// <summary>Object key trên R2 sau khi gộp — dùng để gửi kèm submit-answer.</summary>
     public string AudioKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Đường dẫn file local đã gộp trên server:
+    /// C:\audio_review\{studentId}\{courseName}\{questionId}\q_{questionId}.webm
+    /// File này được giữ lại sau khi upload R2 thành công.
+    /// </summary>
+    public string? LocalFilePath { get; set; }
+
     public string? JobId { get; set; }
     public string Status { get; set; } = "COMPLETED";
     public DateTime CompletedAt { get; set; }
+
+    /// <summary>
+    /// True nếu upload lên Cloudflare R2 thất bại và audio chỉ nằm trên đĩa local server.
+    /// Client PHẢI hiển thị cảnh báo này cho học sinh/giáo viên.
+    /// </summary>
+    public bool StorageFallback { get; set; }
+
+    /// <summary>Lý do R2 lỗi (đã che secret) — chỉ có khi StorageFallback = true.</summary>
+    public string? StorageError { get; set; }
+
+    /// <summary>Gợi ý khắc phục cho người vận hành.</summary>
+    public string? StorageHint { get; set; }
 }
 
 // -----------------------------------------------------------------------

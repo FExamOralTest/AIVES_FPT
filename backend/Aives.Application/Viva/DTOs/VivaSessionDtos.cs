@@ -34,14 +34,21 @@ public class SubmitVivaAnswerRequest
     public bool IsFollowUp { get; set; }
 
     /// <summary>
-    /// Object key của audio ĐÃ được upload sẵn lên R2 qua luồng chunked
-    /// (POST /api/audio/chunked/*). Khi có giá trị này, backend KHÔNG upload lại
-    /// audio mà gắn thẳng object đó vào Answer và chạy STT.
+    /// UploadId của phiên upload chunked đã COMPLETED (POST /api/audio/chunked/*).
+    /// Khi có giá trị này, backend KHÔNG upload lại audio mà gắn thẳng object đã có
+    /// trên R2 vào Answer và chạy STT.
     /// </summary>
     /// <remarks>
-    /// Backend kiểm tra key này thuộc về đúng (session, student, question) của học sinh
-    /// qua bảng media_uploads — không tin giá trị client gửi lên.
+    /// Backend tra cứu bảng media_uploads theo uploadId, rồi đối chiếu
+    /// SessionId / StudentId / QuestionId và trạng thái COMPLETED — không tin
+    /// giá trị client gửi lên.
     /// </remarks>
+    public string? AudioUploadId { get; set; }
+
+    /// <summary>
+    /// Object key trên R2 của audio đã upload chunked (fallback cho client cũ).
+    /// Backend vẫn kiểm chứng qua media_uploads trước khi dùng.
+    /// </summary>
     public string? AudioObjectKey { get; set; }
 }
 

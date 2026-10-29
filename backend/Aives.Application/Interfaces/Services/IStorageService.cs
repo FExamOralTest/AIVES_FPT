@@ -26,6 +26,31 @@ public interface IStorageService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Tải một file ĐÃ NẰM SẴN TRÊN ĐĨA cục bộ lên Object Storage.
+    ///
+    /// Dùng cho luồng "local-first": server nhận các chunk từ client → gộp thành 1 file
+    /// hoàn chỉnh tại C:\audio_review\... → rồi upload chính file local đó lên R2.
+    ///
+    /// Stream đọc trực tiếp từ đĩa (không buffer toàn bộ vào RAM) nên file lớn vẫn OK.
+    /// </summary>
+    /// <param name="objectKey">Đường dẫn khóa đối tượng trên R2</param>
+    /// <param name="localFilePath">Đường dẫn file nguồn trên đĩa cục bộ</param>
+    /// <param name="contentType">MIME type của file</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Kết quả upload gồm object key đã lưu và cờ báo fallback</returns>
+    Task<LocalFileUploadResult> UploadLocalFileAsync(
+        string objectKey,
+        string localFilePath,
+        string contentType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Kiểm tra kết nối + credentials tới Object Storage.
+    /// Dùng để chẩn đoán sớm lỗi "sai key / sai bucket / endpoint sai" trước khi học sinh thi.
+    /// </summary>
+    Task<StorageHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Tạo Presigned URL có thời hạn (GET) để nghe lại file âm thanh bảo mật từ trình duyệt.
     /// </summary>
     /// <param name="objectKey">Object key trong bucket</param>

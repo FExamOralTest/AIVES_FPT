@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Aives.Application.Interfaces.Services;
 using Aives.Application.Queue.DTOs;
 using Aives.Application.Queue.Interfaces;
 using Aives.Domain.Enums;
@@ -25,9 +26,15 @@ public class ChunkedAudioController : ControllerBase
     private const long MaxChunkSize = 10 * 1024 * 1024;
 
     private readonly IChunkedAudioUploadService _service;
+    private readonly IStorageService _storage;
 
-    public ChunkedAudioController(IChunkedAudioUploadService service)
-        => _service = service;
+    public ChunkedAudioController(
+        IChunkedAudioUploadService service,
+        IStorageService storage)
+    {
+        _service = service;
+        _storage = storage;
+    }
 
     // -----------------------------------------------------------------------
     // POST /api/audio/chunked/init
@@ -178,6 +185,26 @@ public class ChunkedAudioController : ControllerBase
         }
         catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
         catch (Exception ex)                  { return StatusCode(500, new { message = ex.Message }); }
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/audio/chunked/health
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// [STUDENT/ADMIN] Kiểm tra kết nối Cloudflare R2 (credentials, bucket, endpoint).
+    /// Dùng để chẩn đoán nhanh lỗi "sai key" mà không cần đọc log server.
+    /// </summary>
+    [HttpGet("health")]
+    [ProducesResponseType(typeof(StorageHealthResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Health(CancellationToken ct)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized(new { message = "Token không hợp lệ." });
+
+        var result = await _storage.CheckHealthAsync(ct);
+        return Ok(result);
     }
 
     // -----------------------------------------------------------------------
