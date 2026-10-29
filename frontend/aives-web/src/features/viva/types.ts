@@ -6,6 +6,7 @@ export interface StartVivaSessionResponse {
   totalQuestions: number
   currentQuestionIndex: number
   currentQuestion: VivaQuestionDto | null
+  endsAt?: string | null
   startedAt: string | null
 }
 

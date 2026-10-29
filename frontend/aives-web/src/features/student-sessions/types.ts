@@ -13,4 +13,10 @@ export interface StudentSessionEnrollment {
   sessionStatus: SessionStatus
   enrollmentStatus: SessionStatus
   isPublished: boolean
+  retakeEndsAt?: string | null
+  retakeId?: number | null
+  originalResultId?: number | null
+  retakeReason?: string | null
+  retakeDurationMinutes?: number | null
+  replacementSessionId?: number | null
 }

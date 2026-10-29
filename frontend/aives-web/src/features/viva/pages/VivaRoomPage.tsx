@@ -41,6 +41,7 @@ export default function VivaRoomPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isFinishing, setIsFinishing] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [finishMessage, setFinishMessage] = useState<string | null>(null)
   const [timedOut, setTimedOut] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [followUpAlert, setFollowUpAlert] = useState<string | null>(null)
@@ -51,9 +52,9 @@ export default function VivaRoomPage() {
   // Guards against finishing twice (Submit early racing the timer).
   const finishingRef = useRef(false)
 
-  // The clock starts when the student first enters, so a reload keeps counting from the same moment.
-  // Uses this device's clock: it can drift if the device time is wrong (backend has no endsAt yet).
-  const endsAt = session?.startedAt
+  // Prefer the server deadline so a reload cannot reset the individual retake timer.
+  // The legacy fallback is kept for older responses; the backend enforces retake expiry.
+  const endsAt = session?.endsAt ? parseApiDate(session.endsAt).getTime() : session?.startedAt
     ? parseApiDate(session.startedAt).getTime() + session.durationMinutes * 60_000
     : null
 
@@ -177,7 +178,8 @@ export default function VivaRoomPage() {
     setIsFinishing(true)
     setErrorMessage(null)
     try {
-      await vivaApi.finish(session.sessionId)
+      const finished = await vivaApi.finish(session.sessionId)
+      setFinishMessage(finished.message)
       setIsCompleted(true)
     } catch (err) {
       finishingRef.current = false
@@ -198,16 +200,15 @@ export default function VivaRoomPage() {
     try {
       const { audio, text } = await stopAndCollect()
       const answer = textAnswer.trim() || text
-      let completed = false
       if (currentQuestion && !isSubmitting && (audio || answer)) {
         try {
-          const res = await vivaApi.submitAnswer(session.sessionId, answerForm(currentQuestion, audio, answer))
-          completed = res.isCompleted
+          await vivaApi.submitAnswer(session.sessionId, answerForm(currentQuestion, audio, answer))
         } catch {
           // Still finish: the answers submitted before this one are kept.
         }
       }
-      if (!completed) await vivaApi.finish(session.sessionId)
+      const finished = await vivaApi.finish(session.sessionId)
+      setFinishMessage(finished.message)
       setTimedOut(true)
       setIsCompleted(true)
     } catch (err) {
@@ -272,7 +273,7 @@ export default function VivaRoomPage() {
         <div className="mt-8 rounded-3xl border bg-card p-6 text-left shadow-sm sm:p-8">
           <h2 className="font-heading text-lg font-medium">Scoring status</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            The AI has made a first assessment of all your answers. Your exam is now with the examiner, who will review it and publish the official score.
+            {finishMessage || 'Your exam has been submitted. The examiner will review it and publish the official score.'}
           </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">

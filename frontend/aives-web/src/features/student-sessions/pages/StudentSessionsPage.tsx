@@ -152,6 +152,8 @@ function StudentSessionCard({ session, now }: { session: StudentSessionEnrollmen
         </div>
         <span className={cn('w-fit shrink-0 rounded-full px-3 py-1 text-xs font-medium', display.tone)}>{display.label}</span>
       </div>
+      {session.retakeId && <div className="mt-3 rounded-xl bg-brand-soft p-3 text-sm"><strong>Bạn được phép thi lại</strong><p>{session.retakeReason}</p><p>Thời lượng: {session.retakeDurationMinutes} phút · Thay thế bài #{session.originalResultId}</p></div>}
+      {session.replacementSessionId && <p className="mt-3 text-sm">Bài này đã hủy hiệu lực do sự cố. <Link className="text-brand underline" to={`/student/viva?sessionId=${session.replacementSessionId}`}>Xem ca thi bù được cấp</Link></p>}
       <div className="mt-4 space-y-2 text-sm text-muted-foreground">
         <p className="flex items-start gap-2">
           <CalendarClock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

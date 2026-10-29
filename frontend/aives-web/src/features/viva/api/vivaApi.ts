@@ -23,7 +23,7 @@ export const vivaApi = {
   },
 
   async finish(sessionId: number): Promise<FinishVivaSessionResponse> {
-    const { data } = await http.post<FinishVivaSessionResponse>(`/api/student/viva-sessions/${sessionId}/finish`)
+    const { data } = await http.post<FinishVivaSessionResponse>(`/api/student/viva-sessions/${sessionId}/finish`, undefined, { timeout: 310000 })
     return data
   },
 }

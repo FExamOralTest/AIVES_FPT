@@ -53,6 +53,9 @@ public class RetryAnswerService : IRetryAnswerService
         // 2. Phân quyền.
         EnsureCanRetry(answer, result, currentUserId.Value, currentUserRole.Value);
 
+        if (result.Status is SubmissionStatus.CANCELLED or SubmissionStatus.PUBLISHED)
+            throw new InvalidOperationException("Invalidated or published attempts cannot be retried.");
+
         // 3. Dedup check TRƯỚC status check: queue là source of truth về "đã có job chưa".
         // Nếu user spam retry khi job đang chạy, trả ALREADY_QUEUED thay vì throw lỗi khó hiểu.
         if (_queueService.HasPendingOrProcessingJob(answerId))
