@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import 'models.dart';
+import 'exam_archive.dart';
 
 class LocalStore {
   final Directory root;
@@ -35,10 +36,24 @@ class LocalStore {
     int userId,
     int sessionId,
   ) async {
+    if (Platform.isWindows) validateWindowsExamRoot(root.path);
     final host = base64UrlEncode(utf8.encode(server)).replaceAll('=', '');
     return Directory(
       '${root.path}/recordings/$host/student_$userId/session_$sessionId',
     )..createSync(recursive: true);
+  }
+}
+
+/// Windows resolves the user's AppData through path_provider. Do not silently
+/// save exams on another drive when a profile has been redirected.
+void validateWindowsExamRoot(String path) {
+  final normalized = path.replaceAll('/', r'\').toLowerCase();
+  if (!normalized.startsWith(r'c:\') ||
+      !normalized.split(r'\').contains('appdata')) {
+    throw FileSystemException(
+      'Exam storage must be in AppData on drive C. Contact the proctor to configure the Windows profile.',
+      path,
+    );
   }
 }
 
@@ -47,6 +62,10 @@ class LocalStore {
 class AnswerDraft {
   final Directory folder;
   AnswerDraft(this.folder);
+  ExamArchive get archive => ExamArchive(folder);
+  Future<bool> containsRecording(String path) async =>
+      path.startsWith('${folder.path}${Platform.pathSeparator}') &&
+      await File(path).exists();
   File get manifest => File('${folder.path}/draft.json');
   Future<void> save(
     Question? question,

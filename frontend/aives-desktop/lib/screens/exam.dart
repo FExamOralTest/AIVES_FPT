@@ -78,11 +78,7 @@ class _ExamScreenState extends State<ExamScreen> {
           _question = question;
           _uncertain = saved['uncertain'] == true;
           final path = saved['audio'] as String?;
-          if (path != null &&
-              path.startsWith(
-                '${widget.draft.folder.path}${Platform.pathSeparator}',
-              ) &&
-              await File(path).exists()) {
+          if (path != null && await widget.draft.containsRecording(path)) {
             _capture.path = path;
             _notice = 'An unsubmitted recording was restored from this computer. Play it back before submitting.';
           }
@@ -157,6 +153,7 @@ class _ExamScreenState extends State<ExamScreen> {
       _progress = 0;
     });
     var accepted = false;
+    var sendStarted = false;
     try {
       if (_capture.recording) await _capture.stop();
       await _capture.stopPlayback();
@@ -164,9 +161,17 @@ class _ExamScreenState extends State<ExamScreen> {
       if (path == null) {
         throw const ApiFailure('Record your answer before submitting.');
       }
+      await widget.draft.archive.prepare(
+        server: widget.api.http.options.baseUrl,
+        student: widget.student,
+        session: widget.session,
+        question: _question,
+        audio: path,
+      );
       // Persist uncertainty BEFORE sending. A process crash after the server
       // accepts an answer must never cause an automatic duplicate POST.
       await widget.draft.save(_question, path, uncertain: true);
+      sendStarted = true;
       final response = await widget.api.submit(
         widget.session.id,
         _question!,
@@ -196,7 +201,7 @@ class _ExamScreenState extends State<ExamScreen> {
       }
     } catch (e) {
       if (!accepted) {
-        _uncertain = e is! ApiFailure || e.uncertain;
+        _uncertain = sendStarted && (e is! ApiFailure || e.uncertain);
         try {
           await _save();
         } catch (_) {
@@ -221,6 +226,15 @@ class _ExamScreenState extends State<ExamScreen> {
   }
 
   Future<void> _finishRequest() async {
+    // This gate is outside backend error reconciliation: a local write failure
+    // must never send a grading request or be mistaken for a network failure.
+    await widget.draft.archive.prepare(
+      server: widget.api.http.options.baseUrl,
+      student: widget.student,
+      session: widget.session,
+      question: _question,
+      finishing: true,
+    );
     try {
       final response = await widget.api.finish(widget.session.id);
       if (response['status'] != 'COMPLETED' &&
@@ -481,6 +495,14 @@ class _ExamScreenState extends State<ExamScreen> {
                 ),
                 const SizedBox(height: 16),
                 Notice(_notice ?? 'The backend confirmed your submission.'),
+                const SizedBox(height: 16),
+                const Text('A copy of your exam is saved on this computer.'),
+                const SizedBox(height: 8),
+                SelectableText(
+                  widget.draft.folder.path,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
                 const SizedBox(height: 16),
                 const Text(
                   'You can close the app. Official results will be available on the AIVES website.',

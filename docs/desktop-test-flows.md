@@ -81,6 +81,11 @@ Backend submission idempotency and complete follow-up recovery are unavailable. 
 | K09 | Quit while upload/recording operation is processing | Wait for operation; no duplicate exit, lost draft or bypass of submission guard |
 | K10 | Quit after backend confirms completion | App closes and removes keyboard hook and all display covers |
 | K11 | Open local-recordings help | Displays path and instructions; no button launches File Explorer while app is open |
+| L01 | Install/run executable from drive D; submit an answer | WAV and cumulative exam.json are saved under the Windows user's AppData on C before the upload begins |
+| L02 | Answer a main question and follow-up; finish normally or by timeout | exam.json retains both question identities and all WAV references before the grading request; completion displays the folder |
+| L03 | Deny writes to the exam folder or exhaust local space before submitting | Upload/grading is blocked with an error; no false success or duplicate automatic request; existing files remain |
+| L04 | Record again, clear current draft, restart app, then finish | Previous recordings remain archived and exam.json accumulates answers across restarts |
+| L05 | Delete or truncate an archived WAV before final submission | Final grading request is blocked; proctor can inspect the retained backup |
 
 Use separate short sessions for timeout checks and follow-up-enabled questions for follow-up checks. Short answers do not guarantee a follow-up. Flutter question TTS is not implemented. Test two-examiner and moderator processing in backend/web.
 
