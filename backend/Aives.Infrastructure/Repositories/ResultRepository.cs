@@ -30,10 +30,12 @@ public class ResultRepository : IResultRepository
         return await _db.Results
             .Include(r => r.Session)
                 .ThenInclude(s => s.Exam)
+                    .ThenInclude(e => e.Course)
             .Include(r => r.Student)
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
                 .ThenInclude(a => a.Question)
+                    .ThenInclude(q => q.Rubric)
             .FirstOrDefaultAsync(r => r.ResultId == resultId);
     }
 
