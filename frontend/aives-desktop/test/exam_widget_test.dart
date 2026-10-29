@@ -126,7 +126,13 @@ void main() {
     await tester.tap(find.text('Local recordings'));
     await tester.pumpAndSettle();
     expect(find.text('unused-test-recordings'), findsOneWidget);
-    expect(find.text('Open recordings folder'), findsOneWidget);
+    expect(find.text('Open recordings folder'), findsNothing);
+    expect(
+      find.text(
+        'Recordings stay on this computer. Quit AIVES before opening this folder in Windows.',
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
