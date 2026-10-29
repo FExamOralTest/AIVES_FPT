@@ -220,6 +220,16 @@ builder.Services.AddHangfireServer(options =>
     options.ServerName = $"aives-api-{Environment.MachineName}";
 });
 
+// One grading worker, plus a shared lock inside SessionGradingJob, so a room of
+// submissions is scored one exam at a time. Keep GradingWorkerCount at 1.
+var gradingWorkerCount = builder.Configuration.GetValue<int?>("Hangfire:GradingWorkerCount") ?? 1;
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Math.Max(1, gradingWorkerCount);
+    options.Queues = new[] { SessionGradingJob.QueueName };
+    options.ServerName = $"aives-grading-{Environment.MachineName}";
+});
+
 // Queue services
 builder.Services.AddScoped<IAnswerOrchestrator, AnswerOrchestrator>();
 // Đăng ký CẢ concrete class: Hangfire resolve job theo type khai báo trong expression.
@@ -227,6 +237,8 @@ builder.Services.AddScoped<IAnswerOrchestrator, AnswerOrchestrator>();
 // [AutomaticRetry] trên class được áp dụng — xem comment trong HangfireQueueService.
 builder.Services.AddScoped<AnswerProcessingJob>();
 builder.Services.AddScoped<IAnswerProcessingJob>(sp => sp.GetRequiredService<AnswerProcessingJob>());
+builder.Services.AddScoped<SessionGradingJob>();
+builder.Services.AddScoped<ISessionGradingService, SessionGradingService>();
 builder.Services.AddSingleton<IQueueService, HangfireQueueService>();
 builder.Services.AddScoped<IRetryAnswerService, RetryAnswerService>();
 builder.Services.AddScoped<IAudioPlaybackService, AudioPlaybackService>();
