@@ -10,7 +10,6 @@ import {
   RotateCw,
   Save,
   Shuffle,
-  Sparkles,
   Square,
   Trash2,
   UserMinus,
@@ -38,7 +37,6 @@ import { cn } from '@/lib/utils'
 import { sessionsApi } from '../api/sessionsApi'
 import type { DistributeExamsResponse, DistributeSlotsResponse, ExamSession } from '../types'
 import { AddStudentsForm } from './AddStudentsForm'
-import { ConfigureSlotsDialog } from './ConfigureSlotsDialog'
 
 interface SessionDetailDialogProps {
   sessionId: number | null
@@ -98,7 +96,6 @@ function SessionDetail({
   const [distributing, setDistributing] = useState(false)
   const [distributeResult, setDistributeResult] = useState<DistributeExamsResponse | null>(null)
   const [reassigningStudentId, setReassigningStudentId] = useState<number | null>(null)
-  const [showConfigureSlots, setShowConfigureSlots] = useState(false)
 
   // Time slots distribution state
   const [distributingSlots, setDistributingSlots] = useState(false)
@@ -510,7 +507,7 @@ function SessionDetail({
               <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-medium text-brand/80">
-                    {slots.length > 0 ? 'Main Session Join Code (Mã phòng thi chung)' : 'Session Join Code (for students)'}
+                    {slots.length > 0 ? 'Main Session Join Code (General Exam Room)' : 'Session Join Code (for students)'}
                   </p>
                   <p className="font-mono text-2xl font-bold tracking-[0.15em] sm:text-3xl text-brand mt-0.5">
                     {session.sessionCode}
@@ -526,10 +523,10 @@ function SessionDetail({
                   </span>
                   <div className="space-y-0.5">
                     <p className="font-semibold text-brand">
-                      Ca thi đã được chia thành {slots.length} kíp thi (time slots).
+                      This session is organized into {slots.length} time slots.
                     </p>
                     <p className="text-muted-foreground text-[11px] leading-relaxed">
-                      Để phân bổ sinh viên vào đúng ca thi và khung giờ, hãy gửi <strong>Mã Kíp thi riêng (Slot Join Code)</strong> ở danh sách kíp thi bên dưới cho sinh viên từng ca.
+                      To direct students to their scheduled time window, distribute the individual <strong>Slot Join Code</strong> from the time slot list below.
                     </p>
                   </div>
                 </div>
@@ -726,7 +723,7 @@ function SessionDetail({
               </section>
             )}
 
-            {/* Time Slots (Kíp thi) Section */}
+            {/* Time Slots Section */}
             {slots.length > 0 ? (
               <section aria-labelledby="session-slots" className="flex flex-col gap-3 rounded-2xl border p-4 bg-muted/10">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -739,18 +736,7 @@ function SessionDetail({
                       {session.durationMinutes} mins/slot
                     </span>
                   </div>
-                  {notStarted && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowConfigureSlots(true)}
-                      className="h-7 text-xs text-brand hover:bg-brand-soft gap-1"
-                    >
-                      <Sparkles className="size-3.5" />
-                      Reconfigure slots
-                    </Button>
-                  )}
+
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -812,7 +798,7 @@ function SessionDetail({
                         <div className="rounded-lg border bg-muted/30 p-2.5 flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground block">
-                              Mã kíp thi (Slot Join Code)
+                              Slot Join Code
                             </span>
                             <span className="font-mono text-xs font-bold tracking-wider text-brand truncate block">
                               {slotCode}
@@ -833,23 +819,12 @@ function SessionDetail({
                     <Clock className="size-4.5" />
                   </span>
                   <div>
-                    <h4 className="text-sm font-semibold text-foreground">Session has no Time Slots yet</h4>
+                    <h4 className="text-sm font-semibold text-foreground">Continuous Exam Session</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Split session into smaller time windows to stagger student entry, manage room capacity, and prevent exam leaking.
+                      No predefined time slots were configured for this exam paper. All students take the exam continuously in a single time window.
                     </p>
                   </div>
                 </div>
-                {notStarted && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => setShowConfigureSlots(true)}
-                    className="shrink-0 gap-1.5 text-xs shadow-xs"
-                  >
-                    <Sparkles className="size-3.5" />
-                    Configure Time Slots
-                  </Button>
-                )}
               </div>
             )}
 
@@ -983,16 +958,7 @@ function SessionDetail({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* Smart Slot Slicer Button */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowConfigureSlots(true)}
-                    className="h-8 text-xs border-brand text-brand hover:bg-brand-soft gap-1.5"
-                  >
-                    <Sparkles className="size-3.5" />
-                    {slots.length > 0 ? 'Reconfigure Time Slots' : '⚡ Auto-slice Time Slots'}
-                  </Button>
+
 
                   {/* Multi-exam distribution button */}
                   {exams.length > 1 && session.enrolledStudents > 0 && (
@@ -1259,17 +1225,7 @@ function SessionDetail({
         )}
       </div>
 
-      {showConfigureSlots && (
-        <ConfigureSlotsDialog
-          open={showConfigureSlots}
-          session={session}
-          onClose={() => setShowConfigureSlots(false)}
-          onSaved={(updated) => {
-            applyUpdate(updated)
-            monitor.reload()
-          }}
-        />
-      )}
+
     </div>
   )
 }

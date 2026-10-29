@@ -65,6 +65,6 @@ public interface IExamSessionRepository
     Task BulkUpdateEnrollmentsAsync(IEnumerable<SessionEnrollment> enrollments);
 
     // === Time Slots (Kíp thi) Management ===
-    Task SetSessionSlotsAsync(int sessionId, IEnumerable<ExamSessionSlot> slots);
+    Task SetSessionSlotsAsync(int sessionId, IEnumerable<ExamSessionSlot> slots, Dictionary<int, List<int>>? slotExamsMap = null);
     Task UpdateEnrollmentAssignedSlotAsync(int sessionId, int studentId, int? slotId);
 }

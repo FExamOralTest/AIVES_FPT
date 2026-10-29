@@ -246,7 +246,7 @@ public class ResultEndToEndTests : IDisposable
         Assert.False(pendingStudentResult.IsPublished, "Result must not be marked as published while PENDING_REVIEW.");
         Assert.Null(pendingStudentResult.FinalScore);
         Assert.Null(pendingStudentResult.FinalFeedback);
-        Assert.Contains("khảo thí thẩm định", pendingStudentResult.Message);
+        Assert.Contains("under evaluation and review", pendingStudentResult.Message);
         Assert.Empty(pendingStudentResult.Answers);
 
         // -------------------------------------------------------------

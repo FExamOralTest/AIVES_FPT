@@ -8,11 +8,10 @@ import {
   Layers,
   Loader2,
   Plus,
-  Shuffle,
   Users,
   X,
 } from 'lucide-react'
-import { useId, useState, type FormEvent } from 'react'
+import { useEffect, useId, useMemo, useState, type FormEvent } from 'react'
 import { FormField } from '@/components/common/FormField'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -29,7 +28,7 @@ import { toApiError } from '@/lib/http/apiError'
 import { useApi } from '@/lib/http/useApi'
 import { cn } from '@/lib/utils'
 import { sessionsApi } from '../api/sessionsApi'
-import type { CreateSessionSlotInput, ExamSession } from '../types'
+import type { ExamSession } from '../types'
 
 interface CreateSessionDialogProps {
   open: boolean
@@ -91,14 +90,6 @@ function CreateSessionForm({
   const [startTime, setStartTime] = useState(toLocalInput(defaultStart))
   const [endTime, setEndTime] = useState(toLocalInput(new Date(defaultStart.getTime() + 60 * 60_000)))
 
-  // Slots state
-  const [enableSlots, setEnableSlots] = useState(false)
-  const [slicingMode, setSlicingMode] = useState<'BY_STUDENTS' | 'BY_DURATION' | 'BY_COUNT'>('BY_STUDENTS')
-  const [studentsPerSlot, setStudentsPerSlot] = useState(10)
-  const [durationMinutes, setDurationMinutes] = useState(15)
-  const [customSlotCount, setCustomSlotCount] = useState(5)
-  const [slotExamMode, setSlotExamMode] = useState<'EXAM_PER_SLOT' | 'SHUFFLE_IN_SLOT'>('EXAM_PER_SLOT')
-
   // Students state (Tab 2)
   const [importFromCourse, setImportFromCourse] = useState(false)
   const [studentText, setStudentText] = useState('')
@@ -114,68 +105,74 @@ function CreateSessionForm({
     return found ?? ({ examId: id, examCode: `ID #${id}`, title: 'Exam', durationMinutes: 0, maxQuestions: 0 } as Exam)
   })
 
+  const primaryExam = selectedExamsData[0] as Exam | undefined
+
+  // Total session duration calculated from slot templates or exam duration
+  const totalDurationMinutes = useMemo(() => {
+    if (primaryExam?.slotTemplates && primaryExam.slotTemplates.length > 0) {
+      return primaryExam.slotTemplates.reduce((acc, t) => acc + (t.durationMinutes || 0), 0)
+    }
+    return primaryExam?.durationMinutes || 60
+  }, [primaryExam])
+
+  // Sequentially calculated slots based on primary exam's slot templates
+  const inheritedSlots = useMemo(() => {
+    if (!primaryExam?.slotTemplates || primaryExam.slotTemplates.length === 0) return []
+    const start = new Date(startTime)
+    if (Number.isNaN(start.getTime())) return []
+
+    let current = new Date(start)
+    return [...primaryExam.slotTemplates]
+      .sort((a, b) => a.slotIndex - b.slotIndex)
+      .map((t, idx) => {
+        const slotStart = new Date(current)
+        const slotEnd = new Date(slotStart.getTime() + (t.durationMinutes || 15) * 60_000)
+        current = slotEnd
+        return {
+          slotIndex: t.slotIndex ?? (idx + 1),
+          slotName: t.slotName || `Slot ${idx + 1}`,
+          durationMinutes: t.durationMinutes || 15,
+          maxCapacity: t.maxCapacity || 10,
+          startTime: slotStart.toISOString(),
+          endTime: slotEnd.toISOString(),
+          startDisplay: slotStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          endDisplay: slotEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          examPapers: t.examPapers ?? [],
+        }
+      })
+  }, [primaryExam, startTime])
+
+  // Automatically update endTime whenever startTime or totalDurationMinutes changes
+  useEffect(() => {
+    const s = new Date(startTime)
+    if (!Number.isNaN(s.getTime())) {
+      const e = new Date(s.getTime() + totalDurationMinutes * 60_000)
+      setEndTime(toLocalInput(e))
+    }
+  }, [startTime, totalDurationMinutes])
+
+  // Automatically update suggested capacity from slot templates if configured
+  useEffect(() => {
+    if (primaryExam?.slotTemplates && primaryExam.slotTemplates.length > 0) {
+      const sumCap = primaryExam.slotTemplates.reduce((acc, t) => acc + (t.maxCapacity || 0), 0)
+      if (sumCap > 0) {
+        setMaxCapacity(String(sumCap))
+      }
+    }
+  }, [primaryExam])
+
   function addExam(examIdStr: string) {
     const id = Number(examIdStr)
     if (!id || selectedExamIds.includes(id)) return
-    const exam = examList.find((e) => e.examId === id)
     const nextList = [...selectedExamIds, id]
     setSelectedExamIds(nextList)
     setPickerValue('')
     if (errors.examId) setEditErrors((prev) => ({ ...prev, examId: '' }))
-
-    // Auto set end time if first exam
-    if (exam && selectedExamIds.length === 0) {
-      const s = new Date(startTime)
-      if (!Number.isNaN(s.getTime())) {
-        const e = toLocalInput(new Date(s.getTime() + exam.durationMinutes * 60_000))
-        setEndTime(e)
-      }
-    }
   }
 
   function removeExam(id: number) {
     setSelectedExamIds((prev) => prev.filter((x) => x !== id))
   }
-
-  // Calculate slots preview
-  const calculatedSlots = (() => {
-    if (!enableSlots) return []
-    const start = new Date(startTime)
-    const end = new Date(endTime)
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
-      return []
-    }
-    const totalMs = end.getTime() - start.getTime()
-    const totalDurationMinutes = Math.max(1, Math.round(totalMs / 60000))
-    const cap = Number(maxCapacity) || 50
-
-    let finalSlotCount = 1
-    if (slicingMode === 'BY_STUDENTS') {
-      finalSlotCount = Math.max(1, Math.min(20, Math.ceil(cap / Math.max(1, studentsPerSlot))))
-    } else if (slicingMode === 'BY_DURATION') {
-      finalSlotCount = Math.max(1, Math.min(20, Math.floor(totalDurationMinutes / Math.max(1, durationMinutes))))
-    } else {
-      finalSlotCount = Math.max(1, Math.min(20, customSlotCount))
-    }
-
-    const slotMs = Math.floor(totalMs / finalSlotCount)
-    const perSlotCap = Math.max(1, Math.ceil(cap / finalSlotCount))
-
-    return Array.from({ length: finalSlotCount }, (_, i) => {
-      const sStart = new Date(start.getTime() + i * slotMs)
-      const sEnd = i === finalSlotCount - 1 ? end : new Date(start.getTime() + (i + 1) * slotMs)
-      return {
-        slotIndex: i + 1,
-        slotName: `Slot ${i + 1}`,
-        startTime: sStart.toISOString(),
-        endTime: sEnd.toISOString(),
-        startDisplay: sStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        endDisplay: sEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        durationMinutes: Math.round((sEnd.getTime() - sStart.getTime()) / 60000),
-        maxCapacity: perSlotCap,
-      }
-    })
-  })()
 
   // Parse entered tokens for students
   const studentTokens = studentText.split(/[\s,;]+/).map((t) => t.trim()).filter(Boolean)
@@ -189,7 +186,7 @@ function CreateSessionForm({
     const start = new Date(startTime)
     const end = new Date(endTime)
     if (Number.isNaN(start.getTime())) next.start = 'Select start time.'
-    if (Number.isNaN(end.getTime())) next.end = 'Select end time.'
+    if (Number.isNaN(end.getTime())) next.end = 'Invalid end time calculation.'
     else if (!next.start && end <= start) next.end = 'End time must be after start time.'
     const cap = Number(maxCapacity)
     if (!/^\d+$/.test(maxCapacity) || cap < 1 || cap > 500) next.maxCapacity = 'Maximum capacity must be between 1 and 500 students.'
@@ -209,18 +206,9 @@ function CreateSessionForm({
     setSubmitting(true)
     const startIso = new Date(startTime).toISOString()
     const endIso = new Date(endTime).toISOString()
-    const slotsPayload: CreateSessionSlotInput[] | undefined = enableSlots
-      ? calculatedSlots.map((s) => ({
-          slotIndex: s.slotIndex,
-          slotName: s.slotName,
-          startTime: s.startTime,
-          endTime: s.endTime,
-          maxCapacity: s.maxCapacity,
-        }))
-      : undefined
 
     try {
-      // 1. Create session
+      // 1. Create session (slots are automatically cloned from Exam's SlotTemplates by the backend)
       const created = await sessionsApi.create({
         examId: selectedExamIds[0],
         examIds: selectedExamIds,
@@ -229,7 +217,6 @@ function CreateSessionForm({
         startTime: startIso,
         endTime: endIso,
         maxCapacity: Number(maxCapacity),
-        slots: slotsPayload,
       })
 
       // 2. Add students if configured
@@ -254,11 +241,10 @@ function CreateSessionForm({
 
       // 3. Auto-distribute slots and exams if students enrolled
       if (studentsAdded) {
-        if (enableSlots && calculatedSlots.length > 0) {
+        if (inheritedSlots.length > 0) {
           try {
             await sessionsApi.distributeSlots(created.sessionId, {
               strategy: 'SLOT_BALANCED',
-              examAssignmentMode: slotExamMode,
             })
           } catch {
             // non-fatal
@@ -301,7 +287,7 @@ function CreateSessionForm({
         </div>
         <DialogTitle className="mt-1.5 text-xl font-bold">Configure New Exam Session</DialogTitle>
         <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-          Configure room info, exam papers, time slots, and enroll participating students
+          Configure room info, exam paper, start time, and enroll participating students
         </DialogDescription>
       </div>
 
@@ -318,7 +304,7 @@ function CreateSessionForm({
           )}
         >
           <Info className="size-4" />
-          Overview & Session
+          Overview & Schedule
         </button>
         <button
           type="button"
@@ -357,7 +343,7 @@ function CreateSessionForm({
       {/* Tab Content Area */}
       <div className="p-6 space-y-5">
         {/* ========================================================================= */}
-        {/* TAB 1: TỔNG QUAN & CA THI */}
+        {/* TAB 1: OVERVIEW & SCHEDULE */}
         {/* ========================================================================= */}
         {activeTab === 'OVERVIEW' && (
           <div className="space-y-4">
@@ -390,6 +376,7 @@ function CreateSessionForm({
                   inputMode="numeric"
                   value={maxCapacity}
                   error={errors.maxCapacity}
+                  hint={inheritedSlots.length > 0 ? `Calculated across ${inheritedSlots.length} slots` : undefined}
                   onChange={(e) => {
                     setMaxCapacity(e.target.value.replace(/\D/g, ''))
                     if (errors.maxCapacity) setEditErrors((prev) => ({ ...prev, maxCapacity: '' }))
@@ -399,7 +386,7 @@ function CreateSessionForm({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <FormField
-                  label="Start Time"
+                  label="Start Time (Session Kickoff)"
                   type="datetime-local"
                   value={startTime}
                   error={errors.start}
@@ -409,14 +396,13 @@ function CreateSessionForm({
                   }}
                 />
                 <FormField
-                  label="End Time"
+                  label="End Time (Auto-calculated)"
                   type="datetime-local"
                   value={endTime}
                   error={errors.end}
-                  onChange={(e) => {
-                    setEndTime(e.target.value)
-                    if (errors.end) setEditErrors((prev) => ({ ...prev, end: '' }))
-                  }}
+                  readOnly
+                  className="bg-muted/30 cursor-not-allowed"
+                  hint={`Auto-calculated: ${totalDurationMinutes} mins total duration`}
                 />
               </div>
             </div>
@@ -512,198 +498,68 @@ function CreateSessionForm({
               )}
             </div>
 
-            {/* Card 3: Smart Time Slots Configuration */}
+            {/* Card 3: Time Slots (Inherited from Exam) */}
             <div className="rounded-2xl border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={enableSlots}
-                    onChange={(e) => setEnableSlots(e.target.checked)}
-                    className="size-4 rounded border-gray-300 text-brand focus:ring-brand accent-brand"
-                  />
+                <div className="flex items-center gap-2">
                   <Clock className="size-4 text-brand" />
-                  <span>Divide session into Time Slots</span>
-                </label>
-                {enableSlots && (
+                  <h4 className="text-sm font-semibold text-foreground">
+                    Time Slots Configuration
+                  </h4>
+                </div>
+                {inheritedSlots.length > 0 ? (
                   <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
-                    {calculatedSlots.length} slots
+                    {inheritedSlots.length} slots inherited from Exam
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                    Continuous Exam Session
                   </span>
                 )}
               </div>
 
-              {enableSlots && (
-                <div className="space-y-3 pt-2 border-t">
-                  {/* Mode selector */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSlicingMode('BY_STUDENTS')}
-                      className={cn(
-                        'flex flex-col items-start gap-1 rounded-xl border p-2.5 text-left transition-all',
-                        slicingMode === 'BY_STUDENTS'
-                          ? 'border-brand bg-brand-soft/50 ring-2 ring-brand/20 shadow-xs'
-                          : 'border-input bg-card hover:bg-muted/50'
-                      )}
-                    >
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                        <Users className="size-3.5 text-brand" />
-                        By students/slot
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">e.g. 10 students/slot</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setSlicingMode('BY_DURATION')}
-                      className={cn(
-                        'flex flex-col items-start gap-1 rounded-xl border p-2.5 text-left transition-all',
-                        slicingMode === 'BY_DURATION'
-                          ? 'border-brand bg-brand-soft/50 ring-2 ring-brand/20 shadow-xs'
-                          : 'border-input bg-card hover:bg-muted/50'
-                      )}
-                    >
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                        <Clock className="size-3.5 text-brand" />
-                        By duration
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">e.g. 15 mins/slot</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setSlicingMode('BY_COUNT')}
-                      className={cn(
-                        'flex flex-col items-start gap-1 rounded-xl border p-2.5 text-left transition-all',
-                        slicingMode === 'BY_COUNT'
-                          ? 'border-brand bg-brand-soft/50 ring-2 ring-brand/20 shadow-xs'
-                          : 'border-input bg-card hover:bg-muted/50'
-                      )}
-                    >
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                        <Layers className="size-3.5 text-brand" />
-                        By slot count
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">e.g. 5 slots</span>
-                    </button>
-                  </div>
-
-                  {/* Mode presets */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/20 p-2.5 text-xs">
-                    {slicingMode === 'BY_STUDENTS' && (
-                      <>
-                        <span className="text-muted-foreground">Students per slot:</span>
-                        <div className="flex items-center gap-1">
-                          {[5, 10, 12, 15, 20].map((num) => (
-                            <button
-                              key={num}
-                              type="button"
-                              onClick={() => setStudentsPerSlot(num)}
-                              className={cn(
-                                'h-6 px-2 rounded-md text-xs font-medium border transition-colors',
-                                studentsPerSlot === num
-                                  ? 'bg-brand text-white border-brand shadow-xs'
-                                  : 'bg-background hover:bg-muted text-muted-foreground'
-                              )}
-                            >
-                              {num} students
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-
-                    {slicingMode === 'BY_DURATION' && (
-                      <>
-                        <span className="text-muted-foreground">Duration per slot:</span>
-                        <div className="flex items-center gap-1">
-                          {[10, 15, 20, 30].map((mins) => (
-                            <button
-                              key={mins}
-                              type="button"
-                              onClick={() => setDurationMinutes(mins)}
-                              className={cn(
-                                'h-6 px-2 rounded-md text-xs font-medium border transition-colors',
-                                durationMinutes === mins
-                                  ? 'bg-brand text-white border-brand shadow-xs'
-                                  : 'bg-background hover:bg-muted text-muted-foreground'
-                              )}
-                            >
-                              {mins}m
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-
-                    {slicingMode === 'BY_COUNT' && (
-                      <>
-                        <span className="text-muted-foreground">Number of slots:</span>
-                        <div className="flex items-center gap-1">
-                          {[2, 3, 4, 5, 6, 8].map((n) => (
-                            <button
-                              key={n}
-                              type="button"
-                              onClick={() => setCustomSlotCount(n)}
-                              className={cn(
-                                'h-6 px-2 rounded-md text-xs font-medium border transition-colors',
-                                customSlotCount === n
-                                  ? 'bg-brand text-white border-brand shadow-xs'
-                                  : 'bg-background hover:bg-muted text-muted-foreground'
-                              )}
-                            >
-                              {n}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Slot exam mode */}
-                  {selectedExamIds.length > 1 && (
-                    <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/10 p-2.5 text-xs">
-                      <span className="font-medium text-foreground flex items-center gap-1.5">
-                        <Shuffle className="size-3.5 text-brand" />
-                        Slot exam assignment mode:
-                      </span>
-                      <select
-                        value={slotExamMode}
-                        onChange={(e) => setSlotExamMode(e.target.value as 'EXAM_PER_SLOT' | 'SHUFFLE_IN_SLOT')}
-                        className="h-7 rounded-lg border border-input bg-background px-2 text-xs font-medium outline-none focus:border-brand"
+              {inheritedSlots.length > 0 ? (
+                <div className="space-y-3 pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    Time slots are defined in the selected Exam. The session automatically schedules each slot sequentially from your Start Time.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2 max-h-[220px] overflow-y-auto rounded-xl border p-2 bg-muted/10">
+                    {inheritedSlots.map((slot) => (
+                      <div
+                        key={slot.slotIndex}
+                        className="flex flex-col gap-1.5 rounded-lg border bg-card p-2.5 text-xs shadow-xs"
                       >
-                        <option value="EXAM_PER_SLOT">One fixed exam per slot</option>
-                        <option value="SHUFFLE_IN_SLOT">Shuffle exams within each slot</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Calculated preview */}
-                  {calculatedSlots.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Estimated time slots ({calculatedSlots.length} slots):
-                      </span>
-                      <div className="grid gap-2 sm:grid-cols-2 max-h-[160px] overflow-y-auto rounded-xl border p-2 bg-muted/10">
-                        {calculatedSlots.map((slot) => (
-                          <div
-                            key={slot.slotIndex}
-                            className="flex items-center justify-between rounded-lg border bg-card px-2.5 py-1.5 text-xs shadow-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-foreground">{slot.slotName}</span>
-                              <span className="font-mono text-brand font-medium">
-                                {slot.startDisplay} – {slot.endDisplay}
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-foreground">{slot.slotName}</span>
+                          <span className="font-mono text-brand font-medium">
+                            {slot.startDisplay} – {slot.endDisplay}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>Duration: {slot.durationMinutes} mins</span>
+                          <span>Max Capacity: ~{slot.maxCapacity} students</span>
+                        </div>
+                        {slot.examPapers && slot.examPapers.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-border/50">
+                            <span className="text-[10px] text-muted-foreground">Assigned papers:</span>
+                            {slot.examPapers.map((ep) => (
+                              <span
+                                key={ep.examId}
+                                className="rounded bg-brand-soft px-1.5 py-0.5 font-mono text-[10px] font-medium text-brand"
+                              >
+                                {ep.examCode}
                               </span>
-                            </div>
-                            <span className="text-[11px] text-muted-foreground">
-                              {slot.durationMinutes}m · ~{slot.maxCapacity} students
-                            </span>
+                            ))}
                           </div>
-                        ))}
+                        )}
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground space-y-1">
+                  <p className="font-medium text-foreground">Continuous Exam Session (No slots configured in Exam)</p>
+                  <p>This exam paper does not have predefined slot templates. The entire session will run continuously for {totalDurationMinutes} minutes.</p>
                 </div>
               )}
             </div>
@@ -762,7 +618,7 @@ function CreateSessionForm({
               />
 
               <p className="text-[11px] text-muted-foreground">
-                Enrolled students will be automatically balanced across configured Time Slots and Exam Papers.
+                Enrolled students will be automatically balanced across the exam's time slots and exam papers.
               </p>
 
               {/* Tokens chips preview */}

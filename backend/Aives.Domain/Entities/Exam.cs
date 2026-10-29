@@ -48,4 +48,10 @@ public partial class Exam
     public virtual ICollection<SessionEnrollment> AssignedEnrollments { get; set; } = new List<SessionEnrollment>();
 
     public virtual ICollection<Result> Results { get; set; } = new List<Result>();
+
+    public virtual ICollection<ExamSlotTemplate> SlotTemplates { get; set; } = new List<ExamSlotTemplate>();
+
+    public virtual ICollection<ExamSlotTemplateExam> SlotTemplateExams { get; set; } = new List<ExamSlotTemplateExam>();
+
+    public virtual ICollection<ExamSessionSlotExam> SessionSlotExams { get; set; } = new List<ExamSessionSlotExam>();
 }

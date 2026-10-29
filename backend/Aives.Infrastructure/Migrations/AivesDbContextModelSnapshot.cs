@@ -587,12 +587,18 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("slot_name");
 
+                    b.Property<int?>("SlotTemplateId")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_template_id");
+
                     b.Property<DateTime>("StartTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("start_time");
 
                     b.HasKey("SlotId")
                         .HasName("session_slots_pkey");
+
+                    b.HasIndex("SlotTemplateId");
 
                     b.HasIndex(new[] { "SessionId", "SlotIndex" }, "session_slots_session_slot_key")
                         .IsUnique();
@@ -601,6 +607,104 @@ namespace Aives.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("session_slots", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionSlotExam", b =>
+                {
+                    b.Property<int>("SlotId")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_id");
+
+                    b.Property<int>("ExamId")
+                        .HasColumnType("integer")
+                        .HasColumnName("exam_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("SlotId", "ExamId")
+                        .HasName("session_slot_exams_pkey");
+
+                    b.HasIndex("ExamId");
+
+                    b.ToTable("session_slot_exams", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplate", b =>
+                {
+                    b.Property<int>("SlotTemplateId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_template_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("SlotTemplateId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("DurationMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(30)
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<int>("ExamId")
+                        .HasColumnType("integer")
+                        .HasColumnName("exam_id");
+
+                    b.Property<int>("MaxCapacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(20)
+                        .HasColumnName("max_capacity");
+
+                    b.Property<int>("SlotIndex")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_index");
+
+                    b.Property<string>("SlotName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("slot_name");
+
+                    b.HasKey("SlotTemplateId")
+                        .HasName("exam_slot_templates_pkey");
+
+                    b.HasIndex(new[] { "ExamId", "SlotIndex" }, "exam_slot_templates_exam_slot_key")
+                        .IsUnique();
+
+                    b.ToTable("exam_slot_templates", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplateExam", b =>
+                {
+                    b.Property<int>("SlotTemplateId")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_template_id");
+
+                    b.Property<int>("ExamPaperId")
+                        .HasColumnType("integer")
+                        .HasColumnName("exam_paper_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("SlotTemplateId", "ExamPaperId")
+                        .HasName("exam_slot_template_exams_pkey");
+
+                    b.HasIndex("ExamPaperId");
+
+                    b.ToTable("exam_slot_template_exams", (string)null);
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.MarkdownDocument", b =>
@@ -1198,7 +1302,69 @@ namespace Aives.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("session_slots_session_id_fkey");
 
+                    b.HasOne("Aives.Domain.Entities.ExamSlotTemplate", "SlotTemplate")
+                        .WithMany("SessionSlots")
+                        .HasForeignKey("SlotTemplateId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("session_slots_slot_template_id_fkey");
+
                     b.Navigation("Session");
+
+                    b.Navigation("SlotTemplate");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionSlotExam", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.Exam", "Exam")
+                        .WithMany("SessionSlotExams")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("session_slot_exams_exam_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.ExamSessionSlot", "Slot")
+                        .WithMany("SlotExams")
+                        .HasForeignKey("SlotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("session_slot_exams_slot_id_fkey");
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("Slot");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplate", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.Exam", "Exam")
+                        .WithMany("SlotTemplates")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("exam_slot_templates_exam_id_fkey");
+
+                    b.Navigation("Exam");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplateExam", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.Exam", "ExamPaper")
+                        .WithMany("SlotTemplateExams")
+                        .HasForeignKey("ExamPaperId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("exam_slot_template_exams_exam_paper_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.ExamSlotTemplate", "SlotTemplate")
+                        .WithMany("TemplateExams")
+                        .HasForeignKey("SlotTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("exam_slot_template_exams_slot_template_id_fkey");
+
+                    b.Navigation("ExamPaper");
+
+                    b.Navigation("SlotTemplate");
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.MarkdownDocument", b =>
@@ -1362,6 +1528,12 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("Results");
 
                     b.Navigation("SessionExams");
+
+                    b.Navigation("SessionSlotExams");
+
+                    b.Navigation("SlotTemplateExams");
+
+                    b.Navigation("SlotTemplates");
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.ExamPeriod", b =>
@@ -1383,6 +1555,15 @@ namespace Aives.Infrastructure.Migrations
             modelBuilder.Entity("Aives.Domain.Entities.ExamSessionSlot", b =>
                 {
                     b.Navigation("SessionEnrollments");
+
+                    b.Navigation("SlotExams");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplate", b =>
+                {
+                    b.Navigation("SessionSlots");
+
+                    b.Navigation("TemplateExams");
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.MarkdownDocument", b =>

@@ -37,6 +37,8 @@ public class ExamSessionRepository : IExamSessionRepository
             .Include(s => s.SessionExams)
                 .ThenInclude(se => se.Exam)
             .Include(s => s.Slots)
+                .ThenInclude(sl => sl.SlotExams)
+                    .ThenInclude(se => se.Exam)
             .Include(s => s.ScheduledByNavigation)
             .Include(s => s.SessionEnrollments)
                 .ThenInclude(se => se.AssignedExam)
@@ -55,6 +57,8 @@ public class ExamSessionRepository : IExamSessionRepository
             .Include(s => s.SessionExams)
                 .ThenInclude(se => se.Exam)
             .Include(s => s.Slots)
+                .ThenInclude(sl => sl.SlotExams)
+                    .ThenInclude(se => se.Exam)
             .Include(s => s.SessionEnrollments)
                 .ThenInclude(se => se.Student)
             .Include(s => s.SessionEnrollments)
@@ -79,6 +83,8 @@ public class ExamSessionRepository : IExamSessionRepository
             .Include(s => s.SessionExams)
                 .ThenInclude(se => se.Exam)
             .Include(s => s.Slots)
+                .ThenInclude(sl => sl.SlotExams)
+                    .ThenInclude(se => se.Exam)
             .Include(s => s.SessionEnrollments)
                 .ThenInclude(se => se.AssignedExam)
             .Include(s => s.SessionEnrollments)
@@ -110,6 +116,8 @@ public class ExamSessionRepository : IExamSessionRepository
             .Include(sl => sl.Session)
                 .ThenInclude(s => s.SessionEnrollments)
                     .ThenInclude(se => se.AssignedSlot)
+            .Include(sl => sl.SlotExams)
+                .ThenInclude(se => se.Exam)
             .FirstOrDefaultAsync(sl => sl.SlotCode == normalized);
 
         if (slot != null)
@@ -130,6 +138,8 @@ public class ExamSessionRepository : IExamSessionRepository
             .Include(s => s.SessionExams)
                 .ThenInclude(se => se.Exam)
             .Include(s => s.Slots)
+                .ThenInclude(sl => sl.SlotExams)
+                    .ThenInclude(se => se.Exam)
             .Include(s => s.SessionEnrollments)
             .Where(s => s.ScheduledBy == teacherId)
             .OrderByDescending(s => s.StartTime)
@@ -297,6 +307,8 @@ public class ExamSessionRepository : IExamSessionRepository
             .Include(s => s.SessionExams)
                 .ThenInclude(se => se.Exam)
             .Include(s => s.Slots)
+                .ThenInclude(sl => sl.SlotExams)
+                    .ThenInclude(se => se.Exam)
             .Include(s => s.SessionEnrollments)
             .AsQueryable();
 
@@ -353,15 +365,27 @@ public class ExamSessionRepository : IExamSessionRepository
         await _db.SaveChangesAsync();
     }
 
-    public async Task SetSessionSlotsAsync(int sessionId, IEnumerable<ExamSessionSlot> slots)
+    public async Task SetSessionSlotsAsync(int sessionId, IEnumerable<ExamSessionSlot> slots, Dictionary<int, List<int>>? slotExamsMap = null)
     {
-        var existing = await _db.ExamSessionSlots.Where(s => s.SessionId == sessionId).ToListAsync();
+        var existing = await _db.ExamSessionSlots.Include(s => s.SlotExams).Where(s => s.SessionId == sessionId).ToListAsync();
         _db.ExamSessionSlots.RemoveRange(existing);
 
         foreach (var slot in slots)
         {
             slot.SessionId = sessionId;
             _db.ExamSessionSlots.Add(slot);
+
+            if (slotExamsMap != null && slotExamsMap.TryGetValue(slot.SlotIndex, out var examIds) && examIds != null)
+            {
+                foreach (var examId in examIds.Distinct())
+                {
+                    slot.SlotExams.Add(new ExamSessionSlotExam
+                    {
+                        ExamId = examId,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
         }
         await _db.SaveChangesAsync();
     }

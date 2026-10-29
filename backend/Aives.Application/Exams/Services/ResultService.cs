@@ -189,7 +189,7 @@ public class ResultService : IResultService
     public async Task<StudentResultDto> GetStudentResultAsync(int sessionId, int studentId)
     {
         var result = await _resultRepository.GetBySessionAndStudentAsync(sessionId, studentId)
-            ?? throw new KeyNotFoundException("Không tìm thấy kết quả thi của sinh viên cho ca thi này.");
+            ?? throw new KeyNotFoundException("Student exam result was not found for this session.");
 
         if (result.Status != SubmissionStatus.PUBLISHED)
         {
@@ -201,7 +201,7 @@ public class ResultService : IResultService
                 ExamTitle = result.Session?.Exam?.Title ?? "",
                 Status = result.Status?.ToString() ?? "",
                 IsPublished = false,
-                Message = "Kết quả bài thi đang được khảo thí thẩm định và duyệt. Vui lòng quay lại sau.",
+                Message = "Exam result is under evaluation and review. Please check back later.",
                 SubmittedAt = result.SubmittedAt
             };
         }

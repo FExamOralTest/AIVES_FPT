@@ -45,17 +45,20 @@ public class UpdateSessionStatusRequest
 
 public class CreateSessionSlotInput
 {
+    public int? SlotTemplateId { get; set; }
     public int SlotIndex { get; set; }
     public string SlotName { get; set; } = null!;
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public int? MaxCapacity { get; set; }
+    public List<int>? AllowedExamIds { get; set; }
 }
 
 public class ExamSessionSlotDto
 {
     public int SlotId { get; set; }
     public int SessionId { get; set; }
+    public int? SlotTemplateId { get; set; }
     public int SlotIndex { get; set; }
     public string SlotName { get; set; } = null!;
     public string SlotCode { get; set; } = null!;
@@ -63,6 +66,7 @@ public class ExamSessionSlotDto
     public DateTime EndTime { get; set; }
     public int MaxCapacity { get; set; }
     public int AssignedStudentsCount { get; set; }
+    public List<SessionExamSummaryDto> AllowedExams { get; set; } = new();
 }
 
 public class SessionExamSummaryDto

@@ -31,6 +31,12 @@ public partial class AivesDbContext : DbContext
 
     public virtual DbSet<ExamSessionSlot> ExamSessionSlots { get; set; }
 
+    public virtual DbSet<ExamSlotTemplate> ExamSlotTemplates { get; set; }
+
+    public virtual DbSet<ExamSlotTemplateExam> ExamSlotTemplateExams { get; set; }
+
+    public virtual DbSet<ExamSessionSlotExam> ExamSessionSlotExams { get; set; }
+
     public virtual DbSet<MarkdownDocument> MarkdownDocuments { get; set; }
 
     public virtual DbSet<QuestionBank> QuestionBanks { get; set; }
@@ -387,6 +393,93 @@ public partial class AivesDbContext : DbContext
                 .HasForeignKey(d => d.SessionId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("session_slots_session_id_fkey");
+
+            entity.Property(e => e.SlotTemplateId).HasColumnName("slot_template_id");
+
+            entity.HasOne(d => d.SlotTemplate).WithMany(p => p.SessionSlots)
+                .HasForeignKey(d => d.SlotTemplateId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("session_slots_slot_template_id_fkey");
+        });
+
+        modelBuilder.Entity<ExamSlotTemplate>(entity =>
+        {
+            entity.HasKey(e => e.SlotTemplateId).HasName("exam_slot_templates_pkey");
+
+            entity.ToTable("exam_slot_templates");
+
+            entity.HasIndex(e => new { e.ExamId, e.SlotIndex }, "exam_slot_templates_exam_slot_key").IsUnique();
+
+            entity.Property(e => e.SlotTemplateId)
+                .UseIdentityAlwaysColumn()
+                .HasColumnName("slot_template_id");
+            entity.Property(e => e.ExamId).HasColumnName("exam_id");
+            entity.Property(e => e.SlotIndex).HasColumnName("slot_index");
+            entity.Property(e => e.SlotName)
+                .HasMaxLength(100)
+                .HasColumnName("slot_name");
+            entity.Property(e => e.DurationMinutes)
+                .HasDefaultValue(30)
+                .HasColumnName("duration_minutes");
+            entity.Property(e => e.MaxCapacity)
+                .HasDefaultValue(20)
+                .HasColumnName("max_capacity");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Exam).WithMany(p => p.SlotTemplates)
+                .HasForeignKey(d => d.ExamId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("exam_slot_templates_exam_id_fkey");
+        });
+
+        modelBuilder.Entity<ExamSlotTemplateExam>(entity =>
+        {
+            entity.HasKey(e => new { e.SlotTemplateId, e.ExamPaperId }).HasName("exam_slot_template_exams_pkey");
+
+            entity.ToTable("exam_slot_template_exams");
+
+            entity.Property(e => e.SlotTemplateId).HasColumnName("slot_template_id");
+            entity.Property(e => e.ExamPaperId).HasColumnName("exam_paper_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.SlotTemplate).WithMany(p => p.TemplateExams)
+                .HasForeignKey(d => d.SlotTemplateId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("exam_slot_template_exams_slot_template_id_fkey");
+
+            // Edge Case #1: Restrict to avoid multiple cascade paths pointing to exams
+            entity.HasOne(d => d.ExamPaper).WithMany(p => p.SlotTemplateExams)
+                .HasForeignKey(d => d.ExamPaperId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("exam_slot_template_exams_exam_paper_id_fkey");
+        });
+
+        modelBuilder.Entity<ExamSessionSlotExam>(entity =>
+        {
+            entity.HasKey(e => new { e.SlotId, e.ExamId }).HasName("session_slot_exams_pkey");
+
+            entity.ToTable("session_slot_exams");
+
+            entity.Property(e => e.SlotId).HasColumnName("slot_id");
+            entity.Property(e => e.ExamId).HasColumnName("exam_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Slot).WithMany(p => p.SlotExams)
+                .HasForeignKey(d => d.SlotId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("session_slot_exams_slot_id_fkey");
+
+            // Edge Case #1: Restrict to avoid multiple cascade paths pointing to exams
+            entity.HasOne(d => d.Exam).WithMany(p => p.SessionSlotExams)
+                .HasForeignKey(d => d.ExamId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("session_slot_exams_exam_id_fkey");
         });
 
         modelBuilder.Entity<MarkdownDocument>(entity =>
