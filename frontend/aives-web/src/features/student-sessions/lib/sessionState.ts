@@ -26,7 +26,7 @@ export function getStudentSessionState(session: StudentSessionEnrollment, now: n
   if (session.isPublished) return 'published'
   if (session.enrollmentStatus === 'COMPLETED') return 'completed'
   if (session.sessionStatus === 'CANCELLED' || session.enrollmentStatus === 'CANCELLED') return 'cancelled'
-  if (session.sessionStatus === 'COMPLETED' || now >= parseApiDate(session.endTime).getTime()) return 'closed'
+  if (session.sessionStatus === 'COMPLETED' || now >= parseApiDate(session.retakeEndsAt ?? session.endTime).getTime()) return 'closed'
   if (session.sessionStatus !== 'IN_PROGRESS' || now < parseApiDate(session.startTime).getTime()) return 'waiting'
   return session.enrollmentStatus === 'IN_PROGRESS' ? 'inProgress' : 'ready'
 }

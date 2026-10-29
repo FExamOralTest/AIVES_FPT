@@ -58,7 +58,7 @@ public class ExamSessionRepository : IExamSessionRepository
         return await _db.ExamSessions
             .Include(s => s.Exam)
             .Include(s => s.SessionEnrollments)
-            .FirstOrDefaultAsync(s => s.SessionCode == normalizedCode);
+            .FirstOrDefaultAsync(s => s.SessionCode == normalizedCode && !_db.ExamRetakes.Any(r => r.RetakeSessionId == s.SessionId));
     }
 
     public async Task<IEnumerable<ExamSession>> GetByTeacherIdAsync(int teacherId)
@@ -92,6 +92,13 @@ public class ExamSessionRepository : IExamSessionRepository
                 EnrolledAt = e.EnrolledAt,
                 SessionStatus = e.Session.Status ?? SessionStatus.NOT_STARTED,
                 EnrollmentStatus = e.Status ?? SessionStatus.NOT_STARTED,
+                RetakeEndsAt = _db.ExamRetakes.Where(r => r.RetakeSessionId == e.SessionId && r.ConsumedAt != null)
+                    .Select(r => (DateTime?)(r.ConsumedAt!.Value.AddMinutes(r.DurationMinutes) < e.Session.EndTime ? r.ConsumedAt.Value.AddMinutes(r.DurationMinutes) : e.Session.EndTime)).FirstOrDefault(),
+                RetakeId = _db.ExamRetakes.Where(r => r.RetakeSessionId == e.SessionId).Select(r => (int?)r.RetakeId).FirstOrDefault(),
+                OriginalResultId = _db.ExamRetakes.Where(r => r.RetakeSessionId == e.SessionId).Select(r => (int?)r.OriginalResultId).FirstOrDefault(),
+                RetakeReason = _db.ExamRetakes.Where(r => r.RetakeSessionId == e.SessionId).Select(r => r.Reason).FirstOrDefault(),
+                RetakeDurationMinutes = _db.ExamRetakes.Where(r => r.RetakeSessionId == e.SessionId).Select(r => (int?)r.DurationMinutes).FirstOrDefault(),
+                ReplacementSessionId = _db.ExamRetakes.Where(r => r.OriginalResult.SessionId == e.SessionId && r.StudentId == studentId).Select(r => (int?)r.RetakeSessionId).FirstOrDefault(),
                 IsPublished = e.Session.Results.Any(r =>
                     r.StudentId == studentId && r.Status == SubmissionStatus.PUBLISHED)
             })
@@ -100,6 +107,7 @@ public class ExamSessionRepository : IExamSessionRepository
 
     public async Task UpdateStatusAsync(int sessionId, SessionStatus status)
     {
+        await RejectPrivateSessionAsync(sessionId);
         var session = await _db.ExamSessions
             .FirstOrDefaultAsync(s => s.SessionId == sessionId)
             ?? throw new KeyNotFoundException($"ExamSession with ID {sessionId} not found.");
@@ -115,19 +123,23 @@ public class ExamSessionRepository : IExamSessionRepository
 
     public async Task AddEnrollmentAsync(SessionEnrollment enrollment)
     {
+        await RejectPrivateSessionAsync(enrollment.SessionId);
         _db.SessionEnrollments.Add(enrollment);
         await _db.SaveChangesAsync();
     }
 
     public async Task AddEnrollmentsRangeAsync(IEnumerable<SessionEnrollment> enrollments)
     {
-        _db.SessionEnrollments.AddRange(enrollments);
+        var list = enrollments.ToList();
+        foreach (var sessionId in list.Select(e => e.SessionId).Distinct()) await RejectPrivateSessionAsync(sessionId);
+        _db.SessionEnrollments.AddRange(list);
         // Caller sẽ SaveChangesAsync trong cùng transaction (ExamUnitOfWork).
         await _db.SaveChangesAsync();
     }
 
     public async Task RemoveEnrollmentAsync(SessionEnrollment enrollment)
     {
+        await RejectPrivateSessionAsync(enrollment.SessionId);
         _db.SessionEnrollments.Remove(enrollment);
         await _db.SaveChangesAsync();
     }
@@ -153,6 +165,7 @@ public class ExamSessionRepository : IExamSessionRepository
 
     public async Task UpdateAsync(ExamSession session)
     {
+        await RejectPrivateSessionAsync(session.SessionId);
         _db.ExamSessions.Update(session);
     }
 
@@ -172,6 +185,7 @@ public class ExamSessionRepository : IExamSessionRepository
 
     public async Task RemoveAsync(ExamSession session)
     {
+        await RejectPrivateSessionAsync(session.SessionId);
         _db.ExamSessions.Remove(session);
         await _db.SaveChangesAsync();
     }
@@ -199,4 +213,10 @@ public class ExamSessionRepository : IExamSessionRepository
             ? null
             : value.ToUpperInvariant();
     }
+    private async Task RejectPrivateSessionAsync(int sessionId)
+    {
+        if (await _db.ExamRetakes.AnyAsync(r => r.RetakeSessionId == sessionId))
+            throw new InvalidOperationException("Private retake sessions are managed through retake permissions, not normal enrollment or scheduling.");
+    }
+
 }

@@ -23,6 +23,7 @@ public class VivaSessionService : IVivaSessionService
     private readonly IMarkdownDocumentRepository _documentRepository;
     private readonly IStorageService _storageService;
     private readonly ILogger<VivaSessionService> _logger;
+    private readonly IRetakeService? _retakes;
 
     public VivaSessionService(
         IExamSessionRepository sessionRepository,
@@ -32,7 +33,7 @@ public class VivaSessionService : IVivaSessionService
         IAiServiceClient aiServiceClient,
         IMarkdownDocumentRepository documentRepository,
         IStorageService storageService,
-        ILogger<VivaSessionService> logger)
+        ILogger<VivaSessionService> logger, IRetakeService? retakes = null)
     {
         _sessionRepository = sessionRepository;
         _examRepository = examRepository;
@@ -42,6 +43,7 @@ public class VivaSessionService : IVivaSessionService
         _documentRepository = documentRepository;
         _storageService = storageService;
         _logger = logger;
+        _retakes = retakes;
     }
 
     public async Task<StartVivaSessionResponse> StartSessionAsync(int sessionId, int studentId)
@@ -54,6 +56,9 @@ public class VivaSessionService : IVivaSessionService
 
         var enrollment = await _sessionRepository.GetEnrollmentAsync(sessionId, studentId)
             ?? throw new UnauthorizedAccessException("Sinh viên chưa ghi danh (enroll) vào ca thi này.");
+
+        var retakeStart = _retakes is null ? null : await _retakes.StartAsync(sessionId, studentId);
+        if (_retakes is not null) await _retakes.EnsureWritableAsync(sessionId, studentId, checkDeadline: false);
 
         if (enrollment.Status == SessionStatus.COMPLETED)
             throw new InvalidOperationException("Sinh viên đã hoàn thành ca thi này.");
@@ -118,7 +123,8 @@ public class VivaSessionService : IVivaSessionService
             SessionId = session.SessionId,
             SessionName = session.SessionName,
             ExamTitle = exam.Title,
-            DurationMinutes = exam.DurationMinutes,
+            DurationMinutes = retakeStart?.DurationMinutes ?? exam.DurationMinutes,
+            EndsAt = retakeStart?.EndsAt ?? new[] { enrollment.StartedAt!.Value.AddMinutes(exam.DurationMinutes), session.EndTime }.Min(),
             TotalQuestions = totalQuestions,
             CurrentQuestionIndex = currentIndex,
             CurrentQuestion = currentQuestionDto,
@@ -128,6 +134,7 @@ public class VivaSessionService : IVivaSessionService
 
     public async Task<VivaQuestionDto> GetCurrentQuestionAsync(int sessionId, int studentId)
     {
+        if (_retakes is not null) await _retakes.EnsureWritableAsync(sessionId, studentId);
         var session = await _sessionRepository.GetByIdAsync(sessionId)
             ?? throw new KeyNotFoundException($"Ca thi ID {sessionId} không tồn tại.");
 
@@ -163,6 +170,7 @@ public class VivaSessionService : IVivaSessionService
 
     public async Task<SubmitVivaAnswerResponse> SubmitAnswerAsync(int sessionId, int studentId, SubmitVivaAnswerRequest request)
     {
+        if (_retakes is not null) await _retakes.EnsureWritableAsync(sessionId, studentId);
         var session = await _sessionRepository.GetByIdAsync(sessionId)
             ?? throw new KeyNotFoundException($"Ca thi ID {sessionId} không tồn tại.");
 
@@ -252,6 +260,8 @@ public class VivaSessionService : IVivaSessionService
             }
         }
 
+        if (_retakes is not null) await _retakes.EnsureWritableAsync(sessionId, studentId);
+
         // 3. Save Answer record
         var answer = new Answer
         {
@@ -332,6 +342,7 @@ public class VivaSessionService : IVivaSessionService
     public async Task<FinishVivaSessionResponse> FinishSessionAsync(
         int sessionId, int studentId, CancellationToken cancellationToken = default)
     {
+        if (_retakes is not null) await _retakes.EnsureWritableAsync(sessionId, studentId, checkDeadline: false, ct: cancellationToken);
         var session = await _sessionRepository.GetByIdAsync(sessionId)
             ?? throw new KeyNotFoundException($"Ca thi ID {sessionId} không tồn tại.");
 
@@ -455,6 +466,7 @@ public class VivaSessionService : IVivaSessionService
             result.AiEvaluationError = "No answers were submitted for AI evaluation.";
         }
 
+        if (_retakes is not null) await _retakes.EnsureWritableAsync(sessionId, studentId, checkDeadline: false);
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
 
