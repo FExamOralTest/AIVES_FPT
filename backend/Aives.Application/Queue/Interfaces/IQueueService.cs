@@ -28,4 +28,15 @@ public interface IQueueService
     /// Huỷ job đang pending/processing (nếu user xoá answer trước khi xử lý xong).
     /// </summary>
     bool CancelByAnswerId(int answerId);
+
+    /// <summary>
+    /// Xếp một bài thi đã nộp vào hàng đợi chấm tuần tự.
+    /// Trả về JobId, hoặc chuỗi rỗng khi bài này đã có job đang chờ hoặc đang chạy.
+    /// </summary>
+    string EnqueueSessionGrading(int resultId);
+
+    /// <summary>
+    /// Kiểm tra bài thi đã có job chấm đang chờ, đang retry hoặc đang chạy hay chưa.
+    /// </summary>
+    bool HasPendingSessionGrading(int resultId);
 }
