@@ -159,7 +159,7 @@ export default function VivaRoomPage() {
         setFollowUpAlert('The AI has a follow-up question to clarify your last answer.')
         setCurrentQuestion(res.nextQuestion)
       } else if (res.isCompleted || !res.nextQuestion) {
-        setIsCompleted(true)
+        await handleFinishExam()
       } else {
         setCurrentQuestion(res.nextQuestion)
       }

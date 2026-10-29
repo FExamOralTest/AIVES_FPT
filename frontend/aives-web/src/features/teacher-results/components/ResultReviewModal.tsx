@@ -20,6 +20,8 @@ interface ResultReviewModalProps {
 }
 
 export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewModalProps) {
+  const maxTotalScore = result.aiAnalysis?.maxTotalScore
+    ?? result.answers.reduce((total, answer) => total + (answer.maxScore ?? 10), 0)
   const [overallScore, setOverallScore] = useState<number>(
     result.finalScore ?? result.aiScore ?? 0,
   )
@@ -53,6 +55,27 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
   // Per-answer outcome of "Retry scoring", shown under that answer instead of a blocking alert().
   const [retryNotes, setRetryNotes] = useState<Record<number, { ok: boolean; text: string }>>({})
 
+  function validateReviewScores() {
+    if (!Number.isFinite(overallScore) || overallScore < 0 || overallScore > maxTotalScore) {
+      setErrorMessage(`The overall score must be between 0 and ${maxTotalScore}.`)
+      return false
+    }
+
+    const invalidAnswer = result.answers.find((answer) => {
+      const score = answerScores[answer.answerId]
+      const maxScore = answer.maxScore ?? 10
+      return !Number.isFinite(score) || score < 0 || score > maxScore
+    })
+    if (invalidAnswer) {
+      setErrorMessage(
+        `The score for question ${result.answers.indexOf(invalidAnswer) + 1} must be between 0 and ${invalidAnswer.maxScore ?? 10}.`,
+      )
+      return false
+    }
+
+    return true
+  }
+
   async function handleRetry(answerId: number, position: number) {
     try {
       await teacherResultsApi.retryAnswer(answerId, 'Examiner requested retry')
@@ -63,6 +86,8 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
   }
 
   async function handleSaveReview() {
+    if (!validateReviewScores()) return null
+
     setIsSaving(true)
     setErrorMessage(null)
     try {
@@ -142,13 +167,13 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
             <div className="mt-4 grid gap-4 sm:grid-cols-[10rem_1fr]">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Score (0 - 10)
+                  Score (0 - {maxTotalScore})
                 </label>
                 <input
                   type="number"
                   step="0.1"
                   min="0"
-                  max="10"
+                  max={maxTotalScore}
                   value={overallScore}
                   onChange={(e) => setOverallScore(parseFloat(e.target.value) || 0)}
                   className="mt-1.5 h-12 w-full rounded-xl border border-input bg-background px-4 font-heading text-2xl font-bold text-brand outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
@@ -275,11 +300,13 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                 <div className="grid gap-3 sm:grid-cols-[8rem_1fr] border-t pt-3">
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground">
-                      Score for this question
+                      Score for this question (0 - {answer.maxScore ?? 10})
                     </label>
                     <input
                       type="number"
                       step="0.1"
+                      min="0"
+                      max={answer.maxScore ?? 10}
                       value={answerScores[answer.answerId] ?? 0}
                       onChange={(e) =>
                         setAnswerScores((prev) => ({

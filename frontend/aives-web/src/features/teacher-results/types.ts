@@ -6,6 +6,7 @@ export interface AnswerForReviewDto {
   errorMessage?: string | null
   questionId: number
   questionText: string
+  maxScore?: number | null
   studentAnswer?: string | null
   transcript?: string | null
   audioUrl?: string | null
@@ -28,6 +29,11 @@ export interface ResultForReviewDto {
   aiFeedback?: string | null
   finalScore?: number | null
   finalFeedback?: string | null
+  aiAnalysis?: {
+    maxTotalScore: number
+    percentage: number
+    studySuggestions: string[]
+  } | null
   status: string
   submittedAt?: string | null
   reviewedAt?: string | null
