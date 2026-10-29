@@ -29,4 +29,20 @@ internal class FakeQueueService : IQueueService
         var count = EnqueuedJobs.RemoveAll(j => j.AnswerId == answerId);
         return count > 0;
     }
+
+    public List<int> EnqueuedSessionGradings { get; } = new();
+
+    public string EnqueueSessionGrading(int resultId)
+    {
+        if (resultId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(resultId));
+        if (HasPendingSessionGrading(resultId))
+            return string.Empty;
+
+        EnqueuedSessionGradings.Add(resultId);
+        return $"grade-{resultId}";
+    }
+
+    public bool HasPendingSessionGrading(int resultId) =>
+        EnqueuedSessionGradings.Contains(resultId);
 }

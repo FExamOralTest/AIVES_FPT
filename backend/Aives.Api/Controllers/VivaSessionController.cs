@@ -141,7 +141,7 @@ public class VivaSessionController : ControllerBase
     }
 
     /// <summary>
-    /// [STUDENT] Kết thúc ca thi vấn đáp. AI sẽ đánh giá toàn bộ ca thi và tạo Result PENDING_REVIEW.
+    /// [STUDENT] Kết thúc ca thi. Bài được lưu ngay và xếp vào hàng đợi chấm lần lượt.
     /// </summary>
     [HttpPost("{sessionId:int}/finish")]
     [ProducesResponseType(typeof(FinishVivaSessionResponse), StatusCodes.Status200OK)]
