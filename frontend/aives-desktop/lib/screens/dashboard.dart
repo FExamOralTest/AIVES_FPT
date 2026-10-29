@@ -113,12 +113,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
       if (!mounted || ready == null) return;
-      final session = await widget.api.start(enrollment);
       final folder = await widget.store.sessionFolder(
         widget.api.http.options.baseUrl,
         widget.student.id,
-        session.id,
+        enrollment.id,
       );
+      if (!mounted) return;
+      final session = await widget.api.start(enrollment);
       if (!mounted) return;
       await Navigator.push(
         context,
