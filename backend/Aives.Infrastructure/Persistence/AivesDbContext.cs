@@ -38,6 +38,8 @@ public partial class AivesDbContext : DbContext
 
     public virtual DbSet<AuditLog> AuditLogs { get; set; }
 
+    public virtual DbSet<MediaUpload> MediaUploads { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
@@ -539,6 +541,52 @@ public partial class AivesDbContext : DbContext
                 .HasForeignKey(d => d.PerformedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("audit_logs_performed_by_fkey");
+        });
+
+        modelBuilder.Entity<MediaUpload>(entity =>
+        {
+            entity.HasKey(e => e.UploadId).HasName("media_uploads_pkey");
+            entity.ToTable("media_uploads");
+
+            entity.HasIndex(e => e.UploadId, "media_uploads_upload_id_key").IsUnique();
+            entity.HasIndex(e => e.StudentId, "IX_media_uploads_student_id");
+            entity.HasIndex(e => new { e.SessionId, e.StudentId, e.QuestionId }, "idx_media_uploads_question");
+
+            entity.Property(e => e.UploadId).HasMaxLength(64).HasColumnName("upload_id");
+            entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id");
+            entity.Property(e => e.QuestionId).HasColumnName("question_id");
+            entity.Property(e => e.AnswerId).HasColumnName("answer_id");
+            entity.Property(e => e.FileName).HasMaxLength(255).HasColumnName("file_name");
+            entity.Property(e => e.ContentType).HasMaxLength(100).HasColumnName("content_type");
+            entity.Property(e => e.TotalSize).HasColumnName("total_size");
+            entity.Property(e => e.ChunkSize).HasColumnName("chunk_size");
+            entity.Property(e => e.TotalChunks).HasColumnName("total_chunks");
+            entity.Property(e => e.ReceivedChunkIndexes)
+                .HasColumnType("jsonb")
+                .HasColumnName("received_chunk_indexes");
+            entity.Property(e => e.UploadStatus).HasMaxLength(20).HasColumnName("upload_status");
+            entity.Property(e => e.R2UploadId).HasColumnName("r2_upload_id");
+            entity.Property(e => e.PartETags).HasColumnName("part_etags");
+            entity.Property(e => e.ObjectKey).HasMaxLength(500).HasColumnName("object_key");
+            entity.Property(e => e.LocalFilePath).HasMaxLength(500).HasColumnName("local_file_path");
+            entity.Property(e => e.LastError).HasColumnName("last_error");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+            entity.Property(e => e.CompletedAt).HasColumnName("completed_at");
+
+            entity.HasOne<ExamSession>()
+                .WithMany()
+                .HasForeignKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("media_uploads_session_id_fkey");
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(e => e.StudentId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("media_uploads_student_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

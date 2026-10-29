@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
@@ -52,6 +53,13 @@ public class CloudflareR2StorageService : IStorageService
                     ServiceURL = serviceUrl,
                     ForcePathStyle = true,
                     AuthenticationRegion = "auto",
+                    // Cloudflare R2 KHÔNG hỗ trợ aws-chunked streaming signature với
+                    // trailer (STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER).
+                    // AWS SDK v4 mặc định bật checksum → sinh payload trailer → R2 trả lỗi
+                    // "not implemented" khi upload part.
+                    // WHEN_REQUIRED = chỉ tính checksum cho operation bắt buộc (S3 yêu cầu),
+                    // bỏ qua checksum tùy chọn (CRC32/CRC32C) cho UploadPart/UploadPart.
+                    RequestChecksumCalculation = Amazon.Runtime.RequestChecksumCalculation.WHEN_REQUIRED,
                     HttpClientFactory = new R2HttpClientFactory(httpHandler)
                 };
 
@@ -303,6 +311,165 @@ public class CloudflareR2StorageService : IStorageService
 
         _logger.LogInformation("Audio saved to local disk fallback: '{FilePath}'", filePath);
         return $"/uploads/audio/{fileName}";
+    }
+
+    // -----------------------------------------------------------------------
+    // S3 Multipart Upload
+    // -----------------------------------------------------------------------
+
+    /// <inheritdoc/>
+    public async Task<string> InitiateMultipartUploadAsync(
+        string objectKey,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        if (_s3Client == null)
+            throw new InvalidOperationException("Cloudflare R2 chưa được cấu hình — không thể dùng multipart upload.");
+
+        objectKey = objectKey.TrimStart('/');
+        var request = new Amazon.S3.Model.InitiateMultipartUploadRequest
+        {
+            BucketName = _options.BucketName,
+            Key = objectKey,
+            ContentType = string.IsNullOrWhiteSpace(contentType) ? "audio/webm" : contentType
+        };
+
+        var response = await _s3Client.InitiateMultipartUploadAsync(request, cancellationToken);
+        _logger.LogInformation("Multipart upload initiated: key='{Key}', uploadId='{UploadId}'",
+            objectKey, response.UploadId);
+        return response.UploadId;
+    }
+
+    /// <inheritdoc/>
+    public async Task<string> UploadPartAsync(
+        string objectKey,
+        string uploadId,
+        int partNumber,
+        byte[] data,
+        CancellationToken cancellationToken = default)
+    {
+        if (_s3Client == null)
+            throw new InvalidOperationException("Cloudflare R2 chưa được cấu hình.");
+
+        objectKey = objectKey.TrimStart('/');
+        using var stream = new MemoryStream(data, writable: false);
+        var request = new Amazon.S3.Model.UploadPartRequest
+        {
+            BucketName = _options.BucketName,
+            Key = objectKey,
+            UploadId = uploadId,
+            PartNumber = partNumber,
+            InputStream = stream,
+            // Cloudflare R2 không implement aws-chunked streaming signature
+            // (STREAMING-AWS4-HMAC-SHA256-PAYLOAD). Chỉ endpoint HTTPS mới cho phép
+            // unsigned payload → R2 endpoint luôn là HTTPS nên an toàn.
+            DisablePayloadSigning = true
+        };
+
+        var response = await _s3Client.UploadPartAsync(request, cancellationToken);
+        _logger.LogDebug("Part {PartNumber} uploaded: key='{Key}', ETag={ETag}",
+            partNumber, objectKey, response.ETag);
+        return response.ETag;
+    }
+
+    /// <inheritdoc/>
+    public async Task<string> CompleteMultipartUploadAsync(
+        string objectKey,
+        string uploadId,
+        IReadOnlyList<(int PartNumber, string ETag)> parts,
+        CancellationToken cancellationToken = default)
+    {
+        if (_s3Client == null)
+            throw new InvalidOperationException("Cloudflare R2 chưa được cấu hình.");
+
+        objectKey = objectKey.TrimStart('/');
+        var partEtags = parts
+            .OrderBy(p => p.PartNumber)
+            .Select(p => new Amazon.S3.Model.PartETag(p.PartNumber, p.ETag))
+            .ToList();
+
+        var request = new Amazon.S3.Model.CompleteMultipartUploadRequest
+        {
+            BucketName = _options.BucketName,
+            Key = objectKey,
+            UploadId = uploadId,
+            PartETags = partEtags
+        };
+
+        var response = await _s3Client.CompleteMultipartUploadAsync(request, cancellationToken);
+        _logger.LogInformation("Multipart upload completed: key='{Key}', ETag={ETag}",
+            objectKey, response.ETag);
+        return objectKey;
+    }
+
+    /// <inheritdoc/>
+    public async Task AbortMultipartUploadAsync(
+        string objectKey,
+        string uploadId,
+        CancellationToken cancellationToken = default)
+    {
+        if (_s3Client == null) return;
+
+        objectKey = objectKey.TrimStart('/');
+        try
+        {
+            await _s3Client.AbortMultipartUploadAsync(new Amazon.S3.Model.AbortMultipartUploadRequest
+            {
+                BucketName = _options.BucketName,
+                Key = objectKey,
+                UploadId = uploadId
+            }, cancellationToken);
+            _logger.LogInformation("Multipart upload aborted: key='{Key}', uploadId='{UploadId}'",
+                objectKey, uploadId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to abort multipart upload for key='{Key}'", objectKey);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<byte[]?> DownloadAudioAsync(
+        string objectKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey)) return null;
+        objectKey = objectKey.TrimStart('/');
+
+        if (_s3Client != null)
+        {
+            try
+            {
+                using var response = await _s3Client.GetObjectAsync(
+                    new Amazon.S3.Model.GetObjectRequest
+                    {
+                        BucketName = _options.BucketName,
+                        Key = objectKey
+                    }, cancellationToken);
+
+                using var buffer = new MemoryStream();
+                await response.ResponseStream.CopyToAsync(buffer, cancellationToken);
+                return buffer.ToArray();
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Audio object '{Key}' not found in R2", objectKey);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to download audio '{Key}' from Cloudflare R2", objectKey);
+                throw;
+            }
+        }
+
+        // Local fallback: đọc từ wwwroot/uploads/audio
+        var fileName = Path.GetFileName(objectKey);
+        var localPath = Path.Combine(
+            Directory.GetCurrentDirectory(), "wwwroot", "uploads", "audio", fileName);
+        if (!File.Exists(localPath)) return null;
+
+        return await File.ReadAllBytesAsync(localPath, cancellationToken);
     }
 }
 

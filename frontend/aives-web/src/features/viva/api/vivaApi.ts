@@ -11,7 +11,18 @@ export const vivaApi = {
     return data
   },
 
-  async submitAnswer(sessionId: number, formData: FormData): Promise<SubmitVivaAnswerResponse> {
+  /**
+   * Nộp câu trả lời. `audioObjectKey` dùng khi audio đã được upload chunked trước đó
+   * (R2 đã có 1 file lớn) — khi đó không gửi file audio lần nữa.
+   */
+  async submitAnswer(
+    sessionId: number,
+    formData: FormData,
+    audioObjectKey?: string,
+  ): Promise<SubmitVivaAnswerResponse> {
+    if (audioObjectKey) {
+      formData.append('audioObjectKey', audioObjectKey)
+    }
     const { data } = await http.post<SubmitVivaAnswerResponse>(
       `/api/student/viva-sessions/${sessionId}/submit-answer`,
       formData,

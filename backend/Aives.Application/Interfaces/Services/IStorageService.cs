@@ -52,4 +52,63 @@ public interface IStorageService
     /// Kiểm tra tệp âm thanh có tồn tại trên storage hay không.
     /// </summary>
     Task<bool> ExistsAsync(string objectKey, CancellationToken cancellationToken = default);
+
+    // -----------------------------------------------------------------------
+    // S3 Multipart Upload — dùng cho chunked audio upload từ client
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Khởi tạo multipart upload session trên R2, trả về uploadId.
+    /// Phải gọi trước khi upload bất kỳ chunk nào.
+    /// </summary>
+    Task<string> InitiateMultipartUploadAsync(
+        string objectKey,
+        string contentType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Upload một part (chunk) trong phiên multipart.
+    /// partNumber bắt đầu từ 1 (S3 convention).
+    /// Trả về ETag của part — cần lưu để gọi CompleteMultipartUploadAsync.
+    /// </summary>
+    Task<string> UploadPartAsync(
+        string objectKey,
+        string uploadId,
+        int partNumber,
+        byte[] data,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hoàn thành multipart upload, gộp tất cả parts thành 1 object trên R2.
+    /// parts: danh sách (partNumber, etag) theo thứ tự tăng dần.
+    /// Trả về object key đã được gộp.
+    /// </summary>
+    Task<string> CompleteMultipartUploadAsync(
+        string objectKey,
+        string uploadId,
+        IReadOnlyList<(int PartNumber, string ETag)> parts,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hủy multipart upload đang dở — dọn dẹp parts đã upload trên R2.
+    /// </summary>
+    Task AbortMultipartUploadAsync(
+        string objectKey,
+        string uploadId,
+        CancellationToken cancellationToken = default);
+
+    // -----------------------------------------------------------------------
+    // Đọc audio từ storage — dùng cho pipeline STT chạy nền.
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Tải nội dung một object từ R2 về memory.
+    /// Dùng khi pipeline xử lý audio (STT) cần đọc lại file đã lưu trên storage.
+    /// </summary>
+    /// <param name="objectKey">Object key trong bucket</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Nội dung file dạng byte[], hoặc null nếu object không tồn tại</returns>
+    Task<byte[]?> DownloadAudioAsync(
+        string objectKey,
+        CancellationToken cancellationToken = default);
 }

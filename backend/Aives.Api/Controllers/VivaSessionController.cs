@@ -95,6 +95,8 @@ public class VivaSessionController : ControllerBase
     /// </summary>
     [HttpPost("{sessionId:int}/submit-answer")]
     [Consumes("multipart/form-data")]
+    [RequestSizeLimit(50 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 50 * 1024 * 1024)]
     [ProducesResponseType(typeof(SubmitVivaAnswerResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -102,7 +104,8 @@ public class VivaSessionController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SubmitAnswer(
         int sessionId,
-        [FromForm] SubmitVivaAnswerRequest request)
+        [FromForm] SubmitVivaAnswerRequest request,
+        CancellationToken cancellationToken)
     {
         var studentId = GetCurrentUserId();
         if (studentId is null)
@@ -110,7 +113,7 @@ public class VivaSessionController : ControllerBase
 
         try
         {
-            var response = await _vivaService.SubmitAnswerAsync(sessionId, studentId.Value, request);
+            var response = await _vivaService.SubmitAnswerAsync(sessionId, studentId.Value, request, cancellationToken);
             return Ok(response);
         }
         catch (KeyNotFoundException ex)

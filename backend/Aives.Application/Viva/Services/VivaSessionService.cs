@@ -22,6 +22,7 @@ public class VivaSessionService : IVivaSessionService
     private readonly IAiServiceClient _aiServiceClient;
     private readonly IMarkdownDocumentRepository _documentRepository;
     private readonly IStorageService _storageService;
+    private readonly IMediaUploadRepository _mediaUploadRepo;
     private readonly ILogger<VivaSessionService> _logger;
 
     public VivaSessionService(
@@ -32,6 +33,7 @@ public class VivaSessionService : IVivaSessionService
         IAiServiceClient aiServiceClient,
         IMarkdownDocumentRepository documentRepository,
         IStorageService storageService,
+        IMediaUploadRepository mediaUploadRepo,
         ILogger<VivaSessionService> logger)
     {
         _sessionRepository = sessionRepository;
@@ -41,6 +43,7 @@ public class VivaSessionService : IVivaSessionService
         _aiServiceClient = aiServiceClient;
         _documentRepository = documentRepository;
         _storageService = storageService;
+        _mediaUploadRepo = mediaUploadRepo;
         _logger = logger;
     }
 
@@ -161,7 +164,9 @@ public class VivaSessionService : IVivaSessionService
         };
     }
 
-    public async Task<SubmitVivaAnswerResponse> SubmitAnswerAsync(int sessionId, int studentId, SubmitVivaAnswerRequest request)
+    public async Task<SubmitVivaAnswerResponse> SubmitAnswerAsync(
+        int sessionId, int studentId, SubmitVivaAnswerRequest request,
+        CancellationToken ct = default)
     {
         var session = await _sessionRepository.GetByIdAsync(sessionId)
             ?? throw new KeyNotFoundException($"Ca thi ID {sessionId} không tồn tại.");
@@ -201,23 +206,49 @@ public class VivaSessionService : IVivaSessionService
             var objectKey = $"exams/{session.ExamId}/sessions/{sessionId}/students/{studentId}/q_{request.QuestionId}_{DateTime.UtcNow.Ticks}{extension}";
             storedObjectKey = objectKey;
 
-            using var memoryStream = new MemoryStream();
-            await request.AudioFile.CopyToAsync(memoryStream);
+            // Buffer IFormFile → byte[] TRƯỚC mọi await. IFormFile stream gắn với
+            // request body; sau bất kỳ await nào ASP.NET có thể dispose form → "closed stream".
+            byte[] audioBytes;
+            using (var tmp = new MemoryStream())
+            {
+                await request.AudioFile.CopyToAsync(tmp);
+                audioBytes = tmp.ToArray();
+            }
 
-            // Upload audio to Cloudflare R2 / Object Storage (falls back to local disk if unconfigured)
-            memoryStream.Position = 0;
-            audioUrl = await _storageService.UploadAudioAsync(
-                objectKey,
-                memoryStream,
-                request.AudioFile.ContentType ?? "audio/webm");
+            // Upload to Cloudflare R2 — dùng MemoryStream mới từ buffer.
+            using (var uploadStream = new MemoryStream(audioBytes, writable: false))
+            {
+                audioUrl = await _storageService.UploadAudioAsync(
+                    objectKey,
+                    uploadStream,
+                    request.AudioFile.ContentType ?? "audio/webm");
+            }
 
-            // Transcribe audio using AI Service
-            memoryStream.Position = 0;
-            var sttResponse = await _aiServiceClient.TranscribeAudioAsync(
-                memoryStream,
-                Path.GetFileName(objectKey),
-                sessionId.ToString());
+            // STT — tạo MemoryStream mới từ cùng buffer (upload stream đã bị SDK close).
+            using (var sttStream = new MemoryStream(audioBytes, writable: false))
+            {
+                var sttResponse = await _aiServiceClient.TranscribeAudioAsync(
+                    sttStream,
+                    Path.GetFileName(objectKey),
+                    sessionId.ToString());
 
+                if (sttResponse.Success && !string.IsNullOrWhiteSpace(sttResponse.Transcript))
+                {
+                    transcript = sttResponse.Transcript;
+                    audioDuration = (float)sttResponse.Duration;
+                }
+            }
+        }
+        // 1b. Audio đã upload sẵn qua luồng chunked (R2 đã có 1 object gộp sẵn).
+        // Không upload lại — chỉ gắn object key và chạy STT từ storage.
+        else if (!string.IsNullOrWhiteSpace(request.AudioObjectKey))
+        {
+            storedObjectKey = await ResolveChunkedAudioKeyAsync(
+                request.AudioObjectKey, sessionId, studentId, request.QuestionId, ct);
+
+            audioUrl = storedObjectKey;
+
+            var sttResponse = await _aiServiceClient.TranscribeStoredAudioAsync(0, storedObjectKey, ct);
             if (sttResponse.Success && !string.IsNullOrWhiteSpace(sttResponse.Transcript))
             {
                 transcript = sttResponse.Transcript;
@@ -266,7 +297,14 @@ public class VivaSessionService : IVivaSessionService
             IsFollowUp = request.IsFollowUp,
             AnsweredAt = DateTime.UtcNow
         };
-        await _resultRepository.AddOrUpdateAnswerAsync(answer);
+        var savedAnswer = await _resultRepository.AddOrUpdateAnswerAsync(answer);
+        await _sessionRepository.SaveChangesAsync();
+
+        // Gắn answerId vào media_upload để liên kết 2 chiều (audit).
+        if (!string.IsNullOrWhiteSpace(request.AudioObjectKey) && savedAnswer.AnswerId > 0)
+        {
+            await _mediaUploadRepo.LinkAnswerAsync(request.AudioObjectKey, savedAnswer.AnswerId, ct);
+        }
 
         // 4. Update student enrollment state
         enrollment.LastActivityAt = DateTime.UtcNow;
@@ -325,8 +363,38 @@ public class VivaSessionService : IVivaSessionService
             CurrentQuestionIndex = enrollment.CurrentQuestionIndex ?? 0,
             TotalQuestions = totalQuestions,
             IsCompleted = isCompleted,
-            NextQuestion = nextQuestion
+            NextQuestion = nextQuestion,
+            AnswerId = savedAnswer.AnswerId
         };
+    }
+
+    /// <summary>
+    /// Kiểm chứng object key do client gửi lên thực sự là audio mà học sinh đã upload
+    /// cho đúng (session, student, question) này qua luồng chunked.
+    ///
+    /// Không tin giá trị của client: tra bảng media_uploads theo uploadId,
+    /// rồi đối chiếu SessionId / StudentId / QuestionId và trạng thái COMPLETED.
+    /// </summary>
+    private async Task<string> ResolveChunkedAudioKeyAsync(
+        string uploadId,
+        int sessionId,
+        int studentId,
+        int questionId,
+        CancellationToken ct)
+    {
+        var upload = await _mediaUploadRepo.GetByIdAsync(uploadId, ct)
+            ?? throw new InvalidOperationException("Phiên upload không tồn tại.");
+
+        if (upload.SessionId != sessionId || upload.StudentId != studentId || upload.QuestionId != questionId)
+            throw new UnauthorizedAccessException("Audio không thuộc phiên thi của bạn.");
+
+        if (upload.UploadStatus != "COMPLETED")
+            throw new InvalidOperationException("Audio chưa upload xong.");
+
+        if (string.IsNullOrWhiteSpace(upload.ObjectKey))
+            throw new InvalidOperationException("Audio chưa được lưu lên storage.");
+
+        return upload.ObjectKey;
     }
 
     public async Task<FinishVivaSessionResponse> FinishSessionAsync(

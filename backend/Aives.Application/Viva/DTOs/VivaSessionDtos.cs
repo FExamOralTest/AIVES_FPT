@@ -32,6 +32,17 @@ public class SubmitVivaAnswerRequest
     public IFormFile? AudioFile { get; set; }
     public string? TextAnswer { get; set; }
     public bool IsFollowUp { get; set; }
+
+    /// <summary>
+    /// Object key của audio ĐÃ được upload sẵn lên R2 qua luồng chunked
+    /// (POST /api/audio/chunked/*). Khi có giá trị này, backend KHÔNG upload lại
+    /// audio mà gắn thẳng object đó vào Answer và chạy STT.
+    /// </summary>
+    /// <remarks>
+    /// Backend kiểm tra key này thuộc về đúng (session, student, question) của học sinh
+    /// qua bảng media_uploads — không tin giá trị client gửi lên.
+    /// </remarks>
+    public string? AudioObjectKey { get; set; }
 }
 
 public class SubmitVivaAnswerResponse
@@ -45,6 +56,9 @@ public class SubmitVivaAnswerResponse
     public int TotalQuestions { get; set; }
     public bool IsCompleted { get; set; }
     public VivaQuestionDto? NextQuestion { get; set; }
+
+    /// <summary>PK của Answer vừa được tạo/cập nhật — dùng để tra cứu audio sau này.</summary>
+    public int AnswerId { get; set; }
 }
 
 public class FinishVivaSessionResponse
