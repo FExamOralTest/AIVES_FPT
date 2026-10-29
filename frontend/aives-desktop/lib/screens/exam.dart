@@ -389,18 +389,8 @@ class _ExamScreenState extends State<ExamScreen> {
                 style: const TextStyle(color: muted, fontSize: 12),
               ),
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  try {
-                    await Process.run('explorer.exe', [
-                      widget.draft.folder.path,
-                    ]);
-                  } catch (e) {
-                    if (context.mounted) showFailure(context, e);
-                  }
-                },
-                icon: const Icon(Icons.folder_open),
-                label: const Text('Open recordings folder'),
+              const Text(
+                'Recordings stay on this computer. Quit AIVES before opening this folder in Windows.',
               ),
             ],
           ),
