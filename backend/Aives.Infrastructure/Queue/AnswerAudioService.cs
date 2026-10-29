@@ -72,6 +72,9 @@ public class AnswerAudioService : IAnswerAudioService
         // 3. Kiểm tra quyền.
         EnsureCanUpload(result, currentUserId, currentUserRole);
 
+        if (result.Status is SubmissionStatus.CANCELLED or SubmissionStatus.PUBLISHED)
+            throw new InvalidOperationException("Invalidated or published attempts cannot accept audio.");
+
         // 4. ADMIN bypass check đã chấm điểm; STUDENT/các role khác thì không được đè.
         if (currentUserRole != UserRole.ADMIN
             && answer.Status == AnswerStatus.EVALUATED

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { toApiError } from '@/lib/http/apiError'
 import { teacherResultsApi } from '../api/teacherResultsApi'
 import type { ResultForReviewDto } from '../types'
+import { RetakePanel } from './RetakePanel'
 
 interface ResultReviewModalProps {
   result: ResultForReviewDto
@@ -20,6 +21,7 @@ interface ResultReviewModalProps {
 }
 
 export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewModalProps) {
+  const readOnly = result.status === 'CANCELLED' || result.status === 'PUBLISHED'
   const maxTotalScore = result.aiAnalysis?.maxTotalScore
     ?? result.answers.reduce((total, answer) => total + (answer.maxScore ?? 10), 0)
   const [overallScore, setOverallScore] = useState<number>(
@@ -77,6 +79,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
   }
 
   async function handleRetry(answerId: number, position: number) {
+    if (readOnly) return
     try {
       await teacherResultsApi.retryAnswer(answerId, 'Examiner requested retry')
       setRetryNotes((prev) => ({ ...prev, [answerId]: { ok: true, text: `Question ${position} was sent for re-scoring. Refresh in a few seconds.` } }))
@@ -86,6 +89,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
   }
 
   async function handleSaveReview() {
+    if (readOnly) return null
     if (!validateReviewScores()) return null
 
     setIsSaving(true)
@@ -113,6 +117,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
   }
 
   async function handlePublish() {
+    if (readOnly) return
     setIsPublishing(true)
     setErrorMessage(null)
     try {
@@ -157,6 +162,9 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
             </div>
           )}
 
+          {result.status === 'CANCELLED' && <p role="status" className="rounded-xl bg-muted p-3 text-sm">Lượt thi đã hủy hiệu lực. Điểm dưới đây chỉ được giữ làm lịch sử.</p>}
+          <RetakePanel result={result} onGranted={() => onUpdated({ ...result, status: 'CANCELLED' })} />
+
           {/* Overall Review Summary */}
           <section className="rounded-2xl border bg-gradient-to-br from-brand-soft/30 via-background to-card p-6">
             <h3 className="font-heading text-base font-semibold text-foreground flex items-center gap-2">
@@ -170,6 +178,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                   Score (0 - {maxTotalScore})
                 </label>
                 <input
+                  disabled={readOnly}
                   type="number"
                   step="0.1"
                   min="0"
@@ -191,6 +200,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                 </label>
                 <textarea
                   rows={3}
+                  disabled={readOnly}
                   value={overallFeedback}
                   onChange={(e) => setOverallFeedback(e.target.value)}
                   placeholder="Write overall feedback for the student..."
@@ -250,7 +260,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                 </p>
 
                 {/* Error Banner & Retry Button if ERROR */}
-                {answer.status === 'ERROR' && (
+                {answer.status === 'ERROR' && !readOnly && (
                   <div className="flex items-center justify-between rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
                     <div>
                       <p className="font-semibold">The answer could not be analysed:</p>
@@ -303,6 +313,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                       Score for this question (0 - {answer.maxScore ?? 10})
                     </label>
                     <input
+                      disabled={readOnly}
                       type="number"
                       step="0.1"
                       min="0"
@@ -323,6 +334,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                       Examiner's note for this question
                     </label>
                     <input
+                      disabled={readOnly}
                       type="text"
                       value={answerComments[answer.answerId] ?? ''}
                       onChange={(e) =>
@@ -351,7 +363,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
             <Button
               variant="outline"
               onClick={handleSaveReview}
-              disabled={isSaving || isPublishing}
+              disabled={readOnly || isSaving || isPublishing}
               className="gap-2"
             >
               <Save className="size-4" />
@@ -360,7 +372,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
 
             <Button
               onClick={handlePublish}
-              disabled={isSaving || isPublishing}
+              disabled={readOnly || isSaving || isPublishing}
               className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <CheckCircle2 className="size-4" />

@@ -117,6 +117,7 @@ function SessionSummary({ session }: { session: StudentSessionEnrollment }) {
   return (
     <div className="min-w-0">
       <p className="font-heading font-medium">{session.examTitle}</p>
+      {session.retakeId && <p className="text-sm text-brand">Thi bù được cấp phép · {session.retakeDurationMinutes} phút · {session.retakeReason}</p>}
       <p className="truncate text-sm text-muted-foreground">
         {session.courseName} · {session.sessionName}
         {session.room ? ` · ${session.room}` : ''}

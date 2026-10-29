@@ -12,6 +12,7 @@ public class StartVivaSessionResponse
     public int CurrentQuestionIndex { get; set; }
     public VivaQuestionDto? CurrentQuestion { get; set; }
     public DateTime? StartedAt { get; set; }
+    public DateTime? EndsAt { get; set; }
 }
 
 public class VivaQuestionDto

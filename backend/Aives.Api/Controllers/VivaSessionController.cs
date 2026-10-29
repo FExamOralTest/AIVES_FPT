@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Aives.Application.Viva.DTOs;
 using Aives.Application.Viva.Interfaces;
@@ -49,6 +50,10 @@ public class VivaSessionController : ControllerBase
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
@@ -82,6 +87,10 @@ public class VivaSessionController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
         }
         catch (InvalidOperationException ex)
         {
@@ -121,6 +130,10 @@ public class VivaSessionController : ControllerBase
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
@@ -154,6 +167,10 @@ public class VivaSessionController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
         }
         catch (InvalidOperationException ex)
         {

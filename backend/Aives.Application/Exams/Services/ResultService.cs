@@ -17,19 +17,21 @@ public class ResultService : IResultService
     private readonly IUserRepository _userRepository;
     private readonly IStorageService _storageService;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IRetakeService? _retakes;
 
     public ResultService(
         IResultRepository resultRepository,
         IExamSessionRepository sessionRepository,
         IUserRepository userRepository,
         IStorageService storageService,
-        IAuditLogRepository auditLogRepository)
+        IAuditLogRepository auditLogRepository, IRetakeService? retakes = null)
     {
         _resultRepository = resultRepository;
         _sessionRepository = sessionRepository;
         _userRepository = userRepository;
         _storageService = storageService;
         _auditLogRepository = auditLogRepository;
+        _retakes = retakes;
     }
 
     public async Task<IEnumerable<ResultForReviewDto>> GetResultsForReviewAsync(int sessionId, int teacherId)
@@ -67,6 +69,8 @@ public class ResultService : IResultService
         var session = await _sessionRepository.GetByIdAsync(result.SessionId);
 
         await EnsureAccessAsync(teacherId, session?.ScheduledBy ?? -1);
+
+        if (_retakes is not null) await _retakes.EnsureSubmittedAsync(resultId);
 
         // BR-10: Chỉ review được kết quả đang ở trạng thái PENDING_REVIEW hoặc REVIEWED
         if (result.Status != SubmissionStatus.PENDING_REVIEW && result.Status != SubmissionStatus.REVIEWED)
@@ -144,6 +148,8 @@ public class ResultService : IResultService
 
         await EnsureAccessAsync(teacherId, session?.ScheduledBy ?? -1);
 
+        if (_retakes is not null) await _retakes.EnsureSubmittedAsync(resultId);
+
         // BR-10: Không publish kết quả đã publish hoặc chưa review
         if (result.Status == SubmissionStatus.PUBLISHED)
             throw new InvalidOperationException("Result is already published.");
@@ -201,7 +207,9 @@ public class ResultService : IResultService
                 ExamTitle = result.Session?.Exam?.Title ?? "",
                 Status = result.Status?.ToString() ?? "",
                 IsPublished = false,
-                Message = "Kết quả bài thi đang được khảo thí thẩm định và duyệt. Vui lòng quay lại sau.",
+                Message = result.Status == SubmissionStatus.CANCELLED
+                    ? "Lượt thi này đã hủy hiệu lực. Mở danh sách ca thi để xem ca thi bù được cấp (nếu có)."
+                    : "Kết quả bài thi đang được khảo thí thẩm định và duyệt. Vui lòng quay lại sau.",
                 SubmittedAt = result.SubmittedAt
             };
         }

@@ -43,6 +43,9 @@ public class AnswerOrchestrator : IAnswerOrchestrator
         if (answer == null)
             return SttFail(SttErrorCode.Unknown, $"Answer {answerId} not found.", false);
 
+        if (answer.Result.Status is SubmissionStatus.CANCELLED or SubmissionStatus.PUBLISHED)
+            return EvalFail("attempt_closed", "Invalidated or published attempts cannot be graded.");
+
         if (answer.Status == AnswerStatus.EVALUATED && answer.AiScore.HasValue)
             return new OrchestrationResult { Success = true };
 

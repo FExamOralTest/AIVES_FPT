@@ -12,6 +12,7 @@ import type { ResultForReviewDto } from '../types'
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   PENDING_REVIEW: { label: 'Pending review', badgeClass: 'bg-warning-soft text-warning' },
   REVIEWED: { label: 'Reviewed', badgeClass: 'bg-brand-soft text-brand' },
+  CANCELLED: { label: 'Hủy hiệu lực', badgeClass: 'bg-muted text-muted-foreground' },
   PUBLISHED: { label: 'Published', badgeClass: 'bg-success-soft text-success' },
 }
 
@@ -53,7 +54,7 @@ export default function TeacherResultsPage() {
   function handleUpdatedResult(updated: ResultForReviewDto) {
     // Published results leave the review queue; reviewed ones stay until published.
     pending.update((list) =>
-      updated.status === 'PUBLISHED' ? list.filter((r) => r.resultId !== updated.resultId) : list.map((r) => (r.resultId === updated.resultId ? updated : r)),
+      (updated.status === 'PUBLISHED' || updated.status === 'CANCELLED') ? list.filter((r) => r.resultId !== updated.resultId) : list.map((r) => (r.resultId === updated.resultId ? updated : r)),
     )
     lookup.update((list) => list.map((r) => (r.resultId === updated.resultId ? updated : r)))
     if (selectedResult?.resultId === updated.resultId) setSelectedResult(updated)

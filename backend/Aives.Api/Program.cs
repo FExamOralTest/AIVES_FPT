@@ -163,6 +163,7 @@ builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
 builder.Services.AddScoped<IVivaSessionService, VivaSessionService>();
+builder.Services.AddScoped<IRetakeService, Aives.Infrastructure.Exams.RetakeService>();
 
 // Cloudflare R2 Object Storage (S3-Compatible)
 builder.Services.Configure<CloudflareR2Options>(builder.Configuration.GetSection(CloudflareR2Options.SectionName));

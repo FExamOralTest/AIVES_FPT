@@ -32,6 +32,8 @@ public partial class AivesDbContext : DbContext
 
     public virtual DbSet<Result> Results { get; set; }
 
+    public DbSet<ExamRetake> ExamRetakes { get; set; }
+
     public virtual DbSet<SessionEnrollment> SessionEnrollments { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
@@ -395,10 +397,10 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.ReviewedAt).HasColumnName("reviewed_at");
             entity.Property(e => e.ReviewedBy).HasColumnName("reviewed_by");
             entity.Property(e => e.SessionId).HasColumnName("session_id");
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.Status).HasColumnName("status").IsConcurrencyToken();
             entity.Property(e => e.StudentId).HasColumnName("student_id");
             entity.Property(e => e.SubmittedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedNever()
                 .HasColumnName("submitted_at");
 
             entity.HasOne(d => d.ReviewedByNavigation).WithMany(p => p.ResultReviewedByNavigations)
@@ -419,6 +421,28 @@ public partial class AivesDbContext : DbContext
             entity.HasOne(d => d.Student).WithMany(p => p.ResultStudents)
                 .HasForeignKey(d => d.StudentId)
                 .HasConstraintName("results_student_id_fkey");
+        });
+
+        modelBuilder.Entity<ExamRetake>(entity =>
+        {
+            entity.ToTable("exam_retakes", t => t.HasCheckConstraint("ck_retake_duration", "duration_minutes BETWEEN 1 AND 240"));
+            entity.HasKey(e => e.RetakeId);
+            entity.Property(e => e.RetakeId).HasColumnName("retake_id").UseIdentityAlwaysColumn();
+            entity.Property(e => e.OriginalResultId).HasColumnName("original_result_id");
+            entity.Property(e => e.RetakeSessionId).HasColumnName("retake_session_id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id");
+            entity.Property(e => e.GrantedBy).HasColumnName("granted_by");
+            entity.Property(e => e.Reason).HasColumnName("reason").HasMaxLength(1000);
+            entity.Property(e => e.GrantedAt).HasColumnName("granted_at");
+            entity.Property(e => e.DurationMinutes).HasColumnName("duration_minutes");
+            entity.Property(e => e.ConsumedAt).HasColumnName("consumed_at").IsConcurrencyToken();
+            entity.Property(e => e.Revision).HasColumnName("revision").IsConcurrencyToken();
+            entity.HasIndex(e => e.OriginalResultId).IsUnique();
+            entity.HasIndex(e => e.RetakeSessionId).IsUnique();
+            entity.HasOne(e => e.OriginalResult).WithMany().HasForeignKey(e => e.OriginalResultId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RetakeSession).WithMany().HasForeignKey(e => e.RetakeSessionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.StudentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.GrantedBy).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<SessionEnrollment>(entity =>
@@ -442,8 +466,8 @@ public partial class AivesDbContext : DbContext
                 .HasColumnName("enrolled_at");
             entity.Property(e => e.LastActivityAt).HasColumnName("last_activity_at");
             entity.Property(e => e.SessionId).HasColumnName("session_id");
-            entity.Property(e => e.StartedAt).HasColumnName("started_at");
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.StartedAt).HasColumnName("started_at").IsConcurrencyToken();
+            entity.Property(e => e.Status).HasColumnName("status").IsConcurrencyToken();
             entity.Property(e => e.StudentId).HasColumnName("student_id");
 
             entity.HasOne(d => d.Session).WithMany(p => p.SessionEnrollments)

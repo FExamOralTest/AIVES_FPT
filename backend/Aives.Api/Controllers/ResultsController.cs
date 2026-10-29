@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
@@ -131,6 +132,10 @@ public class ResultsController : ControllerBase
         {
             return Forbid();
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
+        }
         catch (InvalidOperationException ex)
         {
             if (ex.Message.Contains("already published") || ex.Message.Contains("Cannot review"))
@@ -169,6 +174,10 @@ public class ResultsController : ControllerBase
         catch (UnauthorizedAccessException)
         {
             return Forbid();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
         }
         catch (InvalidOperationException ex)
         {

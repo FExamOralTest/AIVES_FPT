@@ -1,7 +1,16 @@
 import { http } from '@/lib/http/client'
-import type { ResultForReviewDto, ReviewResultRequest } from '../types'
+import type { ResultForReviewDto, ReviewResultRequest, RetakeDto, GrantRetakeRequest } from '../types'
 
 export const teacherResultsApi = {
+  async retakeHistory(resultId: number): Promise<RetakeDto[]> {
+    return (await http.get<RetakeDto[]>(`/api/results/${resultId}/retake-history`)).data
+  },
+  async grantRetake(resultId: number, body: GrantRetakeRequest): Promise<RetakeDto> {
+    return (await http.post<RetakeDto>(`/api/results/${resultId}/retake`, body)).data
+  },
+  async rescheduleRetake(retakeId: number, body: GrantRetakeRequest): Promise<RetakeDto> {
+    return (await http.put<RetakeDto>(`/api/retakes/${retakeId}/schedule`, body)).data
+  },
   /** Results in PENDING_REVIEW or REVIEWED, newest first. */
   async listPending(): Promise<ResultForReviewDto[]> {
     const { data } = await http.get<ResultForReviewDto[]>('/api/results/pending')
