@@ -37,9 +37,10 @@ public class ExamSessionSlotTests : IDisposable
         var userRepo = new UserRepository(_db);
         var questionRepo = new QuestionBankRepository(_db);
         var resultRepo = new ResultRepository(_db);
-        var docRepo = new MarkdownDocumentRepository(_db);
         var aiClient = new MockAiServiceClient();
-        var storageSvc = new MockStorageService();
+        var storageSvc = new FakeStorageService();
+        var queueSvc = new FakeQueueService();
+        var mediaUploadRepo = new MediaUploadRepository(_db);
         var logger = NullLogger<VivaSessionService>.Instance;
 
         _staffService = new StaffService(sessionRepo, examRepo, uow, courseSvc, userRepo);
@@ -49,8 +50,9 @@ public class ExamSessionSlotTests : IDisposable
             questionRepo,
             resultRepo,
             aiClient,
-            docRepo,
             storageSvc,
+            queueSvc,
+            mediaUploadRepo,
             logger);
     }
 
@@ -515,17 +517,5 @@ public class ExamSessionSlotTests : IDisposable
             => Task.FromResult(new EvaluateSessionResponse { Success = true, TotalScore = 10 });
     }
 
-    private class MockStorageService : IStorageService
-    {
-        public Task<string> UploadAudioAsync(string objectKey, Stream content, string contentType, CancellationToken cancellationToken = default)
-            => Task.FromResult($"https://r2.storage/{objectKey}");
-        public string GeneratePresignedGetUrl(string objectKey, TimeSpan duration)
-            => $"https://r2.storage/{objectKey}?signed";
-        public string? ResolvePlaybackUrl(string? audioKeyOrUrl, TimeSpan? duration = null)
-            => audioKeyOrUrl;
-        public Task<bool> DeleteAudioAsync(string objectKey, CancellationToken cancellationToken = default)
-            => Task.FromResult(true);
-        public Task<bool> ExistsAsync(string objectKey, CancellationToken cancellationToken = default)
-            => Task.FromResult(true);
-    }
+
 }
