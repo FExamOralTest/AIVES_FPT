@@ -24,6 +24,7 @@ import { QuestionCard } from '../components/QuestionCard'
 import { VivaSessionPicker } from '../components/VivaSessionPicker'
 import { VivaWaveform } from '../components/VivaWaveform'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
+import { useChunkedUpload } from '../hooks/useChunkedUpload'
 import { useCountdown } from '../hooks/useCountdown'
 import type { StartVivaSessionResponse, VivaQuestionDto } from '../types'
 
@@ -47,6 +48,7 @@ export default function VivaRoomPage() {
   const [followUpAlert, setFollowUpAlert] = useState<string | null>(null)
 
   const recorder = useAudioRecorder()
+  const chunked = useChunkedUpload()
   const textInputId = useId()
   const autoStartedSession = useRef<string | null>(null)
   // Guards against finishing twice (Submit early racing the timer).
@@ -87,6 +89,15 @@ export default function VivaRoomPage() {
       setTextAnswer(textToFill.trim())
     }
   }
+
+  // Abort any in-flight chunked upload when the student leaves the room,
+  // so the server-side multipart session is cleaned up instead of lingering.
+  useEffect(() => {
+    return () => {
+      chunked.cancel()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleStartSession = useCallback(async (rawId: string) => {
     const value = rawId.trim()
@@ -130,7 +141,8 @@ export default function VivaRoomPage() {
   async function handleSubmitAnswer() {
     if (!session || !currentQuestion) return
 
-    const hasAudio = Boolean(recorder.audioBlob)
+    const audioBlob = recorder.audioBlob
+    const hasAudio = Boolean(audioBlob)
     const hasText = Boolean(textAnswer.trim())
 
     if (!hasAudio && !hasText) {
@@ -143,9 +155,24 @@ export default function VivaRoomPage() {
     setFollowUpAlert(null)
 
     try {
+      // Bước 1: nếu có audio → chia chunk ở máy người dùng và upload lên server.
+      // Server gộp thành 1 file local rồi upload 1 file lớn duy nhất lên R2;
+      // chunk tạm trên máy user bị xóa sau đó.
+      let audioUploadId: string | undefined
+      if (audioBlob) {
+        audioUploadId = await chunked.upload({
+          sessionId: session.sessionId,
+          questionId: currentQuestion.questionId,
+          file: audioBlob,
+          fileName: `answer.${audioExtension(audioBlob.type)}`,
+        })
+      }
+
+      // Bước 2: nộp câu trả lời — chỉ gửi uploadId nếu audio đã upload chunked.
       const res = await vivaApi.submitAnswer(
         session.sessionId,
-        answerForm(currentQuestion, recorder.audioBlob, textAnswer.trim()),
+        answerForm(currentQuestion, audioUploadId ? null : audioBlob, textAnswer.trim()),
+        audioUploadId,
       )
 
       if (res.transcript) {
@@ -202,7 +229,26 @@ export default function VivaRoomPage() {
       const answer = textAnswer.trim() || text
       if (currentQuestion && !isSubmitting && (audio || answer)) {
         try {
-          await vivaApi.submitAnswer(session.sessionId, answerForm(currentQuestion, audio, answer))
+          // Chunk audio trước (nếu có) rồi submit bằng uploadId.
+          // Giống hệt handleSubmitAnswer: server gộp chunk thành 1 file local
+          // rồi upload 1 file lớn lên R2.
+          let audioUploadId: string | undefined
+          if (audio) {
+            audioUploadId = await chunked.upload({
+              sessionId: session.sessionId,
+              questionId: currentQuestion.questionId,
+              file: audio,
+              fileName: `answer.${audioExtension(audio.type)}`,
+            })
+          }
+          const res = await vivaApi.submitAnswer(
+            session.sessionId,
+            answerForm(currentQuestion, audioUploadId ? null : audio, answer),
+            audioUploadId,
+          )
+          // Không cần theo dõi res.isCompleted ở đây — handleTimeUp luôn
+          // finish session ngay sau đó.
+          void res
         } catch {
           // Still finish: the answers submitted before this one are kept.
         }
@@ -217,7 +263,7 @@ export default function VivaRoomPage() {
     } finally {
       setIsFinishing(false)
     }
-  }, [session, isCompleted, currentQuestion, textAnswer, isSubmitting, stopAndCollect])
+  }, [session, isCompleted, currentQuestion, textAnswer, isSubmitting, stopAndCollect, chunked])
 
   const remainingMs = useCountdown(endsAt, () => void handleTimeUp())
   const isTimeUp = remainingMs === 0
@@ -624,18 +670,78 @@ export default function VivaRoomPage() {
           </div>
         )}
 
+        {/* Chunked upload progress — hiển thị khi đang gửi từng chunk lên storage */}
+        {chunked.isUploading && chunked.progress && (
+          <div className="mt-4 rounded-2xl border border-brand/20 bg-brand/5 p-4 text-sm">
+            <div className="mb-2 flex items-center gap-2 font-medium text-brand text-xs uppercase tracking-wider">
+              <Loader2 className="size-3.5 animate-spin" />
+              {chunked.progress.phase === 'completing'
+                ? 'Saving your recording and uploading it to the server…'
+                : `Uploading your recording (part ${chunked.progress.uploaded}/${chunked.progress.total})`}
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand/15">
+              <div
+                className="h-full rounded-full bg-brand transition-all duration-300"
+                style={{
+                  width: `${chunked.progress.total > 0
+                    ? Math.round((chunked.progress.uploaded / chunked.progress.total) * 100)
+                    : 0}%`,
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => chunked.cancel()}
+              className="mt-3 text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Cancel upload
+            </button>
+          </div>
+        )}
+
+        {/* Đường dẫn file local đã lưu (local-first) — hiển thị để học sinh/giáo viên đối chiếu */}
+        {chunked.localFilePath && (
+          <div className="mt-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Saved locally: </span>
+            <code className="break-all">{chunked.localFilePath}</code>
+          </div>
+        )}
+
+        {/* Cảnh báo: audio KHÔNG lên được Cloudflare R2 — chỉ nằm trên đĩa local server */}
+        {chunked.storageWarning && (
+          <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <p className="font-medium">Your recording was saved on the local server only — it could not be uploaded to Cloudflare R2.</p>
+            <p className="mt-1 opacity-80">{chunked.storageWarning.error}</p>
+            {chunked.storageWarning.hint && (
+              <p className="mt-1 opacity-70">{chunked.storageWarning.hint}</p>
+            )}
+          </div>
+        )}
+
         {/* Submit action */}
         <div className="mt-6 flex justify-end">
           <Button
             size="lg"
             onClick={handleSubmitAnswer}
-            disabled={isSubmitting || isLocked || recorder.isRecording || (!recorder.audioBlob && !textAnswer.trim())}
+            disabled={
+              isSubmitting ||
+              chunked.isUploading ||
+              isLocked ||
+              recorder.isRecording ||
+              recorder.isProcessingAudio ||
+              (!recorder.audioBlob && !textAnswer.trim())
+            }
             className="gap-2 rounded-xl px-7"
           >
-            {isSubmitting ? (
+            {isSubmitting || chunked.isUploading ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Processing your answer…
+                {chunked.isUploading ? 'Uploading audio…' : 'Processing your answer…'}
+              </>
+            ) : recorder.isProcessingAudio ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Preparing audio…
               </>
             ) : (
               <>
@@ -669,7 +775,6 @@ function formatRemaining(ms: number) {
   const secs = total % 60
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
-
 /** "audio/webm;codecs=opus" → "webm", "audio/mp4" → "m4a"; MediaRecorder output varies by browser. */
 function audioExtension(mimeType: string) {
   if (mimeType.includes('mp4')) return 'm4a'
@@ -677,3 +782,4 @@ function audioExtension(mimeType: string) {
   if (mimeType.includes('wav')) return 'wav'
   return 'webm'
 }
+

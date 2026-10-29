@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
@@ -25,6 +26,19 @@ public class CloudflareR2StorageService : IStorageService
     private readonly ILogger<CloudflareR2StorageService> _logger;
     private readonly IAmazonS3? _s3Client;
 
+    /// <summary>
+    /// Serialize mọi thao tác PUT lên R2.
+    ///
+    /// Lý do: AWS SDK v4 + Cloudflare R2 có thể trả
+    /// "The request signature we calculated does not match the signature you provided"
+    /// khi nhiều request chạy ĐỒNG THỜI trên cùng 1 AmazonS3Client —
+    /// SDK ghi header runtime vào HttpClient dùng chung, header của request trước
+    /// còn sót lại → SignedHeaders của request sau lệch với chữ ký server tính ra.
+    /// Serialize upload loại bỏ hoàn toàn khả năng này.
+    /// (Lưu ý: đây là hàng đợi 1 luồng — throughput R2 không phải điểm nghẽn ở đây.)
+    /// </summary>
+    private static readonly SemaphoreSlim UploadGate = new(1, 1);
+
     public CloudflareR2StorageService(
         IOptions<CloudflareR2Options> options,
         ILogger<CloudflareR2StorageService> logger)
@@ -40,24 +54,33 @@ public class CloudflareR2StorageService : IStorageService
 
                 // Cloudflare R2 yêu cầu TLS 1.2+. Một số môi trường Windows không tự negotiate
                 // được TLS 1.3 với R2 endpoint → dùng HttpClientFactory custom để ép TLS 1.2.
-                var httpHandler = new HttpClientHandler
-                {
-                    SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
-                    // Cho phép tất cả server cert trong dev — production nên bỏ dòng này
-                    // hoặc cấu hình cert pinning riêng.
-                };
-
                 var s3Config = new AmazonS3Config
                 {
                     ServiceURL = serviceUrl,
                     ForcePathStyle = true,
                     AuthenticationRegion = "auto",
-                    HttpClientFactory = new R2HttpClientFactory(httpHandler)
+                    // Cloudflare R2 KHÔNG hỗ trợ aws-chunked streaming signature với
+                    // trailer (STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER).
+                    // AWS SDK v4 mặc định bật checksum → sinh payload trailer → R2 trả lỗi
+                    // "not implemented" khi upload part.
+                    // WHEN_REQUIRED = chỉ tính checksum cho operation bắt buộc (S3 yêu cầu),
+                    // bỏ qua checksum tùy chọn (CRC32/CRC32C) cho UploadPart/UploadPart.
+                    RequestChecksumCalculation = Amazon.Runtime.RequestChecksumCalculation.WHEN_REQUIRED,
+                    ResponseChecksumValidation = Amazon.Runtime.ResponseChecksumValidation.WHEN_REQUIRED
+                    // KHÔNG dùng custom HttpClientFactory.
+                    // Lý do: HttpClientFactory dùng chung 1 HttpClient cho MỌI request →
+                    // AWS SDK v4 ghi các header runtime (amz-sdk-invocation-id, amz-sdk-request,
+                    // x-amz-user-agent) vào DefaultRequestHeaders của HttpClient đó. Những
+                    // header này tồn tại qua các request sau và bị tính vào SignedHeaders
+                    // → R2 tính lại chữ ký KHÁC với chữ ký client gửi đi → lỗi
+                    // "The request signature we calculated does not match the signature you provided".
+                    // .NET 8 tự negotiate TLS 1.2/1.3 với endpoint R2 nên không cần ép TLS thủ công.
                 };
 
                 _s3Client = new AmazonS3Client(_options.AccessKeyId, _options.SecretAccessKey, s3Config);
-                _logger.LogInformation("Cloudflare R2 Storage Service initialized successfully for bucket '{Bucket}' at '{ServiceUrl}'",
-                    _options.BucketName, serviceUrl);
+                _logger.LogInformation(
+                    "Cloudflare R2 Storage Service initialized successfully for bucket '{Bucket}' at '{ServiceUrl}' (accessKeyId={KeyPrefix}...)",
+                    _options.BucketName, serviceUrl, MaskKey(_options.AccessKeyId));
             }
             catch (Exception ex)
             {
@@ -69,6 +92,29 @@ public class CloudflareR2StorageService : IStorageService
         {
             _logger.LogInformation("Cloudflare R2 is not fully configured (AccountId/Keys missing). Operating in Local Storage Fallback mode.");
         }
+    }
+
+    /// <summary>
+    /// Chuẩn hóa Content-Type trước khi gửi lên R2.
+    ///
+    /// VÌ SAO CẦN: MediaRecorder trả về file.type = "audio/webm;codecs=opus".
+    /// Header "Content-Type: audio/webm;codecs=opus" (có tham số) khiến R2
+    /// TỪ CHỐI request với "The request signature we calculated does not match
+    /// the signature you provided" — vì chữ ký SigV4 được tính trên header gốc,
+    /// còn R2 parse lại header canonical theo chuẩn media-type (bỏ tham số).
+    /// → Mọi tham số phải được bỏ trước khi ký.
+    ///
+    /// Chỉ giữ lại phần "type/subtype" và ép về chữ thường.
+    /// </summary>
+    private static string NormalizeContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+            return "audio/webm";
+
+        // Cắt tại dấu ';' để loại bỏ toàn bộ tham số (codecs, charset, ...)
+        var mainType = contentType.Split(';')[0].Trim().ToLowerInvariant();
+
+        return string.IsNullOrWhiteSpace(mainType) ? "audio/webm" : mainType;
     }
 
     /// <inheritdoc/>
@@ -97,6 +143,7 @@ public class CloudflareR2StorageService : IStorageService
 
         if (_s3Client != null)
         {
+            await UploadGate.WaitAsync(cancellationToken);
             try
             {
                 using var s3Stream = new MemoryStream(buffer, writable: false);
@@ -105,7 +152,7 @@ public class CloudflareR2StorageService : IStorageService
                     BucketName = _options.BucketName,
                     Key = objectKey,
                     InputStream = s3Stream,
-                    ContentType = string.IsNullOrWhiteSpace(contentType) ? "audio/webm" : contentType,
+                    ContentType = NormalizeContentType(contentType),
                     DisablePayloadSigning = true
                 };
 
@@ -123,11 +170,186 @@ public class CloudflareR2StorageService : IStorageService
 
                 _logger.LogWarning("Falling back to local disk storage for key '{Key}'", objectKey);
             }
+            finally
+            {
+                UploadGate.Release();
+            }
         }
 
         // Local Storage Fallback — tạo MemoryStream MỚI từ buffer, không reuse stream cũ.
         using var localStream = new MemoryStream(buffer, writable: false);
         return await SaveToLocalDiskAsync(objectKey, localStream, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<LocalFileUploadResult> UploadLocalFileAsync(
+        string objectKey,
+        string localFilePath,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(objectKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(localFilePath);
+
+        if (!File.Exists(localFilePath))
+            throw new FileNotFoundException($"File local không tồn tại: {localFilePath}", localFilePath);
+
+        objectKey = objectKey.TrimStart('/');
+
+        if (_s3Client != null)
+        {
+            await UploadGate.WaitAsync(cancellationToken);
+            try
+            {
+                // Stream trực tiếp từ đĩa — không buffer toàn bộ file vào RAM.
+                await using var fileStream = new FileStream(
+                    localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, useAsync: true);
+
+                var putRequest = new PutObjectRequest
+                {
+                    BucketName = _options.BucketName,
+                    Key = objectKey,
+                    InputStream = fileStream,
+                    ContentType = NormalizeContentType(contentType),
+                    // R2 không hỗ trợ aws-chunked streaming signature → unsigned payload.
+                    DisablePayloadSigning = true
+                };
+
+                var response = await _s3Client.PutObjectAsync(putRequest, cancellationToken);
+                var fileInfo = new FileInfo(localFilePath);
+                _logger.LogInformation(
+                    "Local file uploaded to Cloudflare R2: key='{Key}', source='{Source}', size={Size} bytes, status={StatusCode}",
+                    objectKey, localFilePath, fileInfo.Length, response.HttpStatusCode);
+
+                return new LocalFileUploadResult { ObjectKey = objectKey, UsedFallback = false };
+            }
+            catch (Exception ex)
+            {
+                var hint = BuildCredentialHint(ex);
+
+                _logger.LogError(
+                    ex,
+                    "Failed to upload local file to Cloudflare R2. key='{Key}', source='{Source}', bucket='{Bucket}', endpoint='{Endpoint}', accessKeyId={KeyPrefix}. " +
+                    "Check the R2 credentials (Access Key Id / Secret Access Key / Account Id) and the bucket name. Hint: {Hint}",
+                    objectKey, localFilePath, _options.BucketName, _options.GetEffectiveServiceUrl(),
+                    MaskKey(_options.AccessKeyId), hint);
+
+                if (!_options.UseLocalStorageFallback)
+                    throw;
+
+                _logger.LogWarning(
+                    "Falling back to local disk storage for key '{Key}'. Audio KHÔNG có trên R2 — chỉ nằm trên đĩa local.",
+                    objectKey);
+            }
+            finally
+            {
+                UploadGate.Release();
+            }
+        }
+
+        // Fallback: copy sang wwwroot/uploads/audio để vẫn phát lại được.
+        var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "audio");
+        Directory.CreateDirectory(uploadsDir);
+        var fileName = Path.GetFileName(objectKey);
+        if (string.IsNullOrWhiteSpace(fileName)) fileName = $"{DateTime.UtcNow.Ticks}.webm";
+        var fallbackPath = Path.Combine(uploadsDir, fileName);
+        File.Copy(localFilePath, fallbackPath, overwrite: true);
+
+        _logger.LogInformation("Audio copied to local disk fallback: '{FilePath}'", fallbackPath);
+
+        return new LocalFileUploadResult
+        {
+            ObjectKey = $"/uploads/audio/{fileName}",
+            UsedFallback = true,
+            ErrorMessage = _s3Client == null
+                ? "Cloudflare R2 chưa được cấu hình (thiếu AccountId / AccessKeyId / SecretAccessKey)."
+                : "Không thể upload lên Cloudflare R2.",
+            Hint = "Kiểm tra CloudflareR2:AccountId, AccessKeyId, SecretAccessKey, BucketName trong appsettings.Development.json."
+        };
+    }
+
+    /// <summary>
+    /// Dựng gợi ý khắc phục dựa trên loại lỗi S3 — giúp vận hành không phải đoán mò.
+    /// </summary>
+    private static string BuildCredentialHint(Exception ex)
+    {
+        if (ex is AmazonS3Exception s3Ex)
+        {
+            return s3Ex.StatusCode switch
+            {
+                System.Net.HttpStatusCode.Forbidden =>
+                    "Access Key Id / Secret Access Key sai, hoặc key không có quyền trên bucket này.",
+                System.Net.HttpStatusCode.NotFound =>
+                    "Bucket không tồn tại — kiểm tra lại BucketName.",
+                System.Net.HttpStatusCode.BadRequest =>
+                    "Endpoint/Account Id sai, hoặc request không hợp lệ với R2.",
+                _ => "Kiểm tra Account Id (endpoint), quyền của R2 API Token và tên bucket."
+            };
+        }
+
+        var msg = ex.Message;
+        if (msg.Contains("length", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("credential", StringComparison.OrdinalIgnoreCase))
+            return "Key sai định dạng hoặc không hợp lệ — copy lại Access Key Id / Secret Access Key từ Cloudflare Dashboard (S3 API Token).";
+
+        return "Kiểm tra kết nối mạng tới endpoint R2 và Account Id.";
+    }
+
+    /// <inheritdoc/>
+    public async Task<StorageHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        var result = new StorageHealthResult
+        {
+            ServiceUrl = _options.GetEffectiveServiceUrl(),
+            BucketName = _options.BucketName,
+            AccessKeyIdPrefix = MaskKey(_options.AccessKeyId)
+        };
+
+        if (_s3Client == null)
+        {
+            result.IsHealthy = false;
+            result.ErrorMessage = _options.IsConfigured
+                ? "Không khởi tạo được S3 client cho Cloudflare R2."
+                : "Cloudflare R2 chưa được cấu hình (thiếu AccountId / AccessKeyId / SecretAccessKey).";
+            result.Hint = "Điền CloudflareR2:AccountId, AccessKeyId, SecretAccessKey, BucketName trong appsettings.Development.json.";
+            return result;
+        }
+
+        try
+        {
+            // ListObjects với MaxKeys=1 — xác nhận credentials + bucket + endpoint đều đúng.
+            await _s3Client.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName = _options.BucketName,
+                MaxKeys = 1
+            }, cancellationToken);
+
+            result.IsHealthy = true;
+            _logger.LogInformation(
+                "Storage health check OK: bucket='{Bucket}', endpoint='{Endpoint}', accessKeyId={KeyPrefix}",
+                _options.BucketName, result.ServiceUrl, result.AccessKeyIdPrefix);
+        }
+        catch (AmazonS3Exception ex)
+        {
+            result.IsHealthy = false;
+            result.ErrorMessage = ex.Message;
+            result.Hint = ex.StatusCode == System.Net.HttpStatusCode.Forbidden
+                ? "Access Key Id / Secret Access Key sai, hoặc key không có quyền trên bucket này."
+                : ex.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? "Bucket không tồn tại — kiểm tra lại BucketName."
+                    : "Kiểm tra Account Id (endpoint) và quyền của R2 API Token.";
+            _logger.LogError(ex, "Storage health check FAILED: bucket='{Bucket}', endpoint='{Endpoint}'",
+                _options.BucketName, result.ServiceUrl);
+        }
+        catch (Exception ex)
+        {
+            result.IsHealthy = false;
+            result.ErrorMessage = ex.Message;
+            result.Hint = "Không kết nối được tới endpoint Cloudflare R2 — kiểm tra mạng và Account Id.";
+            _logger.LogError(ex, "Storage health check FAILED with unexpected error");
+        }
+
+        return result;
     }
 
     /// <inheritdoc/>
@@ -304,23 +526,173 @@ public class CloudflareR2StorageService : IStorageService
         _logger.LogInformation("Audio saved to local disk fallback: '{FilePath}'", filePath);
         return $"/uploads/audio/{fileName}";
     }
-}
 
-/// <summary>
-/// HttpClientFactory tùy chỉnh để inject HttpClientHandler với cấu hình TLS vào AWS SDK.
-/// Cần thiết vì AmazonS3Config không expose trực tiếp SslProtocols.
-/// </summary>
-internal sealed class R2HttpClientFactory : Amazon.Runtime.HttpClientFactory
-{
-    private readonly HttpClientHandler _handler;
-    private readonly HttpClient _client;
+    // -----------------------------------------------------------------------
+    // S3 Multipart Upload
+    // -----------------------------------------------------------------------
 
-    public R2HttpClientFactory(HttpClientHandler handler)
+    /// <inheritdoc/>
+    public async Task<string> InitiateMultipartUploadAsync(
+        string objectKey,
+        string contentType,
+        CancellationToken cancellationToken = default)
     {
-        _handler = handler;
-        _client = new HttpClient(handler, disposeHandler: false);
+        if (_s3Client == null)
+            throw new InvalidOperationException("Cloudflare R2 chưa được cấu hình — không thể dùng multipart upload.");
+
+        objectKey = objectKey.TrimStart('/');
+        var request = new Amazon.S3.Model.InitiateMultipartUploadRequest
+        {
+            BucketName = _options.BucketName,
+            Key = objectKey,
+            ContentType = NormalizeContentType(contentType)
+        };
+
+        var response = await _s3Client.InitiateMultipartUploadAsync(request, cancellationToken);
+        _logger.LogInformation("Multipart upload initiated: key='{Key}', uploadId='{UploadId}'",
+            objectKey, response.UploadId);
+        return response.UploadId;
     }
 
-    public override HttpClient CreateHttpClient(IClientConfig clientConfig)
-        => _client;
+    /// <inheritdoc/>
+    public async Task<string> UploadPartAsync(
+        string objectKey,
+        string uploadId,
+        int partNumber,
+        byte[] data,
+        CancellationToken cancellationToken = default)
+    {
+        if (_s3Client == null)
+            throw new InvalidOperationException("Cloudflare R2 chưa được cấu hình.");
+
+        objectKey = objectKey.TrimStart('/');
+        using var stream = new MemoryStream(data, writable: false);
+        var request = new Amazon.S3.Model.UploadPartRequest
+        {
+            BucketName = _options.BucketName,
+            Key = objectKey,
+            UploadId = uploadId,
+            PartNumber = partNumber,
+            InputStream = stream,
+            // Cloudflare R2 không implement aws-chunked streaming signature
+            // (STREAMING-AWS4-HMAC-SHA256-PAYLOAD). Chỉ endpoint HTTPS mới cho phép
+            // unsigned payload → R2 endpoint luôn là HTTPS nên an toàn.
+            DisablePayloadSigning = true
+        };
+
+        var response = await _s3Client.UploadPartAsync(request, cancellationToken);
+        _logger.LogDebug("Part {PartNumber} uploaded: key='{Key}', ETag={ETag}",
+            partNumber, objectKey, response.ETag);
+        return response.ETag;
+    }
+
+    /// <inheritdoc/>
+    public async Task<string> CompleteMultipartUploadAsync(
+        string objectKey,
+        string uploadId,
+        IReadOnlyList<(int PartNumber, string ETag)> parts,
+        CancellationToken cancellationToken = default)
+    {
+        if (_s3Client == null)
+            throw new InvalidOperationException("Cloudflare R2 chưa được cấu hình.");
+
+        objectKey = objectKey.TrimStart('/');
+        var partEtags = parts
+            .OrderBy(p => p.PartNumber)
+            .Select(p => new Amazon.S3.Model.PartETag(p.PartNumber, p.ETag))
+            .ToList();
+
+        var request = new Amazon.S3.Model.CompleteMultipartUploadRequest
+        {
+            BucketName = _options.BucketName,
+            Key = objectKey,
+            UploadId = uploadId,
+            PartETags = partEtags
+        };
+
+        var response = await _s3Client.CompleteMultipartUploadAsync(request, cancellationToken);
+        _logger.LogInformation("Multipart upload completed: key='{Key}', ETag={ETag}",
+            objectKey, response.ETag);
+        return objectKey;
+    }
+
+    /// <inheritdoc/>
+    public async Task AbortMultipartUploadAsync(
+        string objectKey,
+        string uploadId,
+        CancellationToken cancellationToken = default)
+    {
+        if (_s3Client == null) return;
+
+        objectKey = objectKey.TrimStart('/');
+        try
+        {
+            await _s3Client.AbortMultipartUploadAsync(new Amazon.S3.Model.AbortMultipartUploadRequest
+            {
+                BucketName = _options.BucketName,
+                Key = objectKey,
+                UploadId = uploadId
+            }, cancellationToken);
+            _logger.LogInformation("Multipart upload aborted: key='{Key}', uploadId='{UploadId}'",
+                objectKey, uploadId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to abort multipart upload for key='{Key}'", objectKey);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<byte[]?> DownloadAudioAsync(
+        string objectKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey)) return null;
+        objectKey = objectKey.TrimStart('/');
+
+        if (_s3Client != null)
+        {
+            try
+            {
+                using var response = await _s3Client.GetObjectAsync(
+                    new Amazon.S3.Model.GetObjectRequest
+                    {
+                        BucketName = _options.BucketName,
+                        Key = objectKey
+                    }, cancellationToken);
+
+                using var buffer = new MemoryStream();
+                await response.ResponseStream.CopyToAsync(buffer, cancellationToken);
+                return buffer.ToArray();
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Audio object '{Key}' not found in R2", objectKey);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to download audio '{Key}' from Cloudflare R2", objectKey);
+                throw;
+            }
+        }
+
+        // Local fallback: đọc từ wwwroot/uploads/audio
+        var fileName = Path.GetFileName(objectKey);
+        var localPath = Path.Combine(
+            Directory.GetCurrentDirectory(), "wwwroot", "uploads", "audio", fileName);
+        if (!File.Exists(localPath)) return null;
+
+        return await File.ReadAllBytesAsync(localPath, cancellationToken);
+    }
+
+    /// <summary>
+    /// Che bớt Access Key Id khi log — chỉ giữ 4 ký tự đầu.
+    /// TUYỆT ĐỐI không log Secret Access Key.
+    /// </summary>
+    private static string MaskKey(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return "(none)";
+        return key.Length <= 4 ? "****" : key[..4] + "...";
+    }
 }

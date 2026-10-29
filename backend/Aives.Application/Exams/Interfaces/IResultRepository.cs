@@ -10,7 +10,7 @@ public interface IResultRepository
     Task<IEnumerable<Result>> GetBySessionIdWithDetailsAsync(int sessionId);
     Task<Result?> GetBySessionAndStudentAsync(int sessionId, int studentId);
     Task<Result> CreateAsync(Result result);
-    Task AddOrUpdateAnswerAsync(Answer answer);
+    Task<Answer> AddOrUpdateAnswerAsync(Answer answer);
     Task UpdateAsync(Result result);
     Task SaveChangesAsync();
     Task<IEnumerable<Result>> GetPendingReviewResultsForTeacherAsync(int teacherId);

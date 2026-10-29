@@ -70,7 +70,7 @@ public class ResultRepository : IResultRepository
         return result;
     }
 
-    public async Task AddOrUpdateAnswerAsync(Answer answer)
+    public async Task<Answer> AddOrUpdateAnswerAsync(Answer answer)
     {
         var existing = await _db.Answers.FirstOrDefaultAsync(a => a.ResultId == answer.ResultId && a.QuestionId == answer.QuestionId);
         if (existing == null)
@@ -83,6 +83,8 @@ public class ResultRepository : IResultRepository
             existing.Transcript = answer.Transcript;
             if (!string.IsNullOrEmpty(answer.AudioUrl))
                 existing.AudioUrl = answer.AudioUrl;
+            if (!string.IsNullOrEmpty(answer.ObjectKey))
+                existing.ObjectKey = answer.ObjectKey;
             existing.IsFollowUp = answer.IsFollowUp;
             if (answer.AiScore.HasValue)
                 existing.AiScore = answer.AiScore;
@@ -92,6 +94,11 @@ public class ResultRepository : IResultRepository
             _db.Answers.Update(existing);
         }
         await _db.SaveChangesAsync();
+
+        // AnswerId do DB sinh (identity) → sau SaveChanges mới có giá trị.
+        // Trả về bản đã persist để caller biết answerId để gắn media_upload / tra cứu audio.
+        return await _db.Answers.AsNoTracking()
+            .FirstAsync(a => a.ResultId == answer.ResultId && a.QuestionId == answer.QuestionId);
     }
 
     public async Task UpdateAsync(Result result)
