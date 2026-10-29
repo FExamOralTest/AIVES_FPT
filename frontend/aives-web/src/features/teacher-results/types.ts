@@ -49,3 +49,10 @@ export interface ReviewResultRequest {
     teacherComment?: string | null
   }[]
 }
+
+export interface GrantRetakeRequest { reason: string; startTime: string; endTime: string; durationMinutes: number; examId?: number }
+export interface RetakeDto {
+  retakeId: number; originalResultId: number; originalStatus: string; retakeSessionId: number; retakeResultId: number | null;
+  studentId: number; grantedBy: number; reason: string; grantedAt: string; startTime: string; endTime: string;
+  durationMinutes: number; consumedAt: string | null; status: string; resultStatus: string | null; finalScore: number | null
+}

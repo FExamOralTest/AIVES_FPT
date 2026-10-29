@@ -43,6 +43,8 @@ dataSourceBuilder.MapEnum<ExamStatus>(       "exam_status",       new NpgsqlUppe
 dataSourceBuilder.MapEnum<SessionStatus>(    "session_status",    new NpgsqlUpperCaseTranslator());
 dataSourceBuilder.MapEnum<SubmissionStatus>( "submission_status", new NpgsqlUpperCaseTranslator());
 dataSourceBuilder.MapEnum<DocType>(          "doc_type",          new NpgsqlUpperCaseTranslator());
+// Cột jsonb lưu List<int> (media_uploads.received_chunk_indexes) cần opt-in dynamic JSON.
+dataSourceBuilder.EnableDynamicJson();
 var dataSource = dataSourceBuilder.Build();
 
 if (builder.Configuration.GetValue<bool>("Docker:InitializeDatabase"))
@@ -163,6 +165,7 @@ builder.Services.AddScoped<IExamGeneratorService,   ExamGeneratorService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IResultService, ResultService>();
 builder.Services.AddScoped<IVivaSessionService, VivaSessionService>();
+builder.Services.AddScoped<IRetakeService, Aives.Infrastructure.Exams.RetakeService>();
 
 // Cloudflare R2 Object Storage (S3-Compatible)
 builder.Services.Configure<CloudflareR2Options>(builder.Configuration.GetSection(CloudflareR2Options.SectionName));
@@ -219,6 +222,16 @@ builder.Services.AddHangfireServer(options =>
     options.ServerName = $"aives-api-{Environment.MachineName}";
 });
 
+// One grading worker, plus a shared lock inside SessionGradingJob, so a room of
+// submissions is scored one exam at a time. Keep GradingWorkerCount at 1.
+var gradingWorkerCount = builder.Configuration.GetValue<int?>("Hangfire:GradingWorkerCount") ?? 1;
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Math.Max(1, gradingWorkerCount);
+    options.Queues = new[] { SessionGradingJob.QueueName };
+    options.ServerName = $"aives-grading-{Environment.MachineName}";
+});
+
 // Queue services
 builder.Services.AddScoped<IAnswerOrchestrator, AnswerOrchestrator>();
 // Đăng ký CẢ concrete class: Hangfire resolve job theo type khai báo trong expression.
@@ -226,10 +239,14 @@ builder.Services.AddScoped<IAnswerOrchestrator, AnswerOrchestrator>();
 // [AutomaticRetry] trên class được áp dụng — xem comment trong HangfireQueueService.
 builder.Services.AddScoped<AnswerProcessingJob>();
 builder.Services.AddScoped<IAnswerProcessingJob>(sp => sp.GetRequiredService<AnswerProcessingJob>());
+builder.Services.AddScoped<SessionGradingJob>();
+builder.Services.AddScoped<ISessionGradingService, SessionGradingService>();
 builder.Services.AddSingleton<IQueueService, HangfireQueueService>();
 builder.Services.AddScoped<IRetryAnswerService, RetryAnswerService>();
 builder.Services.AddScoped<IAudioPlaybackService, AudioPlaybackService>();
 builder.Services.AddScoped<IAnswerAudioService, AnswerAudioService>();
+builder.Services.AddScoped<IChunkedAudioUploadService, ChunkedAudioUploadService>();
+builder.Services.AddScoped<IMediaUploadRepository, MediaUploadRepository>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

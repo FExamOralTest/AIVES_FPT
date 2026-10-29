@@ -3,8 +3,11 @@
 
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter/method_channel.h>
+#include <flutter/encodable_value.h>
 
 #include <memory>
+#include <vector>
 
 #include "win32_window.h"
 
@@ -23,6 +26,23 @@ class FlutterWindow : public Win32Window {
                          LPARAM const lparam) noexcept override;
 
  private:
+  bool StartKiosk();
+  void StopKiosk();
+  void FitScreen();
+  bool RefreshShields();
+  static LRESULT CALLBACK KeyboardHook(int code, WPARAM message, LPARAM data);
+  static LRESULT CALLBACK ShieldProc(HWND window, UINT message, WPARAM wparam,
+                                    LPARAM lparam);
+  static BOOL CALLBACK AddShield(HMONITOR monitor, HDC dc, LPRECT bounds,
+                                LPARAM data);
+
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> window_channel_;
+  std::vector<HWND> shields_;
+  HHOOK keyboard_hook_ = nullptr;
+  bool kiosk_active_ = false;
+  bool fitting_screen_ = false;
+  bool protection_warning_shown_ = false;
+
   // The project to run.
   flutter::DartProject project_;
 

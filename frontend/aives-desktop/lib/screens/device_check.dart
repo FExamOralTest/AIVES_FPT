@@ -52,6 +52,7 @@ class _DeviceCheckState extends State<DeviceCheck> {
   Future<bool> _closeWindow() async {
     if (_action || _capture.busy) return false;
     if (_capture.recording) await _capture.stop();
+    await _capture.stopPlayback();
     return true;
   }
 

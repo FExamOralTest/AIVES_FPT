@@ -44,11 +44,15 @@ public partial class AivesDbContext : DbContext
 
     public virtual DbSet<Result> Results { get; set; }
 
+    public DbSet<ExamRetake> ExamRetakes { get; set; }
+
     public virtual DbSet<SessionEnrollment> SessionEnrollments { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
 
     public virtual DbSet<AuditLog> AuditLogs { get; set; }
+
+    public virtual DbSet<MediaUpload> MediaUploads { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -608,10 +612,10 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.ExamId)
                 .IsRequired(false)
                 .HasColumnName("exam_id");
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.Status).HasColumnName("status").IsConcurrencyToken();
             entity.Property(e => e.StudentId).HasColumnName("student_id");
             entity.Property(e => e.SubmittedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedNever()
                 .HasColumnName("submitted_at");
 
             entity.HasOne(d => d.ReviewedByNavigation).WithMany(p => p.ResultReviewedByNavigations)
@@ -637,6 +641,28 @@ public partial class AivesDbContext : DbContext
             entity.HasOne(d => d.Student).WithMany(p => p.ResultStudents)
                 .HasForeignKey(d => d.StudentId)
                 .HasConstraintName("results_student_id_fkey");
+        });
+
+        modelBuilder.Entity<ExamRetake>(entity =>
+        {
+            entity.ToTable("exam_retakes", t => t.HasCheckConstraint("ck_retake_duration", "duration_minutes BETWEEN 1 AND 240"));
+            entity.HasKey(e => e.RetakeId);
+            entity.Property(e => e.RetakeId).HasColumnName("retake_id").UseIdentityAlwaysColumn();
+            entity.Property(e => e.OriginalResultId).HasColumnName("original_result_id");
+            entity.Property(e => e.RetakeSessionId).HasColumnName("retake_session_id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id");
+            entity.Property(e => e.GrantedBy).HasColumnName("granted_by");
+            entity.Property(e => e.Reason).HasColumnName("reason").HasMaxLength(1000);
+            entity.Property(e => e.GrantedAt).HasColumnName("granted_at");
+            entity.Property(e => e.DurationMinutes).HasColumnName("duration_minutes");
+            entity.Property(e => e.ConsumedAt).HasColumnName("consumed_at").IsConcurrencyToken();
+            entity.Property(e => e.Revision).HasColumnName("revision").IsConcurrencyToken();
+            entity.HasIndex(e => e.OriginalResultId).IsUnique();
+            entity.HasIndex(e => e.RetakeSessionId).IsUnique();
+            entity.HasOne(e => e.OriginalResult).WithMany().HasForeignKey(e => e.OriginalResultId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RetakeSession).WithMany().HasForeignKey(e => e.RetakeSessionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.StudentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.GrantedBy).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<SessionEnrollment>(entity =>
@@ -666,8 +692,8 @@ public partial class AivesDbContext : DbContext
             entity.Property(e => e.AssignedSlotId)
                 .IsRequired(false)
                 .HasColumnName("assigned_slot_id");
-            entity.Property(e => e.StartedAt).HasColumnName("started_at");
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.StartedAt).HasColumnName("started_at").IsConcurrencyToken();
+            entity.Property(e => e.Status).HasColumnName("status").IsConcurrencyToken();
             entity.Property(e => e.StudentId).HasColumnName("student_id");
 
             entity.HasOne(d => d.Session).WithMany(p => p.SessionEnrollments)
@@ -775,6 +801,52 @@ public partial class AivesDbContext : DbContext
                 .HasForeignKey(d => d.PerformedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("audit_logs_performed_by_fkey");
+        });
+
+        modelBuilder.Entity<MediaUpload>(entity =>
+        {
+            entity.HasKey(e => e.UploadId).HasName("media_uploads_pkey");
+            entity.ToTable("media_uploads");
+
+            entity.HasIndex(e => e.UploadId, "media_uploads_upload_id_key").IsUnique();
+            entity.HasIndex(e => e.StudentId, "IX_media_uploads_student_id");
+            entity.HasIndex(e => new { e.SessionId, e.StudentId, e.QuestionId }, "idx_media_uploads_question");
+
+            entity.Property(e => e.UploadId).HasMaxLength(64).HasColumnName("upload_id");
+            entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id");
+            entity.Property(e => e.QuestionId).HasColumnName("question_id");
+            entity.Property(e => e.AnswerId).HasColumnName("answer_id");
+            entity.Property(e => e.FileName).HasMaxLength(255).HasColumnName("file_name");
+            entity.Property(e => e.ContentType).HasMaxLength(100).HasColumnName("content_type");
+            entity.Property(e => e.TotalSize).HasColumnName("total_size");
+            entity.Property(e => e.ChunkSize).HasColumnName("chunk_size");
+            entity.Property(e => e.TotalChunks).HasColumnName("total_chunks");
+            entity.Property(e => e.ReceivedChunkIndexes)
+                .HasColumnType("jsonb")
+                .HasColumnName("received_chunk_indexes");
+            entity.Property(e => e.UploadStatus).HasMaxLength(20).HasColumnName("upload_status");
+            entity.Property(e => e.R2UploadId).HasColumnName("r2_upload_id");
+            entity.Property(e => e.PartETags).HasColumnName("part_etags");
+            entity.Property(e => e.ObjectKey).HasMaxLength(500).HasColumnName("object_key");
+            entity.Property(e => e.LocalFilePath).HasMaxLength(500).HasColumnName("local_file_path");
+            entity.Property(e => e.LastError).HasColumnName("last_error");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+            entity.Property(e => e.CompletedAt).HasColumnName("completed_at");
+
+            entity.HasOne<ExamSession>()
+                .WithMany()
+                .HasForeignKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("media_uploads_session_id_fkey");
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(e => e.StudentId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("media_uploads_student_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

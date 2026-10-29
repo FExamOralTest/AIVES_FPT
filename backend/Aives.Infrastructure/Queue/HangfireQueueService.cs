@@ -156,6 +156,53 @@ public class HangfireQueueService : IQueueService
         }
     }
 
+    public string EnqueueSessionGrading(int resultId)
+    {
+        if (resultId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(resultId), "ResultId must be positive.");
+
+        if (HasPendingSessionGrading(resultId))
+        {
+            _logger.LogWarning(
+                "Skipping session grading enqueue: ResultId={ResultId} already has a pending job.",
+                resultId);
+            return string.Empty;
+        }
+
+        // Enqueue qua concrete class để [AutomaticRetry] và [Queue("grading")] được áp dụng.
+        // PerformContext và CancellationToken do Hangfire thay lúc chạy; null ở expression là chủ đích.
+        Expression<Func<SessionGradingJob, Task>> method = j => j.ExecuteAsync(resultId, null!, default);
+        var jobId = _jobClient.Enqueue(method);
+        _logger.LogInformation(
+            "Enqueued SessionGradingJob: JobId={JobId}, ResultId={ResultId}, Queue={Queue}",
+            jobId, resultId, SessionGradingJob.QueueName);
+        return jobId;
+    }
+
+    public bool HasPendingSessionGrading(int resultId)
+    {
+        if (resultId <= 0)
+            return false;
+
+        try
+        {
+            if (HasSessionJob(MonitoringApi.ProcessingJobs(0, 1000), j => j.Job, resultId))
+                return true;
+            if (HasSessionJob(MonitoringApi.ScheduledJobs(0, 1000), j => j.Job, resultId))
+                return true;
+            if (HasSessionJob(MonitoringApi.EnqueuedJobs(SessionGradingJob.QueueName, 0, 1000), j => j.Job, resultId))
+                return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to query Hangfire for session grading ResultId={ResultId}. Allowing enqueue.",
+                resultId);
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Kiểm tra danh sách job có chứa job của answer hay không.
     /// </summary>
@@ -189,5 +236,30 @@ public class HangfireQueueService : IQueueService
             }
         }
         return false;
+    }
+
+    private static bool HasSessionJob<TJob>(
+        IEnumerable<KeyValuePair<string, TJob>> jobs,
+        Func<TJob, Hangfire.Common.Job> jobSelector,
+        int resultId) =>
+        jobs.Any(j => MatchesSessionResult(jobSelector(j.Value), resultId));
+
+    /// <summary>
+    /// Chỉ khớp job chấm cả bài, và chỉ khớp đúng ResultId ở argument đầu.
+    /// Job chấm từng câu trả lời không được tính, dù AnswerId trùng số.
+    /// </summary>
+    private static bool MatchesSessionResult(Hangfire.Common.Job? job, int resultId)
+    {
+        if (job?.Method?.DeclaringType != typeof(SessionGradingJob) || job.Args.Count == 0)
+            return false;
+
+        return job.Args[0] switch
+        {
+            int value => value == resultId,
+            long value => value == resultId,
+            short value => value == resultId,
+            string value when int.TryParse(value, out var parsed) => parsed == resultId,
+            _ => false
+        };
     }
 }

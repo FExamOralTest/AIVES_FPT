@@ -1,0 +1,51 @@
+name: Desktop Windows
+
+on:
+  push:
+    branches: ['d_desktop-*', dev, main]
+    paths:
+      - 'frontend/aives-desktop/**'
+      - '.github/workflows/desktop-windows.yml'
+  pull_request:
+    paths:
+      - 'frontend/aives-desktop/**'
+      - '.github/workflows/desktop-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: frontend/aives-desktop
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flutter 3.47.7
+        run: |
+          git clone --depth 1 --branch 3.47.7 https://github.com/flutter/flutter.git "$env:RUNNER_TEMP/flutter"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "$env:RUNNER_TEMP/flutter/bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-pub
+      - name: Test
+        run: flutter test --no-pub
+      - name: Build Windows release
+        run: flutter build windows --release --no-pub
+      - name: Upload Windows release folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIVES-Student-Windows
+          path: frontend/aives-desktop/build/windows/x64/runner/Release/
+          if-no-files-found: error
+          retention-days: 14

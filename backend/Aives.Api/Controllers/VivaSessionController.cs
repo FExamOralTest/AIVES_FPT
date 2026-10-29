@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Aives.Application.Viva.DTOs;
 using Aives.Application.Viva.Interfaces;
@@ -49,6 +50,10 @@ public class VivaSessionController : ControllerBase
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
@@ -83,6 +88,10 @@ public class VivaSessionController : ControllerBase
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
@@ -95,6 +104,8 @@ public class VivaSessionController : ControllerBase
     /// </summary>
     [HttpPost("{sessionId:int}/submit-answer")]
     [Consumes("multipart/form-data")]
+    [RequestSizeLimit(50 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 50 * 1024 * 1024)]
     [ProducesResponseType(typeof(SubmitVivaAnswerResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -102,7 +113,8 @@ public class VivaSessionController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SubmitAnswer(
         int sessionId,
-        [FromForm] SubmitVivaAnswerRequest request)
+        [FromForm] SubmitVivaAnswerRequest request,
+        CancellationToken cancellationToken)
     {
         var studentId = GetCurrentUserId();
         if (studentId is null)
@@ -110,7 +122,7 @@ public class VivaSessionController : ControllerBase
 
         try
         {
-            var response = await _vivaService.SubmitAnswerAsync(sessionId, studentId.Value, request);
+            var response = await _vivaService.SubmitAnswerAsync(sessionId, studentId.Value, request, cancellationToken);
             return Ok(response);
         }
         catch (KeyNotFoundException ex)
@@ -121,6 +133,10 @@ public class VivaSessionController : ControllerBase
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
@@ -128,7 +144,7 @@ public class VivaSessionController : ControllerBase
     }
 
     /// <summary>
-    /// [STUDENT] Kết thúc ca thi vấn đáp. AI sẽ đánh giá toàn bộ ca thi và tạo Result PENDING_REVIEW.
+    /// [STUDENT] Kết thúc ca thi. Bài được lưu ngay và xếp vào hàng đợi chấm lần lượt.
     /// </summary>
     [HttpPost("{sessionId:int}/finish")]
     [ProducesResponseType(typeof(FinishVivaSessionResponse), StatusCodes.Status200OK)]
@@ -154,6 +170,10 @@ public class VivaSessionController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "The attempt changed. Refresh its retake or result status." });
         }
         catch (InvalidOperationException ex)
         {

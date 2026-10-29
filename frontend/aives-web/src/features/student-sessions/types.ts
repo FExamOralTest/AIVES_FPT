@@ -18,4 +18,10 @@ export interface StudentSessionEnrollment {
   assignedSlotName?: string | null
   slotStartTime?: string | null
   slotEndTime?: string | null
+  retakeEndsAt?: string | null
+  retakeId?: number | null
+  originalResultId?: number | null
+  retakeReason?: string | null
+  retakeDurationMinutes?: number | null
+  replacementSessionId?: number | null
 }

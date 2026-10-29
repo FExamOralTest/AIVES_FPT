@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 export interface AudioRecorderState {
   isStarting: boolean
   isRecording: boolean
+  /** True trong khoảng thời gian giữa stop() và onstop callback — audioBlob chưa sẵn sàng. */
+  isProcessingAudio: boolean
   recordingTime: number
   volumeLevel: number
   audioBlob: Blob | null
@@ -24,6 +26,7 @@ export interface AudioRecorderState {
 export function useAudioRecorder(): AudioRecorderState {
   const [isStarting, setIsStarting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [volumeLevel, setVolumeLevel] = useState(0)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
@@ -103,6 +106,7 @@ export function useAudioRecorder(): AudioRecorderState {
 
     setIsStarting(false)
     setIsRecording(false)
+    setIsProcessingAudio(false)
     setRecordingTime(0)
     setVolumeLevel(0)
     setAudioBlob(null)
@@ -288,6 +292,7 @@ export function useAudioRecorder(): AudioRecorderState {
         audioBlobRef.current = finalBlob
         const url = URL.createObjectURL(finalBlob)
         setAudioUrl(url)
+        setIsProcessingAudio(false)  // blob đã sẵn sàng — cho phép submit
         stopAudioContext()
         onStoppedRef.current?.(finalBlob)
         onStoppedRef.current = null
@@ -324,6 +329,7 @@ export function useAudioRecorder(): AudioRecorderState {
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
+        setIsProcessingAudio(true)  // blob chưa sẵn sàng cho đến khi onstop fire
         mediaRecorderRef.current.stop()
       } catch {}
     }
@@ -356,15 +362,22 @@ export function useAudioRecorder(): AudioRecorderState {
     return { audio: await stopped, text }
   }, [stopRecording])
 
+  // Reset only on unmount. `resetRecording` depends on `audioUrl`, so using it directly here
+  // would re-run this cleanup whenever a new recording starts — wiping `audioBlob` right after
+  // the student pressed Stop and leaving the Submit button permanently disabled.
+  const resetRecordingRef = useRef(resetRecording)
+  resetRecordingRef.current = resetRecording
+
   useEffect(() => {
     return () => {
-      resetRecording()
+      resetRecordingRef.current()
     }
-  }, [resetRecording])
+  }, [])
 
   return {
     isStarting,
     isRecording,
+    isProcessingAudio,
     recordingTime,
     volumeLevel,
     audioBlob,

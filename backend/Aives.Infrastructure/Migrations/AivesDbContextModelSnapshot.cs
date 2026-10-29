@@ -755,6 +755,116 @@ namespace Aives.Infrastructure.Migrations
                     b.ToTable("markdown_documents", (string)null);
                 });
 
+            modelBuilder.Entity("Aives.Domain.Entities.MediaUpload", b =>
+                {
+                    b.Property<string>("UploadId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("upload_id");
+
+                    b.Property<int?>("AnswerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("answer_id");
+
+                    b.Property<long>("ChunkSize")
+                        .HasColumnType("bigint")
+                        .HasColumnName("chunk_size");
+
+                    b.Property<string>("ClientTranscript")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<bool>("IsFollowUp")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text")
+                        .HasColumnName("last_error");
+
+                    b.Property<string>("LocalFilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("local_file_path");
+
+                    b.Property<string>("ObjectKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("object_key");
+
+                    b.Property<string>("PartETags")
+                        .HasColumnType("text");
+
+                    b.Property<int>("QuestionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("question_id");
+
+                    b.Property<string>("R2UploadId")
+                        .HasColumnType("text");
+
+                    b.Property<List<int>>("ReceivedChunkIndexes")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("received_chunk_indexes");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("session_id");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("student_id");
+
+                    b.Property<string>("TextAnswer")
+                        .HasColumnType("text");
+
+                    b.Property<int>("TotalChunks")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_chunks");
+
+                    b.Property<long>("TotalSize")
+                        .HasColumnType("bigint")
+                        .HasColumnName("total_size");
+
+                    b.Property<string>("UploadStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("upload_status");
+
+                    b.HasKey("UploadId")
+                        .HasName("media_uploads_pkey");
+
+                    b.HasIndex(new[] { "StudentId" }, "IX_media_uploads_student_id");
+
+                    b.HasIndex(new[] { "SessionId", "StudentId", "QuestionId" }, "idx_media_uploads_question");
+
+                    b.HasIndex(new[] { "UploadId" }, "media_uploads_upload_id_key")
+                        .IsUnique();
+
+                    b.ToTable("media_uploads", (string)null);
+                });
+
             modelBuilder.Entity("Aives.Domain.Entities.QuestionBank", b =>
                 {
                     b.Property<int>("QuestionId")
@@ -1386,6 +1496,23 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("UploadedByNavigation");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.MediaUpload", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.ExamSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("media_uploads_session_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("media_uploads_student_id_fkey");
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.QuestionBank", b =>

@@ -12,6 +12,7 @@ export interface StartVivaSessionResponse {
   totalQuestions: number
   currentQuestionIndex: number
   currentQuestion: VivaQuestionDto | null
+  endsAt?: string | null
   startedAt: string | null
 }
 
@@ -36,6 +37,8 @@ export interface SubmitVivaAnswerResponse {
   totalQuestions: number
   isCompleted: boolean
   nextQuestion?: VivaQuestionDto | null
+  /** PK của Answer vừa được tạo/cập nhật. */
+  answerId: number
 }
 
 export interface FinishVivaSessionResponse {

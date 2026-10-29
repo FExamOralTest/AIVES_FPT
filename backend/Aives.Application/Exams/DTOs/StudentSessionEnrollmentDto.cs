@@ -21,4 +21,10 @@ public class StudentSessionEnrollmentDto
     public string? AssignedSlotName { get; set; }
     public DateTime? SlotStartTime { get; set; }
     public DateTime? SlotEndTime { get; set; }
+    public DateTime? RetakeEndsAt { get; set; }
+    public int? RetakeId { get; set; }
+    public int? OriginalResultId { get; set; }
+    public string? RetakeReason { get; set; }
+    public int? RetakeDurationMinutes { get; set; }
+    public int? ReplacementSessionId { get; set; }
 }

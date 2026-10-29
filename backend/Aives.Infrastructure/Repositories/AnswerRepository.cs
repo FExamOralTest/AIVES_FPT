@@ -36,7 +36,7 @@ public class AnswerRepository : IAnswerRepository
         int answerId, string transcript, AnswerStatus status, CancellationToken cancellationToken = default,
         string? detectedLanguage = null, float? durationSeconds = null)
     {
-        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        var answer = await WritableAsync(answerId, cancellationToken);
         if (answer == null) return;
         answer.Transcript = transcript;
         if (detectedLanguage != null) answer.DetectedLanguage = detectedLanguage;
@@ -55,7 +55,7 @@ public class AnswerRepository : IAnswerRepository
         AnswerStatus status,
         CancellationToken cancellationToken = default)
     {
-        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        var answer = await WritableAsync(answerId, cancellationToken);
         if (answer == null) return;
         answer.AiScore = aiScore;
         answer.AiFeedback = aiFeedback;
@@ -68,7 +68,7 @@ public class AnswerRepository : IAnswerRepository
     public async Task MarkFailedAsync(
         int answerId, string errorMessage, CancellationToken cancellationToken = default)
     {
-        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        var answer = await WritableAsync(answerId, cancellationToken);
         if (answer == null) return;
         answer.Status = AnswerStatus.ERROR;
         answer.ErrorMessage = errorMessage;
@@ -77,7 +77,7 @@ public class AnswerRepository : IAnswerRepository
 
     public async Task ResetForRetryAsync(int answerId, CancellationToken cancellationToken = default)
     {
-        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        var answer = await WritableAsync(answerId, cancellationToken);
         if (answer == null) return;
         answer.Transcript = null;
         answer.DetectedLanguage = null;
@@ -97,7 +97,7 @@ public class AnswerRepository : IAnswerRepository
     public async Task<int> IncrementAttemptAsync(
         int answerId, string? jobId, CancellationToken cancellationToken = default)
     {
-        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        var answer = await WritableAsync(answerId, cancellationToken);
         if (answer == null) return 0;
 
         answer.AttemptCount += 1;
@@ -111,7 +111,7 @@ public class AnswerRepository : IAnswerRepository
     public async Task SetJobIdAsync(
         int answerId, string? jobId, CancellationToken cancellationToken = default)
     {
-        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        var answer = await WritableAsync(answerId, cancellationToken);
         if (answer == null) return;
         if (!string.IsNullOrWhiteSpace(jobId))
             answer.JobId = jobId;
@@ -120,7 +120,7 @@ public class AnswerRepository : IAnswerRepository
 
     public async Task UpdateAudioUrlAsync(int answerId, string audioUrl, CancellationToken cancellationToken = default)
     {
-        var answer = await _db.Answers.FindAsync(new object?[] { answerId }, cancellationToken);
+        var answer = await WritableAsync(answerId, cancellationToken);
         if (answer == null) return;
         answer.AudioUrl = audioUrl;
         answer.ObjectKey = Uri.TryCreate(audioUrl, UriKind.Absolute, out _) || audioUrl.StartsWith('/')
@@ -141,4 +141,15 @@ public class AnswerRepository : IAnswerRepository
         answer.JobId = null;
         await _db.SaveChangesAsync(cancellationToken);
     }
+    private async Task<Domain.Entities.Answer?> WritableAsync(int answerId, CancellationToken ct)
+    {
+        var answer = await _db.Answers.Include(a => a.Result).SingleOrDefaultAsync(a => a.AnswerId == answerId, ct);
+        if (answer is null) return null;
+        await _db.Entry(answer.Result).ReloadAsync(ct);
+        if (answer.Result.Status is SubmissionStatus.CANCELLED or SubmissionStatus.PUBLISHED)
+            throw new InvalidOperationException("Invalidated or published attempts cannot be changed.");
+        _db.Entry(answer.Result).Property(r => r.Status).IsModified = true;
+        return answer;
+    }
+
 }
