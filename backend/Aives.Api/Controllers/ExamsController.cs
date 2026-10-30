@@ -44,6 +44,12 @@ public class ExamsController(IExamService service) : ControllerBase
     public Task<IActionResult> GetSuggestedQuestions([FromBody] SuggestQuestionsRequest request)
         => ExecuteAsync(async teacherId => Ok(await service.GetSuggestedQuestionsAsync(request, teacherId)));
 
+    [HttpPost("partition-preview")]
+    [ProducesResponseType(typeof(AutoPartitionPreviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public Task<IActionResult> PreviewPartitionSlotPapers([FromBody] AutoPartitionSlotPapersRequest request)
+        => ExecuteAsync(async teacherId => Ok(await service.PreviewPartitionSlotPapersAsync(request, teacherId)));
+
     [HttpPut("{examId:int}/questions")]
     [ProducesResponseType(typeof(ExamDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

@@ -2,6 +2,12 @@ export interface StartVivaSessionResponse {
   sessionId: number
   sessionName: string
   examTitle: string
+  assignedExamId?: number
+  assignedExamCode?: string
+  assignedSlotId?: number
+  assignedSlotName?: string
+  slotStartTime?: string
+  slotEndTime?: string
   durationMinutes: number
   totalQuestions: number
   currentQuestionIndex: number

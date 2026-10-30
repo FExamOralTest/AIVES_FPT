@@ -37,13 +37,14 @@ public class ExamSessionServiceTests
         var examRepository = new Mock<IExamRepository>();
         var unitOfWork = ImmediateUnitOfWork();
         var session = NewSession(DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow.AddHours(1));
-        var exam = new Exam { ExamId = session.ExamId, Title = "OOP Viva" };
+        var examId = session.ExamId!.Value;
+        var exam = new Exam { ExamId = examId, Title = "OOP Viva" };
 
         sessionRepository.Setup(r => r.GetBySessionCodeAsync("ESS-ABCD1234"))
             .ReturnsAsync(session);
         sessionRepository.Setup(r => r.GetEnrollmentAsync(session.SessionId, 7))
             .ReturnsAsync((SessionEnrollment?)null);
-        examRepository.Setup(r => r.GetByIdAsync(session.ExamId)).ReturnsAsync(exam);
+        examRepository.Setup(r => r.GetByIdAsync(examId)).ReturnsAsync(exam);
 
         var service = new ExamSessionService(sessionRepository.Object, examRepository.Object, unitOfWork.Object);
 

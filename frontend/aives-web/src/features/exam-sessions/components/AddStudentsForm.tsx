@@ -1,4 +1,4 @@
-import { CircleAlert, UserPlus } from 'lucide-react'
+import { CheckCircle2, CircleAlert, GraduationCap, Loader2, UserPlus } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { toApiError } from '@/lib/http/apiError'
@@ -7,107 +7,176 @@ import { sessionsApi } from '../api/sessionsApi'
 import type { BulkEnrollResult, EnrollOutcome } from '../types'
 
 const SKIP_LABEL: Record<Exclude<EnrollOutcome, 'added'>, string> = {
-  already_enrolled: 'already in this session',
-  not_student: 'not a student account',
-  not_found: 'no account with this ID',
+  already_enrolled: 'Already in this session',
+  not_student: 'Account is not a student',
+  not_found: 'Account not found (invalid Student Code/Email/ID)',
 }
 
-/** Max IDs per request, matching the backend limit. */
-const MAX_IDS = 500
+/** Max IDs/Identifiers per request, matching backend limit. */
+const MAX_IDENTIFIERS = 500
 
-/**
- * Adds students by account ID. Staff cannot search users yet (that API is admin-only),
- * so this takes a pasted list of IDs; students can still join on their own with the join code.
- */
-export function AddStudentsForm({ sessionId, onAdded }: { sessionId: number; onAdded: () => void }) {
+interface AddStudentsFormProps {
+  sessionId: number
+  onAdded: () => void
+}
+
+export function AddStudentsForm({ sessionId, onAdded }: AddStudentsFormProps) {
   const inputId = useId()
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<BulkEnrollResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [importingCourse, setImportingCourse] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setResult(null)
-    const parts = text.split(/[\s,;]+/).filter(Boolean)
-    const invalid = parts.filter((p) => !/^\d+$/.test(p) || Number(p) < 1 || Number(p) > 2147483647)
-    if (parts.length === 0) return setError('Enter at least one student ID.')
-    if (invalid.length) return setError(`Not a valid ID: ${invalid.slice(0, 5).join(', ')}${invalid.length > 5 ? '…' : ''}`)
-    const ids = [...new Set(parts.map(Number))]
-    if (ids.length > MAX_IDS) return setError(`Add at most ${MAX_IDS} students at a time.`)
+    const tokens = text.split(/[\s,;]+/).map((t) => t.trim()).filter(Boolean)
+    if (tokens.length === 0) {
+      return setError('Please enter at least one Student Code, Email, or numeric ID.')
+    }
+    if (tokens.length > MAX_IDENTIFIERS) {
+      return setError(`Maximum ${MAX_IDENTIFIERS} students can be added at once.`)
+    }
 
     setError(null)
     setSubmitting(true)
     try {
-      const res = await sessionsApi.addStudents(sessionId, ids)
+      const res = await sessionsApi.addStudents(sessionId, { identifiers: tokens })
       setResult(res)
       if (res.addedCount > 0) {
         setText('')
         onAdded()
       }
     } catch (err) {
-      setError(toApiError(err, 'Could not add the students.').message)
+      setError(toApiError(err, 'Could not add students to the session.').message)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleImportCourseStudents() {
+    setResult(null)
+    setError(null)
+    setImportingCourse(true)
+    try {
+      const res = await sessionsApi.enrollCourseStudents(sessionId)
+      setResult(res)
+      if (res.addedCount > 0) {
+        onAdded()
+      }
+    } catch (err) {
+      setError(toApiError(err, 'Could not import students from course.').message)
+    } finally {
+      setImportingCourse(false)
     }
   }
 
   const skipped = result?.results.filter((r) => r.status !== 'added') ?? []
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-2 rounded-[14px] bg-muted/50 p-4">
-      <label htmlFor={inputId} className="text-sm font-semibold">
-        Add students by ID
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          id={inputId}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value)
-            if (error) setError(null)
-          }}
-          placeholder="e.g. 12, 15, 21"
-          aria-invalid={Boolean(error)}
-          aria-describedby={`${inputId}-hint`}
-          className={cn(
-            'h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15',
-            error && 'border-destructive ring-3 ring-destructive/20',
+    <div className="flex flex-col gap-3 rounded-2xl border bg-muted/30 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label htmlFor={inputId} className="text-sm font-semibold text-foreground">
+          Add students to session
+        </label>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={importingCourse || submitting}
+          onClick={handleImportCourseStudents}
+          className="h-8 gap-1.5 border-brand/40 text-brand hover:bg-brand-soft text-xs"
+          title="Automatically add all students enrolled in the course"
+        >
+          {importingCourse ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <GraduationCap className="size-3.5" />
           )}
-        />
-        <Button type="submit" size="sm" disabled={submitting || !text.trim()}>
-          <UserPlus aria-hidden="true" />
-          {submitting ? 'Adding…' : 'Add'}
+          {importingCourse ? 'Importing…' : 'Import from course'}
         </Button>
       </div>
-      <p id={`${inputId}-hint`} className="text-[13px] text-muted-foreground">
-        Separate IDs with commas, spaces or new lines.
-      </p>
 
-      {error && (
-        <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
-          <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
-          {error}
-        </p>
-      )}
-
-      {result && (
-        <div role="status" className="text-sm">
-          <p className={result.addedCount > 0 ? 'text-success' : 'text-muted-foreground'}>
-            Added {result.addedCount} student{result.addedCount === 1 ? '' : 's'}.
-            {skipped.length > 0 && ` Skipped ${skipped.length}:`}
-          </p>
-          {skipped.length > 0 && (
-            <ul className="mt-1 list-disc pl-5 text-muted-foreground">
-              {skipped.map((r) => (
-                <li key={r.studentId}>
-                  #{r.studentId}: {SKIP_LABEL[r.status as Exclude<EnrollOutcome, 'added'>] ?? r.reason ?? r.status}
-                </li>
-              ))}
-            </ul>
-          )}
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <textarea
+            id={inputId}
+            rows={2}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value)
+              if (error) setError(null)
+            }}
+            placeholder="Paste or type Student Codes (e.g. SE160001), Emails (student@fpt.edu.vn), or IDs... Separated by spaces, commas, or line breaks"
+            aria-invalid={Boolean(error)}
+            aria-describedby={`${inputId}-hint`}
+            className={cn(
+              'w-full min-w-0 flex-1 rounded-xl border border-input bg-background p-2.5 text-xs outline-none resize-y min-h-[46px] focus:border-brand focus:ring-3 focus:ring-brand/15',
+              error && 'border-destructive ring-2 ring-destructive/20',
+            )}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={submitting || importingCourse || !text.trim()}
+            className="h-10 sm:h-[46px] shrink-0 gap-1.5 px-4"
+          >
+            {submitting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <UserPlus className="size-4" />
+            )}
+            {submitting ? 'Adding…' : 'Add students'}
+          </Button>
         </div>
-      )}
-    </form>
+
+        <p id={`${inputId}-hint`} className="text-[12px] text-muted-foreground">
+          Supports mixed Student Codes, university emails, or IDs. The system automatically reconciles, checks duplicates, and allocates exams.
+        </p>
+
+        {error && (
+          <p role="alert" className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+            {error}
+          </p>
+        )}
+
+        {result && (
+          <div role="status" className="rounded-xl border bg-background p-3 text-xs space-y-1.5">
+            <div className="flex items-center gap-1.5 font-medium">
+              <CheckCircle2 className="size-4 text-emerald-600" />
+              <span className="text-emerald-700">
+                Successfully added <strong>{result.addedCount}</strong> students.
+              </span>
+              {skipped.length > 0 && (
+                <span className="text-muted-foreground">
+                  (Skipped {skipped.length} items)
+                </span>
+              )}
+            </div>
+
+            {skipped.length > 0 && (
+              <ul className="mt-1 list-disc pl-5 text-[11px] text-muted-foreground space-y-0.5">
+                {skipped.slice(0, 10).map((r, idx) => (
+                  <li key={idx}>
+                    <span className="font-mono font-semibold text-foreground">
+                      {r.identifier || r.studentCode || `#${r.studentId}`}
+                    </span>
+                    {r.studentName && ` (${r.studentName})`}:{' '}
+                    <span className="text-amber-600 dark:text-amber-400">
+                      {SKIP_LABEL[r.status as Exclude<EnrollOutcome, 'added'>] ?? r.reason ?? r.status}
+                    </span>
+                  </li>
+                ))}
+                {skipped.length > 10 && (
+                  <li className="italic">… and {skipped.length - 10} other students.</li>
+                )}
+              </ul>
+            )}
+          </div>
+        )}
+      </form>
+    </div>
   )
 }

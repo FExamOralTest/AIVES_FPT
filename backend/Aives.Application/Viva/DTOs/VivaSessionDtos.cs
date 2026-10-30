@@ -6,6 +6,12 @@ public class StartVivaSessionResponse
 {
     public int SessionId { get; set; }
     public string SessionName { get; set; } = string.Empty;
+    public int? AssignedExamId { get; set; }
+    public string AssignedExamCode { get; set; } = string.Empty;
+    public int? AssignedSlotId { get; set; }
+    public string? AssignedSlotName { get; set; }
+    public DateTime? SlotStartTime { get; set; }
+    public DateTime? SlotEndTime { get; set; }
     public string ExamTitle { get; set; } = string.Empty;
     public int DurationMinutes { get; set; }
     public int TotalQuestions { get; set; }

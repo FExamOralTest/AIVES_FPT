@@ -26,6 +26,15 @@ public interface IStaffService
 
     // ─── Enrollments (Session) ───────────────────────────────────
     Task<StaffBulkEnrollResponse> AddStudentsToSessionAsync(int sessionId, StaffAddEnrollmentsRequest request, int staffId);
+    Task<StaffBulkEnrollResponse> ImportCourseStudentsToSessionAsync(int sessionId, int staffId);
     Task RemoveStudentFromSessionAsync(int sessionId, int studentId, int staffId);
     Task<SessionMonitorDto> GetSessionMonitorAsync(int sessionId, int staffId);
+
+    // ─── Multi-Exam Distribution ─────────────────────────────────
+    Task<DistributeExamsResponse> DistributeExamsAsync(int sessionId, DistributeExamsRequest request, int staffId);
+    Task AssignStudentExamAsync(int sessionId, int studentId, StaffAssignExamRequest request, int staffId);
+
+    // ─── Time Slots (Kíp thi) Management ────────────────────────
+    Task<DistributeSlotsResponse> DistributeSlotsAsync(int sessionId, DistributeSlotsRequest request, int staffId);
+    Task AssignStudentSlotAsync(int sessionId, int studentId, StaffAssignSlotRequest request, int staffId);
 }

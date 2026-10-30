@@ -1,5 +1,11 @@
 import { http } from '@/lib/http/client'
-import type { CreateExamInput, Exam, UpdateExamInput } from '../types'
+import type {
+  AutoPartitionPreviewResponse,
+  AutoPartitionSlotPapersRequest,
+  CreateExamInput,
+  Exam,
+  UpdateExamInput,
+} from '../types'
 
 export const examsApi = {
   async listMine(): Promise<Exam[]> {
@@ -24,5 +30,10 @@ export const examsApi = {
 
   async delete(examId: number): Promise<void> {
     await http.delete(`/api/exams/${examId}`)
+  },
+
+  async previewSlotPartition(input: AutoPartitionSlotPapersRequest): Promise<AutoPartitionPreviewResponse> {
+    const { data } = await http.post<AutoPartitionPreviewResponse>('/api/exams/partition-preview', input)
+    return data
   },
 }

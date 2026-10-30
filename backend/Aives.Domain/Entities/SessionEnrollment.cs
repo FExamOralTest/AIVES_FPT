@@ -22,7 +22,17 @@ public partial class SessionEnrollment
     public DateTime? LastActivityAt { get; set; }
     public int? CurrentQuestionIndex { get; set; }
 
+    // === Multi-Exam Distribution ===
+    public int? AssignedExamId { get; set; }
+
+    // === Time Slot (Kíp thi) Distribution ===
+    public int? AssignedSlotId { get; set; }
+
     public virtual ExamSession Session { get; set; } = null!;
 
     public virtual User Student { get; set; } = null!;
+
+    public virtual Exam? AssignedExam { get; set; }
+
+    public virtual ExamSessionSlot? AssignedSlot { get; set; }
 }

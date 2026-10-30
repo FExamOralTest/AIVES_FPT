@@ -1,4 +1,4 @@
-import { CalendarClock, CircleAlert, KeyRound, MapPin, Mic, RotateCw, Trophy } from 'lucide-react'
+import { CalendarClock, CircleAlert, Clock, KeyRound, MapPin, Mic, RotateCw, Trophy } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -148,25 +148,47 @@ function StudentSessionCard({ session, now }: { session: StudentSessionEnrollmen
         <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground">{session.courseName}</p>
           <h2 className="mt-1 break-words font-heading text-lg font-medium">{session.sessionName}</h2>
-          <p className="mt-1 break-words text-sm text-muted-foreground">{session.examTitle}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="break-words text-sm text-muted-foreground">{session.examTitle}</span>
+            {session.examCode && (
+              <span className="rounded-md bg-brand-soft px-2 py-0.5 font-mono text-xs font-semibold text-brand">
+                {session.examCode}
+              </span>
+            )}
+          </div>
         </div>
         <span className={cn('w-fit shrink-0 rounded-full px-3 py-1 text-xs font-medium', display.tone)}>{display.label}</span>
       </div>
       {session.retakeId && <div className="mt-3 rounded-xl bg-brand-soft p-3 text-sm"><strong>Bạn được phép thi lại</strong><p>{session.retakeReason}</p><p>Thời lượng: {session.retakeDurationMinutes} phút · Thay thế bài #{session.originalResultId}</p></div>}
       {session.replacementSessionId && <p className="mt-3 text-sm">Bài này đã hủy hiệu lực do sự cố. <Link className="text-brand underline" to={`/student/viva?sessionId=${session.replacementSessionId}`}>Xem ca thi bù được cấp</Link></p>}
       <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+        {session.assignedSlotName && (
+          <div className="flex items-center gap-2 text-xs font-semibold text-brand bg-brand-soft px-3 py-1.5 rounded-xl w-fit">
+            <Clock className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              Kíp thi của bạn: {session.assignedSlotName}{' '}
+              {session.slotStartTime && session.slotEndTime
+                ? `(${formatTimeRange(parseApiDate(session.slotStartTime), parseApiDate(session.slotEndTime))})`
+                : ''}
+            </span>
+          </div>
+        )}
         <p className="flex items-start gap-2">
           <CalendarClock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {formatTimeRange(parseApiDate(session.startTime), parseApiDate(session.endTime))}
+          Ca thi: {formatTimeRange(parseApiDate(session.startTime), parseApiDate(session.endTime))}
         </p>
         {session.room && <p className="flex items-center gap-2"><MapPin className="size-4 shrink-0" aria-hidden="true" />{session.room}</p>}
         <p>Session: {SESSION_STATUS_LABEL[session.sessionStatus]} · Your exam: {SESSION_STATUS_LABEL[session.enrollmentStatus]}</p>
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
         <p className="text-sm text-muted-foreground">
-          {state === 'waiting' && (now < parseApiDate(session.startTime).getTime()
-            ? 'It is not time yet. Come back when the session starts.'
-            : 'Waiting for the session to be opened. Press Refresh to update.')}
+          {state === 'waiting' && (
+            session.slotStartTime && now < parseApiDate(session.slotStartTime).getTime()
+              ? `Chưa đến khung giờ thi của bạn (${session.assignedSlotName ?? 'Kíp thi'}: ${formatTimeRange(parseApiDate(session.slotStartTime), parseApiDate(session.slotEndTime || session.endTime))}). Vui lòng quay lại đúng giờ.`
+              : now < parseApiDate(session.startTime).getTime()
+                ? 'Chưa đến giờ thi. Vui lòng quay lại khi ca thi bắt đầu.'
+                : 'Đang chờ giảng viên mở ca thi. Nhấn Làm mới để cập nhật.'
+          )}
           {state === 'ready' && 'Get your microphone ready and find a quiet place before you start.'}
           {state === 'inProgress' && 'Continue the exam you started.'}
           {state === 'completed' && 'Exam completed. Please wait for your result to be published.'}
