@@ -1,386 +1,266 @@
 """
 AIVES AI Service - Evaluation Edge Cases Tests
-Test các edge cases: timeout, retry, malformed responses, invalid scores.
+Test các edge cases của luồng chấm theo rubric: timeout, retry, response hỏng,
+điểm vượt trần criterion, thiếu rubric và rubric không khớp điểm câu.
 """
 
-import asyncio
 import json
-import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
-from app.services.scoring_service import ScoringService
-from app.models.request import EvaluateAnswerRequest, QuestionAnswerPair
-from app.exceptions.ai_exceptions import (
-    AIValidationError,
-    AITimeoutError,
-    MaxRetriesExceededError,
+import pytest
+
+from app.exceptions.ai_exceptions import AITimeoutError, MaxRetriesExceededError
+from app.models.request import (
+    AnswerRubricCriterion,
+    EvaluateAnswerRequest,
+    QuestionAnswerPair,
 )
+from app.services.evaluation_service import EvaluationService
+
+
+def _request(
+    course_content,
+    learning_outcomes,
+    question_answer,
+    max_score=10.0,
+) -> EvaluateAnswerRequest:
+    return EvaluateAnswerRequest(
+        exam_session_id="session-001",
+        course_name="Software Engineering",
+        documents=[course_content, learning_outcomes],
+        question_answer=question_answer,
+        max_score=max_score,
+    )
+
+
+def _single_criterion_pair(transcript: str = "Agile uses short iterations.") -> QuestionAnswerPair:
+    return QuestionAnswerPair(
+        question_id="q-edge",
+        question_text="Explain Agile.",
+        student_answer=transcript,
+        sample_answer="Agile uses short iterations.",
+        learning_outcome="Explain Agile",
+        topic="Agile",
+        max_score=3.0,
+        rubric=[
+            AnswerRubricCriterion(
+                criterion_id="c1", description="Explain short iterations", max_score=3.0
+            )
+        ],
+    )
+
+
+def _analysis(awarded: float) -> str:
+    return json.dumps({
+        "sentence_feedback": [
+            {"sentence": "Agile uses short iterations.", "judgment": "correct", "comment": "ok"}
+        ],
+        "criterion_analyses": [
+            {
+                "criterion_id": "c1",
+                "judgment": "met",
+                "awarded_score": awarded,
+                "explanation": "covered",
+                "errors": [],
+                "omissions": [],
+                "evidence_quotes": ["Agile uses short iterations"],
+            }
+        ],
+        "strengths": ["short iterations"],
+        "weaknesses": [],
+        "missing_content": [],
+        "improvements": [],
+        "feedback": "The answer explains short iterations.",
+    })
 
 
 class TestEvaluationEdgeCases:
-    """Test edge cases trong evaluation service."""
-    
+    """Edge cases trong evaluation service (rubric-driven)."""
+
     @pytest.mark.asyncio
     async def test_evaluate_with_good_answer(
         self,
         mock_course_content,
         mock_learning_outcomes,
         mock_question_answer_good,
-        mock_ai_client_success
+        fake_analysis_client,
     ):
-        """Test chấm điểm với câu trả lời tốt."""
-        service = ScoringService(ai_client=mock_ai_client_success)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
+        service = EvaluationService(ai_client=fake_analysis_client)
+        result = await service.evaluate_answer(
+            _request(mock_course_content, mock_learning_outcomes, mock_question_answer_good)
         )
-        
-        result = await service.evaluate_answer(request)
-        
+
         assert result.success is True
-        assert result.score >= 80.0  # Good answer should get high score
         assert result.question_id == mock_question_answer_good.question_id
-    
+        assert result.max_score == 10.0
+        assert result.score == pytest.approx(
+            sum(item.awarded_score for item in result.criterion_analyses)
+        )
+        assert result.score > 0
+
     @pytest.mark.asyncio
     async def test_evaluate_with_poor_answer(
         self,
         mock_course_content,
         mock_learning_outcomes,
-        mock_question_answer_poor
+        mock_question_answer_poor,
+        fake_analysis_client,
     ):
-        """Test chấm điểm với câu trả lời yếu."""
-        # Mock AI client trả về điểm thấp
-        mock_client = AsyncMock()
-        mock_client.complete_with_retry.return_value = json.dumps({
-            "score": 30.0,
-            "max_score": 100.0,
-            "feedback": "Câu trả lời quá sơ sài, thiếu chi tiết và ví dụ",
-            "strengths": [],
-            "weaknesses": ["Quá chung chung", "Thiếu ví dụ", "Không có phân tích"],
-            "missing_content": ["Nguyên tắc Agile", "Ví dụ thực tế", "So sánh với Waterfall"]
-        })
-        
-        service = ScoringService(ai_client=mock_client)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_poor,
-            max_score=100.0
+        service = EvaluationService(ai_client=fake_analysis_client)
+        result = await service.evaluate_answer(
+            _request(mock_course_content, mock_learning_outcomes, mock_question_answer_poor)
         )
-        
-        result = await service.evaluate_answer(request)
-        
+
         assert result.success is True
-        assert result.score <= 40.0  # Poor answer should get low score
-        assert len(result.weaknesses) > 0
-    
+        assert 0 <= result.score <= result.max_score
+        assert result.weaknesses or result.missing_content
+
     @pytest.mark.asyncio
     async def test_evaluate_malformed_json_response(
         self,
         mock_course_content,
         mock_learning_outcomes,
         mock_question_answer_good,
-        mock_ai_client_malformed
     ):
-        """Test xử lý khi AI trả về JSON lỗi cú pháp."""
-        service = ScoringService(ai_client=mock_ai_client_malformed)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
-        )
-        
+        client = AsyncMock()
+        client.complete_with_retry.return_value = "{ invalid json"
+
+        service = EvaluationService(ai_client=client)
         with pytest.raises(ValueError) as exc_info:
-            await service.evaluate_answer(request)
-        
+            await service.evaluate_answer(
+                _request(mock_course_content, mock_learning_outcomes, mock_question_answer_good)
+            )
+
         assert "invalid" in str(exc_info.value).lower()
-    
+
     @pytest.mark.asyncio
     async def test_evaluate_missing_required_fields(
         self,
         mock_course_content,
         mock_learning_outcomes,
-        mock_question_answer_good
+        mock_question_answer_good,
     ):
-        """Test xử lý khi AI response thiếu field bắt buộc."""
-        mock_client = AsyncMock()
-        mock_client.complete_with_retry.return_value = json.dumps({
-            "score": 85.0,
-            "max_score": 100.0,
-            # Missing feedback, strengths, weaknesses, missing_content
-        })
-        
-        service = ScoringService(ai_client=mock_client)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
-        )
-        
+        client = AsyncMock()
+        client.complete_with_retry.return_value = json.dumps({"criterion_analyses": []})
+
+        service = EvaluationService(ai_client=client)
         with pytest.raises(ValueError):
-            await service.evaluate_answer(request)
-    
+            await service.evaluate_answer(
+                _request(mock_course_content, mock_learning_outcomes, mock_question_answer_good)
+            )
+
     @pytest.mark.asyncio
-    async def test_evaluate_score_negative(
-        self,
-        mock_course_content,
-        mock_learning_outcomes,
-        mock_question_answer_good
+    async def test_evaluate_awarded_score_exceeds_criterion_max(
+        self, mock_course_content, mock_learning_outcomes
     ):
-        """Test xử lý khi AI trả về score âm."""
-        mock_client = AsyncMock()
-        mock_client.complete_with_retry.return_value = json.dumps({
-            "score": -10.0,  # Invalid negative score
-            "max_score": 100.0,
-            "feedback": "test",
-            "strengths": [],
-            "weaknesses": [],
-            "missing_content": []
-        })
-        
-        service = ScoringService(ai_client=mock_client)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
-        )
-        
+        client = AsyncMock()
+        client.complete_with_retry.return_value = _analysis(awarded=99.0)
+
+        service = EvaluationService(ai_client=client)
         with pytest.raises(ValueError):
-            await service.evaluate_answer(request)
-    
+            await service.evaluate_answer(
+                _request(
+                    mock_course_content,
+                    mock_learning_outcomes,
+                    _single_criterion_pair(),
+                    max_score=3.0,
+                )
+            )
+
     @pytest.mark.asyncio
-    async def test_evaluate_score_exceeds_max(
-        self,
-        mock_course_content,
-        mock_learning_outcomes,
-        mock_question_answer_good
+    async def test_evaluate_without_rubric_is_rejected(
+        self, mock_course_content, mock_learning_outcomes
     ):
-        """Test xử lý khi AI trả về score > maxScore."""
-        mock_client = AsyncMock()
-        mock_client.complete_with_retry.return_value = json.dumps({
-            "score": 120.0,  # > maxScore
-            "max_score": 100.0,
-            "feedback": "test",
-            "strengths": [],
-            "weaknesses": [],
-            "missing_content": []
-        })
-        
-        service = ScoringService(ai_client=mock_client)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
-        )
-        
-        with pytest.raises(ValueError):
-            await service.evaluate_answer(request)
-    
+        service = EvaluationService(ai_client=AsyncMock())
+        pair = _single_criterion_pair()
+        pair.rubric = []
+
+        with pytest.raises(ValueError) as exc_info:
+            await service.evaluate_answer(
+                _request(mock_course_content, mock_learning_outcomes, pair)
+            )
+
+        assert "rubric is required" in str(exc_info.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_rubric_max_score_must_match_question_max(
+        self, mock_course_content, mock_learning_outcomes
+    ):
+        client = AsyncMock()
+        client.complete_with_retry.return_value = _analysis(awarded=3.0)
+        service = EvaluationService(ai_client=client)
+
+        with pytest.raises(ValueError) as exc_info:
+            await service.evaluate_answer(
+                _request(
+                    mock_course_content,
+                    mock_learning_outcomes,
+                    _single_criterion_pair(),
+                    max_score=10.0,
+                )
+            )
+
+        assert "rubric max" in str(exc_info.value).lower()
+
     @pytest.mark.asyncio
     async def test_evaluate_timeout(
         self,
         mock_course_content,
         mock_learning_outcomes,
-        mock_question_answer_good
+        mock_question_answer_good,
     ):
-        """Test xử lý khi AI request timeout."""
-        mock_client = AsyncMock()
-        mock_client.complete_with_retry.side_effect = AITimeoutError(
-            "Request timed out after 30 seconds",
-            timeout_seconds=30.0
+        client = AsyncMock()
+        client.complete_with_retry.side_effect = AITimeoutError(
+            "Request timed out after 30 seconds", timeout_seconds=30.0
         )
-        
-        service = ScoringService(ai_client=mock_client)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
-        )
-        
+
+        service = EvaluationService(ai_client=client)
         with pytest.raises(ValueError) as exc_info:
-            await service.evaluate_answer(request)
-        
-        assert "timeout" in str(exc_info.value).lower() or "timed out" in str(exc_info.value).lower()
-    
+            await service.evaluate_answer(
+                _request(mock_course_content, mock_learning_outcomes, mock_question_answer_good)
+            )
+
+        message = str(exc_info.value).lower()
+        assert "timeout" in message or "timed out" in message
+
     @pytest.mark.asyncio
     async def test_evaluate_max_retries_exceeded(
         self,
         mock_course_content,
         mock_learning_outcomes,
-        mock_question_answer_good
+        mock_question_answer_good,
     ):
-        """Test xử lý khi vượt quá số lần retry."""
-        mock_client = AsyncMock()
-        mock_client.complete_with_retry.side_effect = MaxRetriesExceededError(
-            "Max retries (3) exceeded",
-            max_retries=3
+        client = AsyncMock()
+        client.complete_with_retry.side_effect = MaxRetriesExceededError(
+            "Max retries (3) exceeded", max_retries=3
         )
-        
-        service = ScoringService(ai_client=mock_client)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
-        )
-        
+
+        service = EvaluationService(ai_client=client)
         with pytest.raises(ValueError) as exc_info:
-            await service.evaluate_answer(request)
-        
-        assert "retries" in str(exc_info.value).lower() or "retry" in str(exc_info.value).lower()
-    
+            await service.evaluate_answer(
+                _request(mock_course_content, mock_learning_outcomes, mock_question_answer_good)
+            )
+
+        message = str(exc_info.value).lower()
+        assert "retries" in message or "retry" in message
+
+
+class TestEvaluationResponseMetadata:
+    """Response phải mang provider/model/schema_version cho audit."""
+
     @pytest.mark.asyncio
-    async def test_evaluate_retry_success_on_second_attempt(
+    async def test_response_carries_audit_metadata(
         self,
         mock_course_content,
         mock_learning_outcomes,
-        mock_question_answer_good
+        mock_question_answer_good,
+        fake_analysis_client,
     ):
-        """Test retry logic thành công ở lần thử thứ 2."""
-        mock_client = AsyncMock()
-        
-        # First call times out, second call succeeds
-        valid_response = json.dumps({
-            "score": 85.0,
-            "max_score": 100.0,
-            "feedback": "Good answer",
-            "strengths": ["Clear"],
-            "weaknesses": [],
-            "missing_content": []
-        })
-        
-        mock_client.complete_with_retry.side_effect = [
-            asyncio.TimeoutError(),  # First attempt fails
-            valid_response  # Second attempt succeeds
-        ]
-        
-        # Mock complete_with_retry to handle retry internally
-        async def mock_retry(*args, **kwargs):
-            # Simulate retry logic
-            try:
-                return await mock_client.complete_with_retry(*args, **kwargs)
-            except asyncio.TimeoutError:
-                # Retry
-                return await mock_client.complete_with_retry(*args, **kwargs)
-        
-        mock_client.complete_with_retry = AsyncMock(side_effect=[
-            asyncio.TimeoutError(),
-            valid_response
-        ])
-        
-        # Since we're testing the service, not the client's retry,
-        # we just verify the service can handle the response when retry succeeds
-        mock_client.complete_with_retry = AsyncMock(return_value=valid_response)
-        
-        service = ScoringService(ai_client=mock_client)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
+        service = EvaluationService(ai_client=fake_analysis_client)
+        result = await service.evaluate_answer(
+            _request(mock_course_content, mock_learning_outcomes, mock_question_answer_good)
         )
-        
-        result = await service.evaluate_answer(request)
-        assert result.success is True
-        assert result.score == 85.0
 
-
-class TestEvaluationWithRubric:
-    """Test evaluation với rubric."""
-    
-    @pytest.mark.asyncio
-    async def test_evaluate_with_valid_rubric(
-        self,
-        mock_course_content,
-        mock_learning_outcomes,
-        mock_rubric
-    ):
-        """Test chấm điểm với rubric hợp lệ."""
-        mock_client = AsyncMock()
-        mock_client.complete_with_retry.return_value = json.dumps({
-            "score": 85.0,
-            "max_score": 100.0,
-            "feedback": "Good understanding of Agile",
-            "strengths": ["Clear explanation", "Good examples"],
-            "weaknesses": ["Could compare more deeply"],
-            "missing_content": []
-        })
-        
-        service = ScoringService(ai_client=mock_client)
-        
-        qa = QuestionAnswerPair(
-            question_id="q-001",
-            question_text="Explain Agile methodology",
-            student_answer="Agile is iterative...",
-            sample_answer="Agile emphasizes...",
-            learning_outcome="Understand Agile principles",
-            topic="Agile",
-            max_score=100.0,
-            rubric=mock_rubric
-        )
-        
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=qa,
-            max_score=100.0
-        )
-        
-        result = await service.evaluate_answer(request)
-        assert result.success is True
-        assert result.score > 0
-
-
-class TestEvaluationMaxScoreMismatch:
-    """Test xử lý khi maxScore không khớp."""
-    
-    @pytest.mark.asyncio
-    async def test_max_score_mismatch(
-        self,
-        mock_course_content,
-        mock_learning_outcomes,
-        mock_question_answer_good
-    ):
-        """Test khi AI trả về maxScore khác với request."""
-        mock_client = AsyncMock()
-        mock_client.complete_with_retry.return_value = json.dumps({
-            "score": 85.0,
-            "max_score": 50.0,  # Different from request (100.0)
-            "feedback": "Good",
-            "strengths": [],
-            "weaknesses": [],
-            "missing_content": []
-        })
-        
-        service = ScoringService(ai_client=mock_client)
-        request = EvaluateAnswerRequest(
-            exam_session_id="session-001",
-            course_name="Software Engineering",
-            documents=[mock_course_content, mock_learning_outcomes],
-            question_answer=mock_question_answer_good,
-            max_score=100.0
-        )
-        
-        with pytest.raises(ValueError) as exc_info:
-            await service.evaluate_answer(request)
-        
-        # Error message should mention the mismatch issue
-        error_msg = str(exc_info.value).lower()
-        assert "max" in error_msg or "match" in error_msg or "invalid" in error_msg
+        assert result.provider
+        assert result.model
+        assert result.schema_version == "2.0"

@@ -158,6 +158,12 @@ public class ResultService : IResultService
             throw new InvalidOperationException(
                 $"Cannot publish result with status '{result.Status}'. Result must be REVIEWED before publishing.");
 
+        if (result.Answers.Any(answer =>
+                !answer.FinalScore.HasValue
+                && (answer.Status != AnswerStatus.EVALUATED || !answer.AiScore.HasValue)))
+            throw new InvalidOperationException(
+                "Every answer must have an AI score or an examiner score before the result can be published.");
+
         // BR-10: Teacher approve và publish Final Result
         // BR-11: Final Result được giao cho Student
         if (!result.FinalScore.HasValue && !result.AiScore.HasValue)
@@ -236,7 +242,12 @@ public class ResultService : IResultService
                 AudioUrl = _storageService.ResolvePlaybackUrl(a.AudioUrl),
                 FinalScore = a.FinalScore ?? a.AiScore,
                 TeacherComment = a.TeacherComment ?? a.AiFeedback,
-                IsFollowUp = a.IsFollowUp ?? false
+                IsFollowUp = a.IsFollowUp ?? false,
+                AiAnalysis = a.AiAnalysis == null
+                    ? null
+                    : JsonSerializer.Deserialize<StoredAnswerAnalysisDto>(
+                        a.AiAnalysis,
+                        StoredAnswerAnalysisDto.SerializerOptions)
             }).ToList()
         };
     }
@@ -269,7 +280,9 @@ public class ResultService : IResultService
         ExamTitle = result.Session?.Exam?.Title ?? "",
         AiScore = result.AiScore,
         AiFeedback = result.AiFeedback,
-        AiAnalysis = result.AiAnalysis == null ? null : JsonSerializer.Deserialize<SessionAnalysisDto>(result.AiAnalysis),
+        AiAnalysis = result.AiAnalysis == null ? null : JsonSerializer.Deserialize<SessionAnalysisDto>(
+            result.AiAnalysis,
+            StoredAnswerAnalysisDto.SerializerOptions),
         AiEvaluationStatus = result.AiEvaluationStatus?.ToString(),
         AiEvaluationError = result.AiEvaluationError,
         FinalScore = result.FinalScore,
@@ -283,6 +296,7 @@ public class ResultService : IResultService
         {
             AnswerId = a.AnswerId,
             Status = a.Status.ToString(),
+            ErrorMessage = a.ErrorMessage,
             QuestionId = a.QuestionId,
             QuestionText = a.Question?.QuestionText ?? "",
             MaxScore = a.Question?.MaxScore,
@@ -291,7 +305,9 @@ public class ResultService : IResultService
             AudioUrl = _storageService.ResolvePlaybackUrl(a.AudioUrl),
             AiScore = a.AiScore,
             AiFeedback = a.AiFeedback,
-            AiAnalysis = a.AiAnalysis == null ? null : JsonSerializer.Deserialize<StoredAnswerAnalysisDto>(a.AiAnalysis),
+            AiAnalysis = a.AiAnalysis == null ? null : JsonSerializer.Deserialize<StoredAnswerAnalysisDto>(
+                a.AiAnalysis,
+                StoredAnswerAnalysisDto.SerializerOptions),
             FinalScore = a.FinalScore,
             TeacherComment = a.TeacherComment,
             IsFollowUp = a.IsFollowUp ?? false

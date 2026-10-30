@@ -79,19 +79,34 @@ public class ResultRepository : IResultRepository
         }
         else
         {
-            existing.StudentAnswer = answer.StudentAnswer;
-            existing.Transcript = answer.Transcript;
+            var isFollowUp = answer.IsFollowUp == true;
+            existing.StudentAnswer = isFollowUp
+                ? AppendAnswer(existing.StudentAnswer, answer.StudentAnswer)
+                : answer.StudentAnswer;
+            existing.Transcript = isFollowUp
+                ? AppendAnswer(existing.Transcript, answer.Transcript)
+                : answer.Transcript;
             if (!string.IsNullOrEmpty(answer.AudioUrl))
                 existing.AudioUrl = answer.AudioUrl;
-            existing.IsFollowUp = answer.IsFollowUp;
-            if (answer.AiScore.HasValue)
-                existing.AiScore = answer.AiScore;
-            if (!string.IsNullOrEmpty(answer.AiFeedback))
-                existing.AiFeedback = answer.AiFeedback;
+            if (!string.IsNullOrEmpty(answer.ObjectKey))
+                existing.ObjectKey = answer.ObjectKey;
+            existing.IsFollowUp = existing.IsFollowUp == true || isFollowUp;
+            existing.Status = answer.Status;
+            existing.ErrorMessage = answer.ErrorMessage;
+            existing.AiScore = answer.AiScore;
+            existing.AiFeedback = answer.AiFeedback;
+            existing.AiAnalysis = answer.AiAnalysis;
             existing.AnsweredAt = answer.AnsweredAt ?? DateTime.UtcNow;
             _db.Answers.Update(existing);
         }
         await _db.SaveChangesAsync();
+    }
+
+    private static string? AppendAnswer(string? original, string? followUp)
+    {
+        if (string.IsNullOrEmpty(original)) return followUp;
+        if (string.IsNullOrEmpty(followUp)) return original;
+        return $"{original}{Environment.NewLine}{Environment.NewLine}{followUp}";
     }
 
     public async Task UpdateAsync(Result result)

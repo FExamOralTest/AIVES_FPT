@@ -341,14 +341,21 @@ public class AiServiceClient : IAiServiceClient
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Session evaluation failed with status {StatusCode}", response.StatusCode);
                 // Phân biệt lỗi server (5xx / 429 — tạm thời, retry được) với lỗi client
                 // (4xx — request sai, retry cũng ra kết quả y hệt → dead-letter ngay).
                 var statusCode = (int)response.StatusCode;
                 var code = statusCode >= 500 || statusCode == 429
                     ? "http_error"
                     : "http_client_error";
-                return EvaluationFailure(code, $"AI evaluation returned HTTP {statusCode}.");
+                var detail = await ReadApiErrorDetailAsync(response, cancellationToken);
+                _logger.LogWarning(
+                    "Session evaluation failed with status {StatusCode}: {ErrorDetail}",
+                    statusCode,
+                    detail ?? "No error detail returned.");
+                var message = detail == null
+                    ? $"AI evaluation returned HTTP {statusCode}."
+                    : $"AI evaluation returned HTTP {statusCode}: {detail}";
+                return EvaluationFailure(code, message);
             }
 
             var result = await response.Content.ReadFromJsonAsync<EvaluateSessionResponse>(cancellationToken);
@@ -357,7 +364,10 @@ public class AiServiceClient : IAiServiceClient
             if (!result.Success)
                 return EvaluationFailure("evaluation_failed", "AI service could not evaluate this submission.");
 
-            EvaluationContract.Validate(request, result);
+            EvaluationContract.Validate(
+                request,
+                result,
+                message => _logger.LogWarning("{EvaluationWarning}", message));
             return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -376,8 +386,8 @@ public class AiServiceClient : IAiServiceClient
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException or NotSupportedException)
         {
-            _logger.LogWarning(ex, "AI evaluation returned an invalid response.");
-            return EvaluationFailure("invalid_response", "AI evaluation returned an invalid response.");
+            _logger.LogWarning(ex, "AI evaluation response validation failed: {ValidationError}", ex.Message);
+            return EvaluationFailure("invalid_response", $"AI evaluation response validation failed: {ex.Message}");
         }
     }
 
@@ -424,4 +434,28 @@ public class AiServiceClient : IAiServiceClient
         ErrorCode = code,
         Message = message
     };
+
+    private static async Task<string?> ReadApiErrorDetailAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("detail", out var detail)
+                || detail.ValueKind != JsonValueKind.String)
+                return null;
+
+            var message = detail.GetString()?.Trim();
+            if (string.IsNullOrEmpty(message))
+                return null;
+            return message.Length <= 500 ? message : message[..500];
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 }

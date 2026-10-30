@@ -1,5 +1,38 @@
 export type AnswerStatusType = 'PROCESSING' | 'EVALUATED' | 'ERROR'
 
+export interface CriterionAnalysis {
+  criterionId: string
+  awardedScore: number
+  judgment: 'met' | 'partial' | 'not_met'
+  explanation: string
+  errors: string[]
+  omissions: string[]
+  evidenceQuotes: string[]
+}
+
+export interface StoredAnswerAnalysis {
+  schemaVersion: string
+  provider: string
+  model: string
+  gradedAt: string
+  transcript: string
+  rubric: { criterionId: string; description: string; maxScore: number }[]
+  evaluation: {
+    questionId: string
+    questionText: string
+    studentAnswer: string
+    score: number
+    maxScore: number
+    feedback: string
+    strengths: string[]
+    weaknesses: string[]
+    missingContent: string[]
+    sentenceFeedback: { sentence: string; judgment: string; comment: string }[]
+    criterionAnalyses: CriterionAnalysis[]
+    improvements: string[]
+  }
+}
+
 export interface AnswerForReviewDto {
   answerId: number
   status?: AnswerStatusType | string
@@ -12,6 +45,7 @@ export interface AnswerForReviewDto {
   audioUrl?: string | null
   aiScore?: number | null
   aiFeedback?: string | null
+  aiAnalysis?: StoredAnswerAnalysis | null
   finalScore?: number | null
   teacherComment?: string | null
   isFollowUp: boolean
@@ -27,9 +61,15 @@ export interface ResultForReviewDto {
   examTitle: string
   aiScore?: number | null
   aiFeedback?: string | null
+  aiEvaluationStatus?: string | null
+  aiEvaluationError?: string | null
   finalScore?: number | null
   finalFeedback?: string | null
   aiAnalysis?: {
+    schemaVersion?: string
+    provider?: string
+    model?: string
+    gradedAt?: string
     maxTotalScore: number
     percentage: number
     studySuggestions: string[]

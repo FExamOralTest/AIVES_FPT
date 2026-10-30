@@ -270,7 +270,7 @@ public class VivaSessionService : IVivaSessionService
             AudioUrl = audioUrl,
             ObjectKey = storedObjectKey,
             DurationSeconds = audioDuration,
-            Status = !string.IsNullOrWhiteSpace(transcript) ? AnswerStatus.EVALUATED : AnswerStatus.PROCESSING,
+            Status = AnswerStatus.PROCESSING,
             IsFollowUp = request.IsFollowUp,
             AnsweredAt = DateTime.UtcNow
         };
@@ -386,6 +386,8 @@ public class VivaSessionService : IVivaSessionService
             answer.AiScore = null;
             answer.AiFeedback = null;
             answer.AiAnalysis = null;
+            answer.Status = AnswerStatus.PROCESSING;
+            answer.ErrorMessage = null;
         }
 
         // Persist the submission before enqueueing so a queue outage cannot lose it.

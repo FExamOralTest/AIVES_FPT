@@ -29,8 +29,6 @@
 | 8 | POST | `/ai/evaluate/answer` | Chấm 1 câu trả lời | — (test/Swagger) |
 | 9 | POST | `/ai/evaluate/session` | Chấm toàn bộ buổi thi | `AnswerOrchestrator` |
 | 10 | POST | `/ai/markdown/process` | Chuẩn hoá & kiểm tra markdown | — |
-| 11 | GET | `/health` | Health check | Docker healthcheck |
-
 ---
 
 ## 1. POST /ai/questions/generate
@@ -224,14 +222,19 @@ Chấm một câu trả lời theo rubric.
 | `score` | number | 0 → `max_score` |
 | `max_score` | number | Điểm tối đa |
 | `feedback` | string | Nhận xét tổng |
+| `provider` | string | AI provider đã dùng |
+| `model` | string | Model đã dùng |
+| `schema_version` | string | Phiên bản audit, hiện là `2.0` |
 | `strengths[]` | string[] | Điểm mạnh |
 | `weaknesses[]` | string[] | Điểm yếu |
 | `missing_content[]` | string[] | Nội dung thiếu |
 | `sentence_feedback[]` | array | `sentence`, `judgment`, `comment`; rỗng khi không có rubric |
-| `criterion_analyses[]` | array | `criterion_id`, `judgment` (`met` \| `partial` \| `not_met`), `explanation`, `errors[]`, `omissions[]`, `evidence_quotes[]` |
+| `criterion_analyses[]` | array | `criterion_id`, `awarded_score`, `judgment` (`met` \| `partial` \| `not_met`), `explanation`, `errors[]`, `omissions[]`, `evidence_quotes[]` |
 | `improvements[]` | string[] | Gợi ý cải thiện |
 
 **Lỗi:** `422` · `500`.
+
+**Cách tính điểm:** Mỗi criterion trả `awarded_score` trong khoảng 0 đến `max_score`; `met` nhận đủ điểm, `not_met` nhận 0, `partial` nhận điểm nằm giữa hai mức. `score` của câu là tổng điểm criterion. Tổng `max_score` trong rubric phải khớp với điểm tối đa của câu. Backend xác thực các analysis và tự tính lại điểm.
 
 ---
 
@@ -259,9 +262,14 @@ Chấm toàn bộ buổi thi (worker gọi sau khi có transcript).
 | `max_total_score` | number | Tổng điểm tối đa |
 | `percentage` | number | Phần trăm (0–100) |
 | `overall_feedback` | string | Nhận xét chung |
-| `question_scores[]` | array | `question_id`, `question_text`, `student_answer`, `score`, `max_score`, `feedback`, `strengths[]`, `weaknesses[]`, `missing_content[]`, `sentence_feedback[]`, `criterion_analyses[]`, `improvements[]` |
+| `provider` | string | AI provider đã dùng |
+| `model` | string | Model đã dùng |
+| `schema_version` | string | Phiên bản audit, hiện là `2.0` |
+| `question_scores[]` | array | `question_id`, `question_text`, `student_answer`, `score`, `max_score`, `feedback`, `strengths[]`, `weaknesses[]`, `missing_content[]`, `sentence_feedback[]`, `criterion_analyses[]` (có `awarded_score`), `improvements[]` |
 | `study_suggestions[]` | string[] | Gợi ý ôn tập |
 | `status` | string | Trạng thái tổng kết |
+
+Backend tính lại điểm từng câu từ `criterion_analyses[].awarded_score`, sau đó tính `total_score`, `max_total_score` và `percentage`; các tổng AI trả về không được dùng làm nguồn dữ liệu chuẩn.
 
 **Lỗi:** `422` · `500`.
 
@@ -279,12 +287,6 @@ Chuẩn hoá markdown và kiểm tra tính hợp lệ trước khi dùng làm ng
 
 ---
 
-## 11. GET /health
-
-**Response 200:** `status`, `service`, `version`, `ai_provider`, `stt_provider`, `tts_provider`.
-
----
-
 ## Contract nội bộ của LLM
 
 Response của model được validate trước khi trả ra ngoài:
@@ -294,5 +296,5 @@ Response của model được validate trước khi trả ra ngoài:
 | Điểm | `AiScore` trong `0–100` |
 | Độ tin cậy | `confidence` trong `0.0–1.0` |
 | Feedback | Đủ `strengths`, `improvements`, `actionableTips` |
-| Rubric | Mỗi `rubricResults[]` có `criterionId`, `criterionName`, `score ≤ maxScore`, `maxScore`, `evidence`, `comment` |
+| Rubric | Mỗi `criterion_analyses[]` có `criterion_id`, `awarded_score`, `judgment`, `explanation`, `evidence_quotes[]`; tổng điểm câu bằng tổng `awarded_score` |
 | Xử lý | Bóc fence ```` ```json ```` → parse → kiểm tra đủ field → kiểm tra range → retry tối đa `AI_MAX_RETRIES` → raise `AIValidationError` / `AITimeoutError` |

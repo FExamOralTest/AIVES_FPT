@@ -209,7 +209,8 @@ def _criterion_line(analysis) -> str:
     if len(explanation) > 120:
         explanation = explanation[:120] + "..."
     return (f"    - criterion_id={analysis.criterion_id} | "
-            f"judgment={analysis.judgment} | explanation={explanation}")
+            f"judgment={analysis.judgment} | "
+            f"awarded_score={analysis.awarded_score} | explanation={explanation}")
 
 
 def _print_case(name: str, call_seconds: float, result) -> None:
@@ -233,7 +234,6 @@ async def main() -> None:
     evaluation = EvaluationService()
     question_service = QuestionService()
     followup_service = FollowUpService()
-    _instrument(evaluation.scoring.ai_client, "ScoringService")
     _instrument(evaluation.analysis.ai_client, "FeedbackAnalysis")
     _instrument(question_service.ai_client, "QuestionService")
     _instrument(followup_service.ai_client, "FollowUpService")
@@ -307,6 +307,14 @@ async def main() -> None:
     check("Case A feedback not empty", bool(case_a.feedback.strip()))
     check("Case A score >= 6.5", case_a.score >= 6.5)
     check("Case B score <= 5.0", case_b.score <= 5.0)
+    check(
+        "Case A score == sum(awarded_score)",
+        abs(case_a.score - sum(a.awarded_score for a in case_a.criterion_analyses)) < 1e-4,
+    )
+    check(
+        "Case B score == sum(awarded_score)",
+        abs(case_b.score - sum(a.awarded_score for a in case_b.criterion_analyses)) < 1e-4,
+    )
 
     ids = {a.criterion_id for a in case_a.criterion_analyses}
     check("Case A criterion ids == {c1, c2, c3}", ids == {"c1", "c2", "c3"})
@@ -333,6 +341,10 @@ async def main() -> None:
     if case_b.score > 5.0:
         failures.append("Case B score > 5.0 (score thực tế = "
                         f"{case_b.score})")
+    if abs(case_a.score - sum(a.awarded_score for a in case_a.criterion_analyses)) >= 1e-4:
+        failures.append("Case A score does not equal sum of awarded_score")
+    if abs(case_b.score - sum(a.awarded_score for a in case_b.criterion_analyses)) >= 1e-4:
+        failures.append("Case B score does not equal sum of awarded_score")
     if ids != {"c1", "c2", "c3"}:
         failures.append(f"Case A criterion ids = {ids}, expected c1/c2/c3")
     if not question.question.strip():
