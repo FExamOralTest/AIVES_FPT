@@ -73,7 +73,7 @@ jobs:
           version="${version%%+*}"
           branch="${GITHUB_REF_NAME//\//-}"
           tag="desktop-v${version}-${branch}-${GITHUB_RUN_NUMBER}"
-          title="AIVES Student Windows ${version} (${branch} #${GITHUB_RUN_NUMBER})"
+          title="AIVES Student Windows ${version} (${branch} #${GITHUB_RUN_NUMBER}) — Người release: 𝐕𝐨 𝐓𝐫𝐚𝐧 𝐍𝐠𝐨𝐜 𝐇𝐮𝐮"
           zip="AIVES-Student-Windows-${version}-${branch}-${GITHUB_RUN_NUMBER}.zip"
           zip -r "$zip" AIVES-Student-Windows
           {
@@ -82,6 +82,8 @@ jobs:
             echo "zip=${zip}"
           } >> "$GITHUB_OUTPUT"
           cat > release-notes.md <<EOF
+          **Người release: Vo Tran Ngoc Huu**
+
           ## Install
 
           1. Download \`${zip}\` from Assets below.
@@ -94,7 +96,6 @@ jobs:
 
           - Branch: \`${branch}\`
           - Commit: \`${GITHUB_SHA}\`
-          - Author: Vo Tran Ngoc Huu
           EOF
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
