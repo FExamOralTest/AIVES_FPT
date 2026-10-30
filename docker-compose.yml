@@ -1,7 +1,11 @@
 name: aives-dev
 
+# Default pipeline: backend and AI run in Docker, Postgres is the Neon database
+# named by ConnectionStrings__DefaultConnection in .env. The local Postgres
+# service is only for an isolated database: docker compose --profile local-db up.
 services:
   postgres:
+    profiles: ["local-db"]
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: aives_dev
@@ -16,6 +20,7 @@ services:
       retries: 12
 
   db-init:
+    profiles: ["local-db"]
     build:
       context: ./backend
       dockerfile: Aives.Api/Dockerfile
@@ -36,15 +41,14 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
-      ConnectionStrings__DefaultConnection: Host=postgres;Database=aives_dev;Username=aives;Password=aives-local-development
-      Jwt__Key: aives-docker-local-development-key-32-characters
+      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
+      Database__SeedOnStartup: ${Database__SeedOnStartup:-false}
+      Jwt__Key: ${Jwt__Key:-aives-docker-local-development-key-32-characters}
       AI__BaseUrl: http://ai-service:8000
       AI__ApiKey: aives-dev-internal-key
     volumes:
       - uploads:/app/wwwroot/uploads
     depends_on:
-      db-init:
-        condition: service_completed_successfully
       ai-service:
         condition: service_healthy
     healthcheck:
