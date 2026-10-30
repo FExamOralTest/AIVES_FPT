@@ -11,7 +11,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useId, useState, type FormEvent } from 'react'
 import { FormField } from '@/components/common/FormField'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -107,40 +107,8 @@ function CreateSessionForm({
 
   const primaryExam = selectedExamsData[0] as Exam | undefined
 
-  // Total session duration calculated from slot templates or exam duration
-  const totalDurationMinutes = useMemo(() => {
-    if (primaryExam?.slotTemplates && primaryExam.slotTemplates.length > 0) {
-      return primaryExam.slotTemplates.reduce((acc, t) => acc + (t.durationMinutes || 0), 0)
-    }
-    return primaryExam?.durationMinutes || 60
-  }, [primaryExam])
-
-  // Sequentially calculated slots based on primary exam's slot templates
-  const inheritedSlots = useMemo(() => {
-    if (!primaryExam?.slotTemplates || primaryExam.slotTemplates.length === 0) return []
-    const start = new Date(startTime)
-    if (Number.isNaN(start.getTime())) return []
-
-    let current = new Date(start)
-    return [...primaryExam.slotTemplates]
-      .sort((a, b) => a.slotIndex - b.slotIndex)
-      .map((t, idx) => {
-        const slotStart = new Date(current)
-        const slotEnd = new Date(slotStart.getTime() + (t.durationMinutes || 15) * 60_000)
-        current = slotEnd
-        return {
-          slotIndex: t.slotIndex ?? (idx + 1),
-          slotName: t.slotName || `Slot ${idx + 1}`,
-          durationMinutes: t.durationMinutes || 15,
-          maxCapacity: t.maxCapacity || 10,
-          startTime: slotStart.toISOString(),
-          endTime: slotEnd.toISOString(),
-          startDisplay: slotStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          endDisplay: slotEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          examPapers: t.examPapers ?? [],
-        }
-      })
-  }, [primaryExam, startTime])
+  // Total session duration (minutes) default to exam duration or 60 mins
+  const totalDurationMinutes = primaryExam?.durationMinutes || 60
 
   // Automatically update endTime whenever startTime or totalDurationMinutes changes
   useEffect(() => {
@@ -150,16 +118,6 @@ function CreateSessionForm({
       setEndTime(toLocalInput(e))
     }
   }, [startTime, totalDurationMinutes])
-
-  // Automatically update suggested capacity from slot templates if configured
-  useEffect(() => {
-    if (primaryExam?.slotTemplates && primaryExam.slotTemplates.length > 0) {
-      const sumCap = primaryExam.slotTemplates.reduce((acc, t) => acc + (t.maxCapacity || 0), 0)
-      if (sumCap > 0) {
-        setMaxCapacity(String(sumCap))
-      }
-    }
-  }, [primaryExam])
 
   function addExam(examIdStr: string) {
     const id = Number(examIdStr)
@@ -239,23 +197,12 @@ function CreateSessionForm({
         }
       }
 
-      // 3. Auto-distribute slots and exams if students enrolled
-      if (studentsAdded) {
-        if (inheritedSlots.length > 0) {
-          try {
-            await sessionsApi.distributeSlots(created.sessionId, {
-              strategy: 'SLOT_BALANCED',
-            })
-          } catch {
-            // non-fatal
-          }
-        }
-        if (selectedExamIds.length > 1) {
-          try {
-            await sessionsApi.distributeExams(created.sessionId, { strategy: 'BALANCED_RANDOM' })
-          } catch {
-            // non-fatal
-          }
+      // 3. Auto-distribute exams if multiple exams selected
+      if (studentsAdded && selectedExamIds.length > 1) {
+        try {
+          await sessionsApi.distributeExams(created.sessionId, { strategy: 'BALANCED_RANDOM' })
+        } catch {
+          // non-fatal
         }
       }
 
@@ -376,7 +323,7 @@ function CreateSessionForm({
                   inputMode="numeric"
                   value={maxCapacity}
                   error={errors.maxCapacity}
-                  hint={inheritedSlots.length > 0 ? `Calculated across ${inheritedSlots.length} slots` : undefined}
+                  hint="Maximum student capacity for this session"
                   onChange={(e) => {
                     setMaxCapacity(e.target.value.replace(/\D/g, ''))
                     if (errors.maxCapacity) setEditErrors((prev) => ({ ...prev, maxCapacity: '' }))
@@ -498,70 +445,22 @@ function CreateSessionForm({
               )}
             </div>
 
-            {/* Card 3: Time Slots (Inherited from Exam) */}
+            {/* Card 3: Time Slots */}
             <div className="rounded-2xl border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="size-4 text-brand" />
                   <h4 className="text-sm font-semibold text-foreground">
-                    Time Slots Configuration
+                    Time Slots
                   </h4>
                 </div>
-                {inheritedSlots.length > 0 ? (
-                  <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
-                    {inheritedSlots.length} slots inherited from Exam
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                    Continuous Exam Session
-                  </span>
-                )}
+                <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
+                  Configured in Session Details
+                </span>
               </div>
-
-              {inheritedSlots.length > 0 ? (
-                <div className="space-y-3 pt-1">
-                  <p className="text-xs text-muted-foreground">
-                    Time slots are defined in the selected Exam. The session automatically schedules each slot sequentially from your Start Time.
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2 max-h-[220px] overflow-y-auto rounded-xl border p-2 bg-muted/10">
-                    {inheritedSlots.map((slot) => (
-                      <div
-                        key={slot.slotIndex}
-                        className="flex flex-col gap-1.5 rounded-lg border bg-card p-2.5 text-xs shadow-xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-foreground">{slot.slotName}</span>
-                          <span className="font-mono text-brand font-medium">
-                            {slot.startDisplay} – {slot.endDisplay}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>Duration: {slot.durationMinutes} mins</span>
-                          <span>Max Capacity: ~{slot.maxCapacity} students</span>
-                        </div>
-                        {slot.examPapers && slot.examPapers.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-border/50">
-                            <span className="text-[10px] text-muted-foreground">Assigned papers:</span>
-                            {slot.examPapers.map((ep) => (
-                              <span
-                                key={ep.examId}
-                                className="rounded bg-brand-soft px-1.5 py-0.5 font-mono text-[10px] font-medium text-brand"
-                              >
-                                {ep.examCode}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground space-y-1">
-                  <p className="font-medium text-foreground">Continuous Exam Session (No slots configured in Exam)</p>
-                  <p>This exam paper does not have predefined slot templates. The entire session will run continuously for {totalDurationMinutes} minutes.</p>
-                </div>
-              )}
+              <p className="text-xs text-muted-foreground">
+                After creating this session, you can open it to configure custom time slots (e.g. Slot 1, Slot 2, Slot 3), adjust durations and capacities, and automatically balance students across slots.
+              </p>
             </div>
           </div>
         )}

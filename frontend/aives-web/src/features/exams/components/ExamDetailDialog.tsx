@@ -21,7 +21,7 @@ interface Props {
 export function ExamDetailDialog({ exam, onClose, onChanged, onDeleted }: Props) {
   const [pending, setPending] = useState(false)
   return <Dialog open={exam !== null} onOpenChange={(value) => !value && !pending && onClose()}>
-    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
       {exam && <ExamDetail key={exam.examId} examId={exam.examId} onChanged={onChanged} onDeleted={onDeleted} onPending={setPending} />}
     </DialogContent>
   </Dialog>

@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils'
 import { sessionsApi } from '../api/sessionsApi'
 import type { DistributeExamsResponse, DistributeSlotsResponse, ExamSession } from '../types'
 import { AddStudentsForm } from './AddStudentsForm'
+import { ConfigureSlotsDialog } from './ConfigureSlotsDialog'
 
 interface SessionDetailDialogProps {
   sessionId: number | null
@@ -103,6 +104,7 @@ function SessionDetail({
   const [slotExamMode, setSlotExamMode] = useState<'EXAM_PER_SLOT' | 'SHUFFLE_IN_SLOT'>('EXAM_PER_SLOT')
   const [selectedSlotFilter, setSelectedSlotFilter] = useState<number | 'ALL'>('ALL')
   const [reassigningSlotStudentId, setReassigningSlotStudentId] = useState<number | null>(null)
+  const [configureSlotsOpen, setConfigureSlotsOpen] = useState(false)
 
   // Inline edit state
   const [editSessionName, setEditSessionName] = useState('')
@@ -732,11 +734,19 @@ function SessionDetail({
                     <h4 id="session-slots" className="font-semibold text-sm">
                       Time Slots Configuration ({slots.length} slots)
                     </h4>
-                    <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
-                      {session.durationMinutes} mins/slot
-                    </span>
                   </div>
-
+                  {notStarted && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 h-7.5 text-xs font-medium"
+                      onClick={() => setConfigureSlotsOpen(true)}
+                    >
+                      <Layers className="size-3.5 text-brand" />
+                      Configure Slots
+                    </Button>
+                  )}
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -819,12 +829,23 @@ function SessionDetail({
                     <Clock className="size-4.5" />
                   </span>
                   <div>
-                    <h4 className="text-sm font-semibold text-foreground">Continuous Exam Session</h4>
+                    <h4 className="text-sm font-semibold text-foreground">No Time Slots Configured</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      No predefined time slots were configured for this exam paper. All students take the exam continuously in a single time window.
+                      Divide this exam session into time slots  to manage student arrival and balance exam papers.
                     </p>
                   </div>
                 </div>
+                {notStarted && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="gap-1.5 shrink-0"
+                    onClick={() => setConfigureSlotsOpen(true)}
+                  >
+                    <Layers className="size-4" />
+                    Configure Time Slots
+                  </Button>
+                )}
               </div>
             )}
 
@@ -1226,6 +1247,17 @@ function SessionDetail({
       </div>
 
 
+      {configureSlotsOpen && (
+        <ConfigureSlotsDialog
+          open={configureSlotsOpen}
+          session={session}
+          onClose={() => setConfigureSlotsOpen(false)}
+          onSaved={(updated) => {
+            applyUpdate(updated)
+            monitor.reload()
+          }}
+        />
+      )}
     </div>
   )
 }

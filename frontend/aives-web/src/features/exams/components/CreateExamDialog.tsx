@@ -12,7 +12,7 @@ interface Props { open: boolean; onClose: () => void; onCreated: (exam: Exam) =>
 export function CreateExamDialog({ open, onClose, onCreated }: Props) {
   const [pending, setPending] = useState(false)
   return <Dialog open={open} onOpenChange={(value) => !value && !pending && onClose()}>
-    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>Create exam</DialogTitle><DialogDescription>Choose a course and questions. A draft without questions needs some before you can create a session.</DialogDescription></DialogHeader>
       {open && <CreateExam onClose={onClose} onCreated={onCreated} pending={pending} onPending={setPending} />}
     </DialogContent>

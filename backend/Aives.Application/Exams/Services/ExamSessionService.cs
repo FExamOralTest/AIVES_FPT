@@ -931,20 +931,31 @@ public class ExamSessionService : IExamSessionService
 
 
                 await _sessionRepository.SetSessionSlotsAsync(created.SessionId, slotEntities, slotExamsMap);
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
+            else if (request.Slots != null && request.Slots.Count > 0)
+            {
+                var slotExamsMap = new Dictionary<int, List<int>>();
+                var slotEntities = request.Slots.OrderBy(s => s.SlotIndex).ThenBy(s => s.StartTime).Select((s, idx) =>
+                {
+                    var slotIndex = s.SlotIndex > 0 ? s.SlotIndex : (idx + 1);
+                    if (s.AllowedExamIds != null && s.AllowedExamIds.Count > 0)
+                    {
+                        slotExamsMap[slotIndex] = s.AllowedExamIds;
+                    }
+                    return new ExamSessionSlot
+                    {
+                        SessionId = created.SessionId,
+                        SlotIndex = slotIndex,
+                        SlotName = string.IsNullOrWhiteSpace(s.SlotName) ? $"Slot {slotIndex}" : s.SlotName.Trim(),
+                        SlotCode = $"{created.SessionCode}-S{slotIndex}-{RandomNumberGenerator.GetInt32(100000, 1000000)}",
+                        StartTime = s.StartTime,
+                        EndTime = s.EndTime,
+                        MaxCapacity = s.MaxCapacity ?? session.MaxCapacity,
+                        SlotTemplateId = s.SlotTemplateId
+                    };
+                }).ToList();
+                await _sessionRepository.SetSessionSlotsAsync(created.SessionId, slotEntities, slotExamsMap);
+            }
 
             await _sessionRepository.SaveChangesAsync();
 
