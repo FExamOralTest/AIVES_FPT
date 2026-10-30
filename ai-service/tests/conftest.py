@@ -3,11 +3,9 @@ AIVES AI Service - Test Fixtures
 Shared fixtures và mocks cho toàn bộ test suite.
 """
 
-import json
 import pytest
-from typing import Dict, Any
-from unittest.mock import AsyncMock, Mock
 
+from app.core.ai_client import MockAIClient
 from app.models.request import DocumentContext, QuestionAnswerPair, AnswerRubricCriterion
 
 
@@ -65,29 +63,34 @@ def mock_learning_outcomes() -> DocumentContext:
 
 
 @pytest.fixture
-def mock_rubric() -> list[AnswerRubricCriterion]:
-    """Mock rubric criteria."""
+def rubric() -> list[AnswerRubricCriterion]:
+    """Rubric whose max scores add up to the 10-point question maximum."""
     return [
         AnswerRubricCriterion(
             criterion_id="crit-001",
             description="Giải thích đầy đủ các nguyên tắc cốt lõi của Agile",
-            max_score=30.0
+            max_score=3.0
         ),
         AnswerRubricCriterion(
             criterion_id="crit-002",
             description="Nêu được ví dụ thực tế về áp dụng Agile",
-            max_score=30.0
+            max_score=3.0
         ),
         AnswerRubricCriterion(
             criterion_id="crit-003",
             description="So sánh Agile với các phương pháp khác",
-            max_score=40.0
+            max_score=2.0
+        ),
+        AnswerRubricCriterion(
+            criterion_id="crit-004",
+            description="Nêu ưu điểm của Agile trong phát triển phần mềm",
+            max_score=2.0
         ),
     ]
 
 
 @pytest.fixture
-def mock_question_answer_good() -> QuestionAnswerPair:
+def mock_question_answer_good(rubric) -> QuestionAnswerPair:
     """Mock Q&A pair với câu trả lời tốt."""
     return QuestionAnswerPair(
         question_id="q-001",
@@ -104,12 +107,13 @@ Waterfall yêu cầu định nghĩa rõ ràng từ đầu.""",
         sample_answer="Agile emphasizes iterative development, customer collaboration, and flexibility.",
         learning_outcome="Explain the principles and practices of Agile software development",
         topic="Agile Methodology",
-        max_score=100.0
+        max_score=10.0,
+        rubric=rubric,
     )
 
 
 @pytest.fixture
-def mock_question_answer_poor() -> QuestionAnswerPair:
+def mock_question_answer_poor(rubric) -> QuestionAnswerPair:
     """Mock Q&A pair với câu trả lời yếu."""
     return QuestionAnswerPair(
         question_id="q-002",
@@ -118,207 +122,27 @@ def mock_question_answer_poor() -> QuestionAnswerPair:
         sample_answer="Agile emphasizes iterative development, customer collaboration, and flexibility.",
         learning_outcome="Explain the principles and practices of Agile software development",
         topic="Agile Methodology",
-        max_score=100.0
+        max_score=10.0,
+        rubric=rubric,
     )
 
 
 @pytest.fixture
-def mock_ai_response_valid() -> str:
-    """Mock valid AI response (JSON format)."""
-    return json.dumps({
-        "transcript": "Agile là phương pháp phát triển phần mềm lặp...",
-        "AiScore": 85.0,
-        "confidence": 0.92,
-        "feedback": {
-            "summary": "Câu trả lời thể hiện hiểu biết tốt về Agile",
-            "strengths": ["Giải thích rõ các nguyên tắc", "Có ví dụ thực tế"],
-            "improvements": ["Cần so sánh sâu hơn với các phương pháp khác"],
-            "actionableTips": ["Bổ sung thêm ví dụ về các Agile frameworks như Kanban"]
-        },
-        "rubricResults": [
-            {
-                "criterionId": "crit-001",
-                "criterionName": "Giải thích nguyên tắc Agile",
-                "score": 28.0,
-                "maxScore": 30.0,
-                "evidence": "tương tác giữa con người quan trọng hơn quy trình",
-                "comment": "Giải thích đầy đủ và chính xác"
-            },
-            {
-                "criterionId": "crit-002",
-                "criterionName": "Ví dụ thực tế",
-                "score": 27.0,
-                "maxScore": 30.0,
-                "evidence": "trong dự án của công ty tôi, chúng tôi áp dụng Scrum",
-                "comment": "Có ví dụ cụ thể và liên quan"
-            },
-            {
-                "criterionId": "crit-003",
-                "criterionName": "So sánh với phương pháp khác",
-                "score": 30.0,
-                "maxScore": 40.0,
-                "evidence": "So với Waterfall, Agile linh hoạt hơn",
-                "comment": "Có so sánh nhưng chưa đủ sâu"
-            }
-        ]
-    }, ensure_ascii=False)
-
-
-@pytest.fixture
-def mock_ai_response_malformed() -> str:
-    """Mock malformed JSON response."""
-    return """{
-        "transcript": "Test",
-        "AiScore": 85.0,
-        "confidence": 0.92,
-        "feedback": {
-            "summary": "Good answer"
-        }
-        "rubricResults": [  // <-- Missing comma here
-    """
-
-
-@pytest.fixture
-def mock_ai_response_missing_fields() -> str:
-    """Mock response thiếu field bắt buộc."""
-    return json.dumps({
-        "transcript": "Test answer",
-        "AiScore": 75.0,
-        # Missing confidence
-        "feedback": {
-            "summary": "Decent answer"
-        },
-        # Missing rubricResults
-    })
-
-
-@pytest.fixture
-def mock_ai_response_invalid_score() -> str:
-    """Mock response với score ngoài range."""
-    return json.dumps({
-        "transcript": "Test answer",
-        "AiScore": 150.0,  # Invalid: > 100
-        "confidence": 0.85,
-        "feedback": {
-            "summary": "Good answer",
-            "strengths": [],
-            "improvements": [],
-            "actionableTips": []
-        },
-        "rubricResults": [
-            {
-                "criterionId": "crit-001",
-                "criterionName": "Test",
-                "score": 10.0,
-                "maxScore": 10.0,
-                "evidence": "test",
-                "comment": "test"
-            }
-        ]
-    })
-
-
-@pytest.fixture
-def mock_ai_response_score_exceeds_max() -> str:
-    """Mock response với rubric score > maxScore."""
-    return json.dumps({
-        "transcript": "Test answer",
-        "AiScore": 75.0,
-        "confidence": 0.85,
-        "feedback": {
-            "summary": "Good answer",
-            "strengths": [],
-            "improvements": [],
-            "actionableTips": []
-        },
-        "rubricResults": [
-            {
-                "criterionId": "crit-001",
-                "criterionName": "Test",
-                "score": 50.0,  # Invalid: > maxScore
-                "maxScore": 30.0,
-                "evidence": "test",
-                "comment": "test"
-            }
-        ]
-    })
-
-
-@pytest.fixture
-def mock_ai_response_with_markdown_fence() -> str:
-    """Mock response wrapped in markdown fence."""
-    return """```json
-{
-    "transcript": "Test answer",
-    "AiScore": 80.0,
-    "confidence": 0.88,
-    "feedback": {
-        "summary": "Good answer",
-        "strengths": ["Clear explanation"],
-        "improvements": [],
-        "actionableTips": []
-    },
-    "rubricResults": [
-        {
-            "criterionId": "crit-001",
-            "criterionName": "Test",
-            "score": 25.0,
-            "maxScore": 30.0,
-            "evidence": "test evidence",
-            "comment": "test comment"
-        }
-    ]
-}
-```"""
-
-
-@pytest.fixture
-def mock_ai_client_success():
-    """Mock AI client that always returns valid response."""
-    client = AsyncMock()
-    valid_response = json.dumps({
-        "score": 85.0,
-        "max_score": 100.0,
-        "feedback": "Good answer",
-        "strengths": ["Clear"],
-        "weaknesses": [],
-        "missing_content": []
-    }, ensure_ascii=False)
-    
-    # Mock both methods for compatibility
-    client.complete.return_value = valid_response
-    client.complete_with_retry.return_value = valid_response
-    return client
-
-
-@pytest.fixture
-def mock_ai_client_timeout():
-    """Mock AI client that times out."""
-    client = AsyncMock()
-    import asyncio
-    client.complete.side_effect = asyncio.TimeoutError("Request timed out")
-    return client
-
-
-@pytest.fixture
-def mock_ai_client_malformed():
-    """Mock AI client that returns malformed JSON."""
-    client = AsyncMock()
-    client.complete.return_value = "{ invalid json"
-    return client
+def fake_analysis_client() -> MockAIClient:
+    """Deterministic AI client that returns a rubric analysis with awarded_score."""
+    return MockAIClient()
 
 
 # ─────────────────────────────────────────────
 #  Deterministic unit-test wiring
 #  Unit tests must not depend on the live provider configured in `.env`.
-#  Live-provider behaviour is covered by tests/test_live_scoring.py (-m integration).
+#  Live-provider behaviour is covered by tests/integration/ (-m integration).
 # ─────────────────────────────────────────────
 @pytest.fixture(autouse=True)
 def _deterministic_unit_providers(monkeypatch):
     from app.api import evaluation as evaluation_api
     from app.api import interview as interview_api
     from app.api import speech as speech_api
-    from app.core.ai_client import MockAIClient
     from app.services.evaluation_service import EvaluationService
 
     mock_ai_client = MockAIClient()

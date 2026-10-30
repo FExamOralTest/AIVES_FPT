@@ -137,6 +137,41 @@ export function ResultDetail({ result }: { result: StudentResultDto }) {
                 )}
               </div>
 
+              {result.isPublished && answer.aiAnalysis?.evaluation.criterionAnalyses.length ? (
+                <section className="mt-4 overflow-hidden rounded-xl border" aria-label={`Rubric breakdown for question ${index + 1}`}>
+                  <h5 className="border-b bg-muted/40 px-4 py-3 text-sm font-semibold">Rubric breakdown</h5>
+                  <ul className="divide-y">
+                    {answer.aiAnalysis.evaluation.criterionAnalyses.map((criterion) => {
+                      const rubricItem = answer.aiAnalysis?.rubric.find(
+                        (item) => item.criterionId === criterion.criterionId,
+                      )
+                      return (
+                        <li key={criterion.criterionId} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto]">
+                          <div>
+                            <p className="font-medium">{rubricItem?.description ?? criterion.criterionId}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {criterion.judgment.replace('_', ' ')} — {criterion.explanation}
+                            </p>
+                            {criterion.evidenceQuotes.length > 0 && (
+                              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                                {criterion.evidenceQuotes.map((quote, quoteIndex) => (
+                                  <li key={`${criterion.criterionId}-${quoteIndex}`} className="border-l-2 border-brand/40 pl-2 italic">
+                                    “{quote}”
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                          <span className="whitespace-nowrap font-mono font-semibold text-brand">
+                            {criterion.awardedScore} / {rubricItem?.maxScore ?? 0}
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              ) : null}
+
               {/* Teacher's comment on question */}
               {answer.teacherComment && (
                 <div className="mt-3 rounded-xl border border-dashed border-brand/30 bg-brand-soft/20 p-3 text-xs text-foreground">

@@ -79,17 +79,26 @@ public class ResultRepository : IResultRepository
         }
         else
         {
-            existing.StudentAnswer = answer.StudentAnswer;
-            existing.Transcript = answer.Transcript;
+            var isFollowUp = answer.IsFollowUp == true;
+            existing.StudentAnswer = isFollowUp
+                ? AppendAnswer(existing.StudentAnswer, answer.StudentAnswer)
+                : answer.StudentAnswer;
+            existing.Transcript = isFollowUp
+                ? AppendAnswer(existing.Transcript, answer.Transcript)
+                : answer.Transcript;
             if (!string.IsNullOrEmpty(answer.AudioUrl))
                 existing.AudioUrl = answer.AudioUrl;
             if (!string.IsNullOrEmpty(answer.ObjectKey))
                 existing.ObjectKey = answer.ObjectKey;
-            existing.IsFollowUp = answer.IsFollowUp;
-            if (answer.AiScore.HasValue)
+            existing.IsFollowUp = existing.IsFollowUp == true || isFollowUp;
+            existing.Status = answer.Status;
+            existing.ErrorMessage = answer.ErrorMessage;
+            if (isFollowUp || answer.AiScore.HasValue)
                 existing.AiScore = answer.AiScore;
-            if (!string.IsNullOrEmpty(answer.AiFeedback))
+            if (isFollowUp || !string.IsNullOrEmpty(answer.AiFeedback))
                 existing.AiFeedback = answer.AiFeedback;
+            if (isFollowUp || !string.IsNullOrEmpty(answer.AiAnalysis))
+                existing.AiAnalysis = answer.AiAnalysis;
             existing.AnsweredAt = answer.AnsweredAt ?? DateTime.UtcNow;
             _db.Answers.Update(existing);
         }
@@ -99,6 +108,13 @@ public class ResultRepository : IResultRepository
         // Trả về bản đã persist để caller biết answerId để gắn media_upload / tra cứu audio.
         return await _db.Answers.AsNoTracking()
             .FirstAsync(a => a.ResultId == answer.ResultId && a.QuestionId == answer.QuestionId);
+    }
+
+    private static string? AppendAnswer(string? original, string? followUp)
+    {
+        if (string.IsNullOrEmpty(original)) return followUp;
+        if (string.IsNullOrEmpty(followUp)) return original;
+        return $"{original}{Environment.NewLine}{Environment.NewLine}{followUp}";
     }
 
     public async Task UpdateAsync(Result result)

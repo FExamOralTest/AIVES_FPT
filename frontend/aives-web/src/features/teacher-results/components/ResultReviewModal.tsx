@@ -163,6 +163,12 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
           )}
 
           {result.status === 'CANCELLED' && <p role="status" className="rounded-xl bg-muted p-3 text-sm">Lượt thi đã hủy hiệu lực. Điểm dưới đây chỉ được giữ làm lịch sử.</p>}
+          {result.aiEvaluationError && (
+            <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+              <p className="font-semibold">AI evaluation failed{result.aiEvaluationStatus ? ` (${result.aiEvaluationStatus.toLowerCase()})` : ''}.</p>
+              <p className="mt-1">{result.aiEvaluationError}</p>
+            </div>
+          )}
           <RetakePanel result={result} onGranted={() => onUpdated({ ...result, status: 'CANCELLED' })} />
 
           {/* Overall Review Summary */}
@@ -305,6 +311,64 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                     </p>
                   )}
                 </div>
+
+                {answer.aiAnalysis?.evaluation.criterionAnalyses.length ? (
+                  <section className="overflow-hidden rounded-xl border" aria-label={`Rubric assessment for question ${index + 1}`}>
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b bg-muted/40 px-4 py-3">
+                      <h4 className="font-semibold text-sm">Rubric assessment</h4>
+                      <span className="text-xs text-muted-foreground">
+                        {answer.aiAnalysis.provider} · {answer.aiAnalysis.model} · schema {answer.aiAnalysis.schemaVersion}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[42rem] text-left text-xs">
+                        <thead className="bg-muted/20 text-muted-foreground">
+                          <tr>
+                            <th className="px-4 py-2 font-semibold">Criterion</th>
+                            <th className="px-4 py-2 font-semibold">Awarded</th>
+                            <th className="px-4 py-2 font-semibold">Judgment</th>
+                            <th className="px-4 py-2 font-semibold">Evidence and explanation</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {answer.aiAnalysis.evaluation.criterionAnalyses.map((criterion) => {
+                            const rubricItem = answer.aiAnalysis?.rubric.find(
+                              (item) => item.criterionId === criterion.criterionId,
+                            )
+                            return (
+                              <tr key={criterion.criterionId} className="align-top">
+                                <td className="px-4 py-3">
+                                  <span className="font-semibold">{rubricItem?.criterionId ?? criterion.criterionId}</span>
+                                  {rubricItem && <p className="mt-1 text-muted-foreground">{rubricItem.description}</p>}
+                                </td>
+                                <td className="whitespace-nowrap px-4 py-3 font-mono font-semibold">
+                                  {criterion.awardedScore} / {rubricItem?.maxScore ?? 0}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <Badge variant={criterion.judgment === 'met' ? 'default' : 'secondary'}>
+                                    {criterion.judgment.replace('_', ' ')}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <p>{criterion.explanation}</p>
+                                  {criterion.evidenceQuotes.length > 0 && (
+                                    <ul className="mt-2 space-y-1 text-muted-foreground">
+                                      {criterion.evidenceQuotes.map((quote, quoteIndex) => (
+                                        <li key={`${criterion.criterionId}-${quoteIndex}`} className="border-l-2 border-brand/40 pl-2 italic">
+                                          “{quote}”
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                ) : null}
 
                 {/* Score & Teacher Note per Question */}
                 <div className="grid gap-3 sm:grid-cols-[8rem_1fr] border-t pt-3">

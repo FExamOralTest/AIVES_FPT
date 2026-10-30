@@ -89,6 +89,21 @@ public class RetryAnswerServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Examiner_CanRetry_AnswerOutsideTheirScheduledSessions()
+    {
+        var (answer, _, _) = await SeedAsync(AnswerStatus.ERROR, scheduledBy: 200);
+        var req = new RetryAnswerRequest();
+
+        var result = await _service.RetryAsync(
+            answer.AnswerId,
+            currentUserId: 300,
+            UserRole.EXAMINER,
+            req);
+
+        Assert.Equal("QUEUED", result.Status);
+    }
+
+    [Fact]
     public async Task Admin_CanRetry_AnyAnswer()
     {
         var (answer, _, _) = await SeedAsync(AnswerStatus.ERROR, scheduledBy: 200);

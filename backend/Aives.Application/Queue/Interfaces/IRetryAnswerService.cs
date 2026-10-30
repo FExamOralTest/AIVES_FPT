@@ -8,7 +8,8 @@ namespace Aives.Application.Queue.Interfaces;
 /// Phân quyền:
 /// <list type="bullet">
 ///   <item>STUDENT: chỉ retry được answer của chính mình.</item>
-///   <item>STAFF/EXAMINER: retry được answer thuộc session họ phụ trách (exam.ScheduledBy).</item>
+///   <item>STAFF: retry được answer thuộc session họ phụ trách (exam.ScheduledBy).</item>
+///   <item>EXAMINER: retry được answer mọi session, giống quyền review kết quả.</item>
 ///   <item>ADMIN: retry tất cả.</item>
 /// </list>
 /// </summary>

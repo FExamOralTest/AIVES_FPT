@@ -48,7 +48,6 @@ All services should show `(healthy)`. Typical startup order: `postgres` → `db-
 - **Frontend:** http://localhost:5173
 - **Backend Swagger:** http://localhost:5000/swagger
 - **Hangfire Dashboard:** http://localhost:5000/hangfire (dev only)
-- **AI Service health:** http://localhost:8000/health
 - **DB health:** http://localhost:5000/api/health/db
 
 ### Step 1.4 — Stop the stack
@@ -116,7 +115,7 @@ Listens on http://localhost:5173. The Vite proxy forwards `/api` → backend (de
 
 **Verify ✅**
 - [ ] Backend `/api/health/db` returns 200
-- [ ] AI service `/health` returns `{"status":"ok"}`
+- [ ] An evaluation request succeeds with the configured provider and API key
 - [ ] Frontend loads, login works
 - [ ] Hangfire dashboard shows the `default` and `answers` queues
 
@@ -315,13 +314,11 @@ The backend **fails fast in production** if `AI:ApiKey` is missing (see `Program
 
 ### Step 6.4 — Validate
 ```bash
-curl http://localhost:8000/health
-# → {"status":"ok"}
-curl -H "X-Internal-Token: <AI__ApiKey>" http://localhost:8000/v1/...
+# Verify the configured provider through a real POST evaluation request.
+# A provider/API-key error is returned in the response detail and AI-service logs.
 ```
 
 **Verify ✅**
-- [ ] AI service `/health` returns 200
 - [ ] Integration tests pass:
   ```bash
   dotnet test --filter "FullyQualifiedName~SttIntegration|FullyQualifiedName~AiPipelineE2E"
@@ -477,7 +474,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 # 1. DB
 curl https://api.aives.example/api/health/db
 # 2. AI service (internal only)
-curl https://ai.internal.example.com/health
+# Verify the provider with a POST evaluation request; there is no AI-service GET health/model endpoint.
 # 3. Frontend
 curl -I https://aives.example
 # 4. End-to-end: log in via UI, submit a question, check Hangfire dashboard

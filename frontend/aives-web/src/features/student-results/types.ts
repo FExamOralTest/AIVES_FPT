@@ -1,3 +1,5 @@
+import type { StoredAnswerAnalysis } from '@/features/teacher-results/types'
+
 export interface StudentAnswerItemDto {
   answerId: number
   questionId: number
@@ -8,6 +10,7 @@ export interface StudentAnswerItemDto {
   finalScore?: number | null
   teacherComment?: string | null
   isFollowUp: boolean
+  aiAnalysis?: StoredAnswerAnalysis | null
 }
 
 export interface StudentResultDto {

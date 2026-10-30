@@ -1,7 +1,7 @@
 # AIVES Backend ↔ FastAPI AI Service Contract
 
-**Version:** 1.0  
-**Last Updated:** 2026-10-16  
+**Version:** 2.0
+**Last Updated:** 2026-10-29
 **Owner:** Hưng (BE1)
 
 ---
@@ -219,6 +219,7 @@ Content-Type: application/json
       "sample_answer": "Microservices are independently deployable services...",
       "learning_outcome": "LO1: Explain microservices",
       "topic": "Architecture",
+      "max_score": 4.0,
       "rubric": [
         {
           "criterion_id": "c1",
@@ -228,7 +229,7 @@ Content-Type: application/json
       ]
     }
   ],
-  "max_score_per_question": 10.0
+  "max_score_per_question": 4.0
 }
 ```
 
@@ -241,15 +242,20 @@ Content-Type: application/json
   "success": true,
   "message": null,
   "exam_session_id": "550e8400-e29b-41d4-a716-446655440000",
-  "total_score": 7.5,
-  "max_total_score": 10.0,
-  "percentage": 75.0,
+  "total_score": 2.5,
+  "max_total_score": 4.0,
+  "percentage": 62.5,
   "overall_feedback": "Good understanding of microservices...",
+  "provider": "gemini",
+  "model": "gemini-3.1-flash-lite",
+  "schema_version": "2.0",
   "question_scores": [
     {
       "question_id": "880e8400-e29b-41d4-a716-446655440003",
       "question_text": "Explain microservices architecture",
-      "score": 7.5,
+      "student_answer": "Microservices are small services that work together",
+      "score": 2.5,
+      "max_score": 4.0,
       "feedback": "You explained the concept well...",
       "sentence_feedback": [
         {
@@ -262,6 +268,7 @@ Content-Type: application/json
         {
           "criterion_id": "c1",
           "judgment": "partial",
+          "awarded_score": 2.5,
           "explanation": "Definition is present but incomplete",
           "errors": [],
           "omissions": ["deployment aspect"],
@@ -281,13 +288,14 @@ Content-Type: application/json
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `total_score` | float | Sum of all question scores |
+| `provider`, `model`, `schema_version` | string | Model provenance and response schema version (`2.0`) |
+| `total_score` | float | Sum of rubric criterion awards; recalculated by Backend |
 | `max_total_score` | float | Maximum possible score |
-| `percentage` | float | (total_score / max_total_score) * 100 |
+| `percentage` | float | Backend-calculated `(total_score / max_total_score) * 100` |
 | `overall_feedback` | string | Summary feedback |
 | `question_scores` | array | Per-question evaluation |
 | `sentence_feedback[].judgment` | enum | `correct`, `error`, `omission`, `irrelevant` |
-| `criterion_analyses[].judgment` | enum | `met`, `partial`, `not_met` |
+| `criterion_analyses[]` | array | Exactly one item per rubric criterion, with `awarded_score`, judgment, and transcript-grounded evidence |
 | `study_suggestions` | array | Learning outcome suggestions |
 
 ### 5.5 Error Responses
@@ -332,10 +340,11 @@ Content-Type: application/json
 
 Backend validates AI response:
 
-1. **Required Fields:** `success`, `exam_session_id`, `total_score`, `question_scores`
-2. **Score Range:** Each score must be 0 ≤ score ≤ max_score
-3. **JSON Structure:** All nested objects must match schema
-4. **Evidence Quotes:** Must be exact substrings from transcript
+1. **Provenance:** `provider`, `model`, and `schema_version = "2.0"` are required.
+2. **Rubric snapshot:** Criterion IDs are unique and complete; rubric maximum must match the requested question maximum within `1e-4`.
+3. **Criterion score:** `0 ≤ awarded_score ≤ criterion.max_score`; `met` awards full points, `not_met` awards zero, and `partial` awards an interior value.
+4. **Evidence:** Every non-empty evidence quote must be a normalized substring of the submitted transcript.
+5. **Backend totals:** Backend recalculates each question score from criterion awards, then recalculates session totals and percentage. AI total mismatches are logged and replaced, not rejected.
 
 > **See:** `Aives.Application.AI.EvaluationContract.cs`
 
