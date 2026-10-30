@@ -112,3 +112,4 @@ public class ExamPeriodsController : ControllerBase
         return CreatedAtAction(nameof(GetPeriods), new { courseId = period.CourseId }, dto);
     }
 }
+
