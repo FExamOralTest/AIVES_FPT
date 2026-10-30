@@ -201,7 +201,7 @@ public class ResultService : IResultService
     public async Task<StudentResultDto> GetStudentResultAsync(int sessionId, int studentId)
     {
         var result = await _resultRepository.GetBySessionAndStudentAsync(sessionId, studentId)
-            ?? throw new KeyNotFoundException("Không tìm thấy kết quả thi của sinh viên cho ca thi này.");
+            ?? throw new KeyNotFoundException("Student exam result was not found for this session.");
 
         if (result.Status != SubmissionStatus.PUBLISHED)
         {
@@ -214,8 +214,8 @@ public class ResultService : IResultService
                 Status = result.Status?.ToString() ?? "",
                 IsPublished = false,
                 Message = result.Status == SubmissionStatus.CANCELLED
-                    ? "Lượt thi này đã hủy hiệu lực. Mở danh sách ca thi để xem ca thi bù được cấp (nếu có)."
-                    : "Kết quả bài thi đang được khảo thí thẩm định và duyệt. Vui lòng quay lại sau.",
+                    ? "This exam attempt has been voided. Please check your session list for any assigned retake session."
+                    : "Exam result is under evaluation and review. Please check back later.",
                 SubmittedAt = result.SubmittedAt
             };
         }

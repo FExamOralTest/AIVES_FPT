@@ -2,6 +2,12 @@ export interface StartVivaSessionResponse {
   sessionId: number
   sessionName: string
   examTitle: string
+  assignedExamId?: number
+  assignedExamCode?: string
+  assignedSlotId?: number
+  assignedSlotName?: string
+  slotStartTime?: string
+  slotEndTime?: string
   durationMinutes: number
   totalQuestions: number
   currentQuestionIndex: number
@@ -31,6 +37,8 @@ export interface SubmitVivaAnswerResponse {
   totalQuestions: number
   isCompleted: boolean
   nextQuestion?: VivaQuestionDto | null
+  /** PK của Answer vừa được tạo/cập nhật. */
+  answerId: number
 }
 
 export interface FinishVivaSessionResponse {

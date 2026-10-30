@@ -43,6 +43,8 @@ dataSourceBuilder.MapEnum<ExamStatus>(       "exam_status",       new NpgsqlUppe
 dataSourceBuilder.MapEnum<SessionStatus>(    "session_status",    new NpgsqlUpperCaseTranslator());
 dataSourceBuilder.MapEnum<SubmissionStatus>( "submission_status", new NpgsqlUpperCaseTranslator());
 dataSourceBuilder.MapEnum<DocType>(          "doc_type",          new NpgsqlUpperCaseTranslator());
+// Cột jsonb lưu List<int> (media_uploads.received_chunk_indexes) cần opt-in dynamic JSON.
+dataSourceBuilder.EnableDynamicJson();
 var dataSource = dataSourceBuilder.Build();
 
 if (builder.Configuration.GetValue<bool>("Docker:InitializeDatabase"))
@@ -243,6 +245,8 @@ builder.Services.AddSingleton<IQueueService, HangfireQueueService>();
 builder.Services.AddScoped<IRetryAnswerService, RetryAnswerService>();
 builder.Services.AddScoped<IAudioPlaybackService, AudioPlaybackService>();
 builder.Services.AddScoped<IAnswerAudioService, AnswerAudioService>();
+builder.Services.AddScoped<IChunkedAudioUploadService, ChunkedAudioUploadService>();
+builder.Services.AddScoped<IMediaUploadRepository, MediaUploadRepository>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -277,8 +281,9 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (app.Configuration.GetValue("Database:SeedOnStartup", true))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();

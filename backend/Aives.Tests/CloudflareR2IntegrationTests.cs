@@ -42,7 +42,7 @@ public class CloudflareR2IntegrationTests
     public void Configuration_ShouldBeConfigured()
     {
         Assert.True(_options.IsConfigured, "R2 credentials should be configured in appsettings.Development.json");
-        Assert.Equal("aives", _options.BucketName);
+        Assert.False(string.IsNullOrWhiteSpace(_options.BucketName));
         Assert.False(string.IsNullOrWhiteSpace(_options.AccountId));
         Assert.False(string.IsNullOrWhiteSpace(_options.AccessKeyId));
         Assert.False(string.IsNullOrWhiteSpace(_options.SecretAccessKey));

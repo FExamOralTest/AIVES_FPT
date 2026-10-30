@@ -23,6 +23,7 @@ namespace Aives.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "doc_type", new[] { "CONTENT", "LEARNING_OUTCOMES" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "exam_period_status", new[] { "DRAFT", "ACTIVE", "COMPLETED", "CANCELLED" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "exam_status", new[] { "DRAFT", "SCHEDULED", "OPEN", "CLOSED", "CANCELLED" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "session_status", new[] { "NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "submission_status", new[] { "PENDING_REVIEW", "SUBMITTED", "REVIEWED", "PUBLISHED", "CANCELLED" });
@@ -352,6 +353,61 @@ namespace Aives.Infrastructure.Migrations
                     b.ToTable("exams", (string)null);
                 });
 
+            modelBuilder.Entity("Aives.Domain.Entities.ExamPeriod", b =>
+                {
+                    b.Property<int>("PeriodId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("period_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("PeriodId"));
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("integer")
+                        .HasColumnName("course_id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_date");
+
+                    b.Property<string>("PeriodName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("period_name");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("PeriodId")
+                        .HasName("exam_periods_pkey");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.ToTable("exam_periods", (string)null);
+                });
+
             modelBuilder.Entity("Aives.Domain.Entities.ExamQuestion", b =>
                 {
                     b.Property<int>("ExamId")
@@ -383,6 +439,10 @@ namespace Aives.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("SessionId"));
 
+                    b.Property<int?>("CourseId")
+                        .HasColumnType("integer")
+                        .HasColumnName("course_id");
+
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -399,7 +459,7 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_time");
 
-                    b.Property<int>("ExamId")
+                    b.Property<int?>("ExamId")
                         .HasColumnType("integer")
                         .HasColumnName("exam_id");
 
@@ -408,6 +468,10 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(50)
                         .HasColumnName("max_capacity");
+
+                    b.Property<int?>("PeriodId")
+                        .HasColumnType("integer")
+                        .HasColumnName("period_id");
 
                     b.Property<string>("Room")
                         .HasMaxLength(150)
@@ -441,7 +505,11 @@ namespace Aives.Infrastructure.Migrations
                     b.HasKey("SessionId")
                         .HasName("exam_sessions_pkey");
 
+                    b.HasIndex("CourseId");
+
                     b.HasIndex("ExamId");
+
+                    b.HasIndex("PeriodId");
 
                     b.HasIndex("ScheduledBy");
 
@@ -449,6 +517,194 @@ namespace Aives.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("exam_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionExam", b =>
+                {
+                    b.Property<int>("SessionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("session_id");
+
+                    b.Property<int>("ExamId")
+                        .HasColumnType("integer")
+                        .HasColumnName("exam_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("SessionId", "ExamId")
+                        .HasName("session_exams_pkey");
+
+                    b.HasIndex("ExamId");
+
+                    b.ToTable("session_exams", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionSlot", b =>
+                {
+                    b.Property<int>("SlotId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("SlotId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_time");
+
+                    b.Property<int>("MaxCapacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(10)
+                        .HasColumnName("max_capacity");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("SlotCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("slot_code");
+
+                    b.Property<int>("SlotIndex")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_index");
+
+                    b.Property<string>("SlotName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("slot_name");
+
+                    b.Property<int?>("SlotTemplateId")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_template_id");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_time");
+
+                    b.HasKey("SlotId")
+                        .HasName("session_slots_pkey");
+
+                    b.HasIndex("SlotTemplateId");
+
+                    b.HasIndex(new[] { "SessionId", "SlotIndex" }, "session_slots_session_slot_key")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "SlotCode" }, "session_slots_slot_code_key")
+                        .IsUnique();
+
+                    b.ToTable("session_slots", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionSlotExam", b =>
+                {
+                    b.Property<int>("SlotId")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_id");
+
+                    b.Property<int>("ExamId")
+                        .HasColumnType("integer")
+                        .HasColumnName("exam_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("SlotId", "ExamId")
+                        .HasName("session_slot_exams_pkey");
+
+                    b.HasIndex("ExamId");
+
+                    b.ToTable("session_slot_exams", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplate", b =>
+                {
+                    b.Property<int>("SlotTemplateId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_template_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("SlotTemplateId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("DurationMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(30)
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<int>("ExamId")
+                        .HasColumnType("integer")
+                        .HasColumnName("exam_id");
+
+                    b.Property<int>("MaxCapacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(20)
+                        .HasColumnName("max_capacity");
+
+                    b.Property<int>("SlotIndex")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_index");
+
+                    b.Property<string>("SlotName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("slot_name");
+
+                    b.HasKey("SlotTemplateId")
+                        .HasName("exam_slot_templates_pkey");
+
+                    b.HasIndex(new[] { "ExamId", "SlotIndex" }, "exam_slot_templates_exam_slot_key")
+                        .IsUnique();
+
+                    b.ToTable("exam_slot_templates", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplateExam", b =>
+                {
+                    b.Property<int>("SlotTemplateId")
+                        .HasColumnType("integer")
+                        .HasColumnName("slot_template_id");
+
+                    b.Property<int>("ExamPaperId")
+                        .HasColumnType("integer")
+                        .HasColumnName("exam_paper_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("SlotTemplateId", "ExamPaperId")
+                        .HasName("exam_slot_template_exams_pkey");
+
+                    b.HasIndex("ExamPaperId");
+
+                    b.ToTable("exam_slot_template_exams", (string)null);
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.MarkdownDocument", b =>
@@ -497,6 +753,116 @@ namespace Aives.Infrastructure.Migrations
                     b.HasIndex(new[] { "CourseId" }, "idx_markdown_documents_course");
 
                     b.ToTable("markdown_documents", (string)null);
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.MediaUpload", b =>
+                {
+                    b.Property<string>("UploadId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("upload_id");
+
+                    b.Property<int?>("AnswerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("answer_id");
+
+                    b.Property<long>("ChunkSize")
+                        .HasColumnType("bigint")
+                        .HasColumnName("chunk_size");
+
+                    b.Property<string>("ClientTranscript")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<bool>("IsFollowUp")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text")
+                        .HasColumnName("last_error");
+
+                    b.Property<string>("LocalFilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("local_file_path");
+
+                    b.Property<string>("ObjectKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("object_key");
+
+                    b.Property<string>("PartETags")
+                        .HasColumnType("text");
+
+                    b.Property<int>("QuestionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("question_id");
+
+                    b.Property<string>("R2UploadId")
+                        .HasColumnType("text");
+
+                    b.Property<List<int>>("ReceivedChunkIndexes")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("received_chunk_indexes");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("session_id");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("student_id");
+
+                    b.Property<string>("TextAnswer")
+                        .HasColumnType("text");
+
+                    b.Property<int>("TotalChunks")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_chunks");
+
+                    b.Property<long>("TotalSize")
+                        .HasColumnType("bigint")
+                        .HasColumnName("total_size");
+
+                    b.Property<string>("UploadStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("upload_status");
+
+                    b.HasKey("UploadId")
+                        .HasName("media_uploads_pkey");
+
+                    b.HasIndex(new[] { "StudentId" }, "IX_media_uploads_student_id");
+
+                    b.HasIndex(new[] { "SessionId", "StudentId", "QuestionId" }, "idx_media_uploads_question");
+
+                    b.HasIndex(new[] { "UploadId" }, "media_uploads_upload_id_key")
+                        .IsUnique();
+
+                    b.ToTable("media_uploads", (string)null);
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.QuestionBank", b =>
@@ -662,6 +1028,10 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnType("real")
                         .HasColumnName("ai_score");
 
+                    b.Property<int?>("ExamId")
+                        .HasColumnType("integer")
+                        .HasColumnName("exam_id");
+
                     b.Property<string>("FinalFeedback")
                         .HasColumnType("text")
                         .HasColumnName("final_feedback");
@@ -707,6 +1077,8 @@ namespace Aives.Infrastructure.Migrations
                     b.HasKey("ResultId")
                         .HasName("results_pkey");
 
+                    b.HasIndex("ExamId");
+
                     b.HasIndex("PublishedBy");
 
                     b.HasIndex("ReviewedBy");
@@ -729,6 +1101,14 @@ namespace Aives.Infrastructure.Migrations
                         .HasColumnName("session_enrollment_id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("SessionEnrollmentId"));
+
+                    b.Property<int?>("AssignedExamId")
+                        .HasColumnType("integer")
+                        .HasColumnName("assigned_exam_id");
+
+                    b.Property<int?>("AssignedSlotId")
+                        .HasColumnType("integer")
+                        .HasColumnName("assigned_slot_id");
 
                     b.Property<int?>("CurrentQuestionIndex")
                         .HasColumnType("integer")
@@ -762,6 +1142,10 @@ namespace Aives.Infrastructure.Migrations
 
                     b.HasKey("SessionEnrollmentId")
                         .HasName("session_enrollments_pkey");
+
+                    b.HasIndex("AssignedExamId");
+
+                    b.HasIndex("AssignedSlotId");
 
                     b.HasIndex(new[] { "SessionId" }, "idx_session_enrollments_session");
 
@@ -920,6 +1304,27 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("CreatedByNavigation");
                 });
 
+            modelBuilder.Entity("Aives.Domain.Entities.ExamPeriod", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.Course", "Course")
+                        .WithMany("ExamPeriods")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("exam_periods_course_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.User", "CreatedByNavigation")
+                        .WithMany("ExamPeriods")
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("exam_periods_created_by_fkey");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("CreatedByNavigation");
+                });
+
             modelBuilder.Entity("Aives.Domain.Entities.ExamQuestion", b =>
                 {
                     b.HasOne("Aives.Domain.Entities.Exam", "Exam")
@@ -943,12 +1348,23 @@ namespace Aives.Infrastructure.Migrations
 
             modelBuilder.Entity("Aives.Domain.Entities.ExamSession", b =>
                 {
+                    b.HasOne("Aives.Domain.Entities.Course", "Course")
+                        .WithMany("ExamSessions")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("exam_sessions_course_id_fkey");
+
                     b.HasOne("Aives.Domain.Entities.Exam", "Exam")
                         .WithMany("ExamSessions")
                         .HasForeignKey("ExamId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
+                        .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("exam_sessions_exam_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.ExamPeriod", "Period")
+                        .WithMany("ExamSessions")
+                        .HasForeignKey("PeriodId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("exam_sessions_period_id_fkey");
 
                     b.HasOne("Aives.Domain.Entities.User", "ScheduledByNavigation")
                         .WithMany("ExamSessions")
@@ -957,9 +1373,108 @@ namespace Aives.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("exam_sessions_scheduled_by_fkey");
 
+                    b.Navigation("Course");
+
                     b.Navigation("Exam");
 
+                    b.Navigation("Period");
+
                     b.Navigation("ScheduledByNavigation");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionExam", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.Exam", "Exam")
+                        .WithMany("SessionExams")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("session_exams_exam_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.ExamSession", "Session")
+                        .WithMany("SessionExams")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("session_exams_session_id_fkey");
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionSlot", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.ExamSession", "Session")
+                        .WithMany("Slots")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("session_slots_session_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.ExamSlotTemplate", "SlotTemplate")
+                        .WithMany("SessionSlots")
+                        .HasForeignKey("SlotTemplateId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("session_slots_slot_template_id_fkey");
+
+                    b.Navigation("Session");
+
+                    b.Navigation("SlotTemplate");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionSlotExam", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.Exam", "Exam")
+                        .WithMany("SessionSlotExams")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("session_slot_exams_exam_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.ExamSessionSlot", "Slot")
+                        .WithMany("SlotExams")
+                        .HasForeignKey("SlotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("session_slot_exams_slot_id_fkey");
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("Slot");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplate", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.Exam", "Exam")
+                        .WithMany("SlotTemplates")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("exam_slot_templates_exam_id_fkey");
+
+                    b.Navigation("Exam");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplateExam", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.Exam", "ExamPaper")
+                        .WithMany("SlotTemplateExams")
+                        .HasForeignKey("ExamPaperId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("exam_slot_template_exams_exam_paper_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.ExamSlotTemplate", "SlotTemplate")
+                        .WithMany("TemplateExams")
+                        .HasForeignKey("SlotTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("exam_slot_template_exams_slot_template_id_fkey");
+
+                    b.Navigation("ExamPaper");
+
+                    b.Navigation("SlotTemplate");
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.MarkdownDocument", b =>
@@ -981,6 +1496,23 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("UploadedByNavigation");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.MediaUpload", b =>
+                {
+                    b.HasOne("Aives.Domain.Entities.ExamSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("media_uploads_session_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("media_uploads_student_id_fkey");
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.QuestionBank", b =>
@@ -1017,6 +1549,12 @@ namespace Aives.Infrastructure.Migrations
 
             modelBuilder.Entity("Aives.Domain.Entities.Result", b =>
                 {
+                    b.HasOne("Aives.Domain.Entities.Exam", "Exam")
+                        .WithMany("Results")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("results_exam_id_fkey");
+
                     b.HasOne("Aives.Domain.Entities.User", "PublishedByNavigation")
                         .WithMany("ResultPublishedByNavigations")
                         .HasForeignKey("PublishedBy")
@@ -1043,6 +1581,8 @@ namespace Aives.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("results_student_id_fkey");
 
+                    b.Navigation("Exam");
+
                     b.Navigation("PublishedByNavigation");
 
                     b.Navigation("ReviewedByNavigation");
@@ -1054,6 +1594,18 @@ namespace Aives.Infrastructure.Migrations
 
             modelBuilder.Entity("Aives.Domain.Entities.SessionEnrollment", b =>
                 {
+                    b.HasOne("Aives.Domain.Entities.Exam", "AssignedExam")
+                        .WithMany("AssignedEnrollments")
+                        .HasForeignKey("AssignedExamId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("session_enrollments_assigned_exam_id_fkey");
+
+                    b.HasOne("Aives.Domain.Entities.ExamSessionSlot", "AssignedSlot")
+                        .WithMany("SessionEnrollments")
+                        .HasForeignKey("AssignedSlotId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("session_enrollments_assigned_slot_id_fkey");
+
                     b.HasOne("Aives.Domain.Entities.ExamSession", "Session")
                         .WithMany("SessionEnrollments")
                         .HasForeignKey("SessionId")
@@ -1068,6 +1620,10 @@ namespace Aives.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("session_enrollments_student_id_fkey");
 
+                    b.Navigation("AssignedExam");
+
+                    b.Navigation("AssignedSlot");
+
                     b.Navigation("Session");
 
                     b.Navigation("Student");
@@ -1076,6 +1632,10 @@ namespace Aives.Infrastructure.Migrations
             modelBuilder.Entity("Aives.Domain.Entities.Course", b =>
                 {
                     b.Navigation("Enrollments");
+
+                    b.Navigation("ExamPeriods");
+
+                    b.Navigation("ExamSessions");
 
                     b.Navigation("Exams");
 
@@ -1086,8 +1646,25 @@ namespace Aives.Infrastructure.Migrations
 
             modelBuilder.Entity("Aives.Domain.Entities.Exam", b =>
                 {
+                    b.Navigation("AssignedEnrollments");
+
                     b.Navigation("ExamQuestions");
 
+                    b.Navigation("ExamSessions");
+
+                    b.Navigation("Results");
+
+                    b.Navigation("SessionExams");
+
+                    b.Navigation("SessionSlotExams");
+
+                    b.Navigation("SlotTemplateExams");
+
+                    b.Navigation("SlotTemplates");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamPeriod", b =>
+                {
                     b.Navigation("ExamSessions");
                 });
 
@@ -1096,6 +1673,24 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("Results");
 
                     b.Navigation("SessionEnrollments");
+
+                    b.Navigation("SessionExams");
+
+                    b.Navigation("Slots");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSessionSlot", b =>
+                {
+                    b.Navigation("SessionEnrollments");
+
+                    b.Navigation("SlotExams");
+                });
+
+            modelBuilder.Entity("Aives.Domain.Entities.ExamSlotTemplate", b =>
+                {
+                    b.Navigation("SessionSlots");
+
+                    b.Navigation("TemplateExams");
                 });
 
             modelBuilder.Entity("Aives.Domain.Entities.MarkdownDocument", b =>
@@ -1126,6 +1721,8 @@ namespace Aives.Infrastructure.Migrations
                     b.Navigation("CourseTeachers");
 
                     b.Navigation("Enrollments");
+
+                    b.Navigation("ExamPeriods");
 
                     b.Navigation("ExamSessions");
 

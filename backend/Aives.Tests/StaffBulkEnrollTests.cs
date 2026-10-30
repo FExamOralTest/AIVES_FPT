@@ -210,6 +210,49 @@ public class StaffBulkEnrollTests : IDisposable
         Assert.Equal(0, result.SkippedCount);
     }
 
+    [Fact]
+    public async Task AddStudentsToSession_WithIdentifiers_FlexiblePaste_ResolvesSuccessfully()
+    {
+        var (session, _, _, _, _, s1, s2, s3) = await SeedAsync();
+
+        // Thử nghiệm paste tự do: username MSSV, email, id số, chuỗi có khoảng trắng và dấu phẩy
+        var req = new StaffAddEnrollmentsRequest
+        {
+            Identifiers = new[]
+            {
+                $"{s1.Username}, {s2.Email}",
+                $" {s3.UserId} ",
+                "NON_EXISTENT_MSSV"
+            }
+        };
+
+        var result = await _service.AddStudentsToSessionAsync(session.SessionId, req, staffId: 1);
+
+        Assert.Equal(3, result.AddedCount);
+        Assert.Equal(1, result.SkippedCount); // NON_EXISTENT_MSSV is not found
+        Assert.Equal(3, result.CurrentEnrollment);
+
+        var notFoundResult = result.Results.First(r => r.Identifier == "NON_EXISTENT_MSSV");
+        Assert.Equal("not_found", notFoundResult.Status);
+    }
+
+    [Fact]
+    public async Task ImportCourseStudentsToSession_AllCourseStudentsAdded()
+    {
+        var (session, _, course, _, _, s1, s2, _) = await SeedAsync();
+
+        // Ghi danh s1 và s2 vào môn học
+        _db.Enrollments.Add(new Enrollment { CourseId = course.CourseId, StudentId = s1.UserId });
+        _db.Enrollments.Add(new Enrollment { CourseId = course.CourseId, StudentId = s2.UserId });
+        await _db.SaveChangesAsync();
+
+        var result = await _service.ImportCourseStudentsToSessionAsync(session.SessionId, staffId: 1);
+
+        Assert.Equal(2, result.AddedCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Equal(2, result.CurrentEnrollment);
+    }
+
     // ─── Seed helpers ──────────────────────────────────────────────
 
     private async Task<(ExamSession session, User teacher, Course course, Exam exam, QuestionBank qb,
@@ -257,6 +300,7 @@ public class StaffBulkEnrollTests : IDisposable
 
         var session = new ExamSession
         {
+            CourseId = course.CourseId,
             ExamId = exam.ExamId,
             ScheduledBy = teacher.UserId,
             SessionName = "Session 1",
@@ -286,7 +330,7 @@ internal class NoopCourseService : ICourseService
 {
     public Task<IEnumerable<CourseDto>> GetAllAsync() => Task.FromResult<IEnumerable<CourseDto>>(Array.Empty<CourseDto>());
     public Task<IEnumerable<CourseDto>> GetByTeacherIdAsync(int teacherId) => Task.FromResult<IEnumerable<CourseDto>>(Array.Empty<CourseDto>());
-    public Task<CourseDto> GetByIdAsync(int courseId) => throw new NotImplementedException();
+    public Task<CourseDto> GetByIdAsync(int courseId) => Task.FromResult(new CourseDto(courseId, "CS101", "Test Course", 1, null, null, null));
     public Task<CourseDto> CreateAsync(CreateCourseRequest request) => throw new NotImplementedException();
     public Task<CourseDto> UpdateAsync(int courseId, UpdateCourseRequest request) => throw new NotImplementedException();
     public Task<CourseDto> AssignTeacherAsync(int courseId, AssignTeacherRequest request) => throw new NotImplementedException();

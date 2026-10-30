@@ -1,0 +1,338 @@
+info: Program[0]
+      Using default development admin password. Set Admin:Password in configuration for production.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (129ms) [Parameters=[@__adminUsername_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM users AS u
+          WHERE u.username = @__adminUsername_0)
+info: Hangfire.PostgreSql.PostgreSqlStorage[0]
+      Start installing Hangfire SQL objects...
+info: Hangfire.PostgreSql.PostgreSqlStorage[0]
+      Hangfire SQL objects installed.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5000
+info: Hangfire.BackgroundJobServer[0]
+      Starting Hangfire Server using job storage: 'PostgreSQL Server: Host: ep-silent-cloud-b3pii1w9-pooler.c-4.ap-southeast-1.aws.neon.tech, DB: neondb, Schema: hangfire'
+info: Hangfire.BackgroundJobServer[0]
+      Using the following options for PostgreSQL job storage:
+info: Hangfire.BackgroundJobServer[0]
+          Queue poll interval: 00:00:02.
+info: Hangfire.BackgroundJobServer[0]
+          Invisibility timeout: 00:10:00.
+info: Hangfire.BackgroundJobServer[0]
+          Use sliding invisibility timeout: False.
+info: Hangfire.BackgroundJobServer[0]
+      Using the following options for Hangfire Server:
+          Worker count: 1
+          Listening queues: 'grading'
+          Shutdown timeout: 00:00:15
+          Schedule polling interval: 00:00:15
+info: Hangfire.BackgroundJobServer[0]
+      Starting Hangfire Server using job storage: 'PostgreSQL Server: Host: ep-silent-cloud-b3pii1w9-pooler.c-4.ap-southeast-1.aws.neon.tech, DB: neondb, Schema: hangfire'
+info: Hangfire.BackgroundJobServer[0]
+      Using the following options for PostgreSQL job storage:
+info: Hangfire.BackgroundJobServer[0]
+          Queue poll interval: 00:00:02.
+info: Hangfire.BackgroundJobServer[0]
+          Invisibility timeout: 00:10:00.
+info: Hangfire.BackgroundJobServer[0]
+          Use sliding invisibility timeout: False.
+info: Hangfire.BackgroundJobServer[0]
+      Using the following options for Hangfire Server:
+          Worker count: 5
+          Listening queues: 'default', 'answers'
+          Shutdown timeout: 00:00:15
+          Schedule polling interval: 00:00:15
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\thinh\Documents\GitHub\AIVES_FPT\backend\Aives.Api
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 successfully announced in 171.5131 ms
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 is starting the registered dispatchers: ServerWatchdog, ServerJobCancellationWatcher, ExpirationManager, CountersAggregator, Worker, DelayedJobScheduler, RecurringJobScheduler...
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 all the dispatchers started
+info: Hangfire.Server.ServerWatchdog[0]
+      1 servers were removed due to timeout
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf successfully announced in 281.0096 ms
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf is starting the registered dispatchers: ServerWatchdog, ServerJobCancellationWatcher, ExpirationManager, CountersAggregator, Worker, DelayedJobScheduler, RecurringJobScheduler...
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf all the dispatchers started
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (39ms) [Parameters=[@__email_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.email = @__email_0
+      LIMIT 1
+info: Aives.Application.Auth.Services.AuthService[0]
+      User logged in successfully: demo-student with role STUDENT
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (39ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Aives.Infrastructure.Storage.CloudflareR2StorageService[0]
+      Cloudflare R2 Storage Service initialized successfully for bucket 'aives' at 'https://9e7256bedb995a7382bd318df204157e.r2.cloudflarestorage.com' (accessKeyId=f90a......)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (36ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (47ms) [Parameters=[@__sessionId_0='?' (DbType = Int32), @__studentId_1='?' (DbType = Int32), @__questionId_2='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.session_id = @__sessionId_0 AND m.student_id = @__studentId_1 AND m.question_id = @__questionId_2 AND m.upload_status IN ('PENDING', 'UPLOADING')
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (55ms) [Parameters=[@__sessionId_0='?' (DbType = Int32), @__studentId_1='?' (DbType = Int32), @__questionId_2='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.session_id = @__sessionId_0 AND m.student_id = @__studentId_1 AND m.question_id = @__questionId_2 AND m.upload_status IN ('PENDING', 'UPLOADING')
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (50ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (35ms) [Parameters=[@__sessionId_0='?' (DbType = Int32), @__studentId_1='?' (DbType = Int32), @__questionId_2='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.session_id = @__sessionId_0 AND m.student_id = @__studentId_1 AND m.question_id = @__questionId_2 AND m.upload_status IN ('PENDING', 'UPLOADING')
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (73ms) [Parameters=[@__sessionId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT t.session_id, t.created_at, t.current_enrollment, t.end_time, t.exam_id, t.max_capacity, t.room, t.scheduled_by, t.session_code, t.session_name, t.start_time, t.status, t.exam_id0, t.course_id, t.created_at0, t.created_by, t.duration_minutes, t.exam_code, t.exam_status, t.is_active, t.max_questions, t.title, t.course_id0, t.course_code, t.course_name, t.created_at1, t.created_by0, t.teacher_id, t.user_id, t.created_at2, t.email, t.full_name, t.password_hash, t.role, t.username, s.session_enrollment_id, s.current_question_index, s.enrolled_at, s.last_activity_at, s.session_id, s.started_at, s.status, s.student_id
+      FROM (
+          SELECT e.session_id, e.created_at, e.current_enrollment, e.end_time, e.exam_id, e.max_capacity, e.room, e.scheduled_by, e.session_code, e.session_name, e.start_time, e.status, e0.exam_id AS exam_id0, e0.course_id, e0.created_at AS created_at0, e0.created_by, e0.duration_minutes, e0.exam_code, e0.exam_status, e0.is_active, e0.max_questions, e0.title, c.course_id AS course_id0, c.course_code, c.course_name, c.created_at AS created_at1, c.created_by AS created_by0, c.teacher_id, u.user_id, u.created_at AS created_at2, u.email, u.full_name, u.password_hash, u.role, u.username
+          FROM exam_sessions AS e
+          INNER JOIN exams AS e0 ON e.exam_id = e0.exam_id
+          INNER JOIN courses AS c ON e0.course_id = c.course_id
+          INNER JOIN users AS u ON e.scheduled_by = u.user_id
+          WHERE e.session_id = @__sessionId_0
+          LIMIT 1
+      ) AS t
+      LEFT JOIN session_enrollments AS s ON t.session_id = s.session_id
+      ORDER BY t.session_id, t.exam_id0, t.course_id0, t.user_id
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (73ms) [Parameters=[@__sessionId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT t.session_id, t.created_at, t.current_enrollment, t.end_time, t.exam_id, t.max_capacity, t.room, t.scheduled_by, t.session_code, t.session_name, t.start_time, t.status, t.exam_id0, t.course_id, t.created_at0, t.created_by, t.duration_minutes, t.exam_code, t.exam_status, t.is_active, t.max_questions, t.title, t.course_id0, t.course_code, t.course_name, t.created_at1, t.created_by0, t.teacher_id, t.user_id, t.created_at2, t.email, t.full_name, t.password_hash, t.role, t.username, s.session_enrollment_id, s.current_question_index, s.enrolled_at, s.last_activity_at, s.session_id, s.started_at, s.status, s.student_id
+      FROM (
+          SELECT e.session_id, e.created_at, e.current_enrollment, e.end_time, e.exam_id, e.max_capacity, e.room, e.scheduled_by, e.session_code, e.session_name, e.start_time, e.status, e0.exam_id AS exam_id0, e0.course_id, e0.created_at AS created_at0, e0.created_by, e0.duration_minutes, e0.exam_code, e0.exam_status, e0.is_active, e0.max_questions, e0.title, c.course_id AS course_id0, c.course_code, c.course_name, c.created_at AS created_at1, c.created_by AS created_by0, c.teacher_id, u.user_id, u.created_at AS created_at2, u.email, u.full_name, u.password_hash, u.role, u.username
+          FROM exam_sessions AS e
+          INNER JOIN exams AS e0 ON e.exam_id = e0.exam_id
+          INNER JOIN courses AS c ON e0.course_id = c.course_id
+          INNER JOIN users AS u ON e.scheduled_by = u.user_id
+          WHERE e.session_id = @__sessionId_0
+          LIMIT 1
+      ) AS t
+      LEFT JOIN session_enrollments AS s ON t.session_id = s.session_id
+      ORDER BY t.session_id, t.exam_id0, t.course_id0, t.user_id
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (73ms) [Parameters=[@__sessionId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT t.session_id, t.created_at, t.current_enrollment, t.end_time, t.exam_id, t.max_capacity, t.room, t.scheduled_by, t.session_code, t.session_name, t.start_time, t.status, t.exam_id0, t.course_id, t.created_at0, t.created_by, t.duration_minutes, t.exam_code, t.exam_status, t.is_active, t.max_questions, t.title, t.course_id0, t.course_code, t.course_name, t.created_at1, t.created_by0, t.teacher_id, t.user_id, t.created_at2, t.email, t.full_name, t.password_hash, t.role, t.username, s.session_enrollment_id, s.current_question_index, s.enrolled_at, s.last_activity_at, s.session_id, s.started_at, s.status, s.student_id
+      FROM (
+          SELECT e.session_id, e.created_at, e.current_enrollment, e.end_time, e.exam_id, e.max_capacity, e.room, e.scheduled_by, e.session_code, e.session_name, e.start_time, e.status, e0.exam_id AS exam_id0, e0.course_id, e0.created_at AS created_at0, e0.created_by, e0.duration_minutes, e0.exam_code, e0.exam_status, e0.is_active, e0.max_questions, e0.title, c.course_id AS course_id0, c.course_code, c.course_name, c.created_at AS created_at1, c.created_by AS created_by0, c.teacher_id, u.user_id, u.created_at AS created_at2, u.email, u.full_name, u.password_hash, u.role, u.username
+          FROM exam_sessions AS e
+          INNER JOIN exams AS e0 ON e.exam_id = e0.exam_id
+          INNER JOIN courses AS c ON e0.course_id = c.course_id
+          INNER JOIN users AS u ON e.scheduled_by = u.user_id
+          WHERE e.session_id = @__sessionId_0
+          LIMIT 1
+      ) AS t
+      LEFT JOIN session_enrollments AS s ON t.session_id = s.session_id
+      ORDER BY t.session_id, t.exam_id0, t.course_id0, t.user_id
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (55ms) [Parameters=[@p0='?', @p1='?' (DbType = Int32), @p2='?' (DbType = Int64), @p3='?' (DbType = DateTime), @p4='?', @p5='?' (DbType = DateTime), @p6='?', @p7='?', @p8='?', @p9='?', @p10='?', @p11='?' (DbType = Int32), @p12='?', @p13='?' (DbType = Object), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int32), @p17='?' (DbType = Int64), @p18='?'], CommandType='Text', CommandTimeout='30']
+      INSERT INTO media_uploads (upload_id, answer_id, chunk_size, completed_at, content_type, created_at, file_name, last_error, local_file_path, object_key, part_etags, question_id, r2_upload_id, received_chunk_indexes, session_id, student_id, total_chunks, total_size, upload_status)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (55ms) [Parameters=[@p0='?', @p1='?' (DbType = Int32), @p2='?' (DbType = Int64), @p3='?' (DbType = DateTime), @p4='?', @p5='?' (DbType = DateTime), @p6='?', @p7='?', @p8='?', @p9='?', @p10='?', @p11='?' (DbType = Int32), @p12='?', @p13='?' (DbType = Object), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int32), @p17='?' (DbType = Int64), @p18='?'], CommandType='Text', CommandTimeout='30']
+      INSERT INTO media_uploads (upload_id, answer_id, chunk_size, completed_at, content_type, created_at, file_name, last_error, local_file_path, object_key, part_etags, question_id, r2_upload_id, received_chunk_indexes, session_id, student_id, total_chunks, total_size, upload_status)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (64ms) [Parameters=[@p0='?', @p1='?' (DbType = Int32), @p2='?' (DbType = Int64), @p3='?' (DbType = DateTime), @p4='?', @p5='?' (DbType = DateTime), @p6='?', @p7='?', @p8='?', @p9='?', @p10='?', @p11='?' (DbType = Int32), @p12='?', @p13='?' (DbType = Object), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int32), @p17='?' (DbType = Int64), @p18='?'], CommandType='Text', CommandTimeout='30']
+      INSERT INTO media_uploads (upload_id, answer_id, chunk_size, completed_at, content_type, created_at, file_name, last_error, local_file_path, object_key, part_etags, question_id, r2_upload_id, received_chunk_indexes, session_id, student_id, total_chunks, total_size, upload_status)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18);
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Upload session created (local-first): uploadId=conc0-f87e5144, objectKey=exams/38/sessions/54/students/15/q_35.webm, localPath=C:\audio_review\15\prj123\35\q_35.webm
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Upload session created (local-first): uploadId=conc2-3e5a66a5, objectKey=exams/38/sessions/54/students/15/q_35.webm, localPath=C:\audio_review\15\prj123\35\q_35.webm
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Upload session created (local-first): uploadId=conc1-4b814449, objectKey=exams/38/sessions/54/students/15/q_35.webm, localPath=C:\audio_review\15\prj123\35\q_35.webm
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (41ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (41ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (47ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (55ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (55ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (56ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (35ms) [Parameters=[@p18='?', @p0='?' (DbType = Int32), @p1='?' (DbType = Int64), @p2='?' (DbType = DateTime), @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?', @p7='?', @p8='?', @p9='?', @p10='?' (DbType = Int32), @p11='?', @p12='?' (DbType = Object), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int64), @p17='?'], CommandType='Text', CommandTimeout='30']
+      UPDATE media_uploads SET answer_id = @p0, chunk_size = @p1, completed_at = @p2, content_type = @p3, created_at = @p4, file_name = @p5, last_error = @p6, local_file_path = @p7, object_key = @p8, part_etags = @p9, question_id = @p10, r2_upload_id = @p11, received_chunk_indexes = @p12, session_id = @p13, student_id = @p14, total_chunks = @p15, total_size = @p16, upload_status = @p17
+      WHERE upload_id = @p18;
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Chunk 0/1 saved locally: uploadId=conc1-4b814449, path=C:\audio_review\15\prj123\35\chunk_conc1-4b814449_0.bin
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (38ms) [Parameters=[@p18='?', @p0='?' (DbType = Int32), @p1='?' (DbType = Int64), @p2='?' (DbType = DateTime), @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?', @p7='?', @p8='?', @p9='?', @p10='?' (DbType = Int32), @p11='?', @p12='?' (DbType = Object), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int64), @p17='?'], CommandType='Text', CommandTimeout='30']
+      UPDATE media_uploads SET answer_id = @p0, chunk_size = @p1, completed_at = @p2, content_type = @p3, created_at = @p4, file_name = @p5, last_error = @p6, local_file_path = @p7, object_key = @p8, part_etags = @p9, question_id = @p10, r2_upload_id = @p11, received_chunk_indexes = @p12, session_id = @p13, student_id = @p14, total_chunks = @p15, total_size = @p16, upload_status = @p17
+      WHERE upload_id = @p18;
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Chunk 0/1 saved locally: uploadId=conc2-3e5a66a5, path=C:\audio_review\15\prj123\35\chunk_conc2-3e5a66a5_0.bin
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (46ms) [Parameters=[@p18='?', @p0='?' (DbType = Int32), @p1='?' (DbType = Int64), @p2='?' (DbType = DateTime), @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?', @p7='?', @p8='?', @p9='?', @p10='?' (DbType = Int32), @p11='?', @p12='?' (DbType = Object), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int64), @p17='?'], CommandType='Text', CommandTimeout='30']
+      UPDATE media_uploads SET answer_id = @p0, chunk_size = @p1, completed_at = @p2, content_type = @p3, created_at = @p4, file_name = @p5, last_error = @p6, local_file_path = @p7, object_key = @p8, part_etags = @p9, question_id = @p10, r2_upload_id = @p11, received_chunk_indexes = @p12, session_id = @p13, student_id = @p14, total_chunks = @p15, total_size = @p16, upload_status = @p17
+      WHERE upload_id = @p18;
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Chunk 0/1 saved locally: uploadId=conc0-f87e5144, path=C:\audio_review\15\prj123\35\chunk_conc0-f87e5144_0.bin
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (35ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (36ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (44ms) [Parameters=[@__p_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT u.user_id, u.created_at, u.email, u.full_name, u.password_hash, u.role, u.username
+      FROM users AS u
+      WHERE u.user_id = @__p_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (35ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (35ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (45ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (35ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Merged 1 chunks → C:\audio_review\15\prj123\35\q_35.webm
+info: Aives.Infrastructure.Storage.CloudflareR2StorageService[0]
+      Local file uploaded to Cloudflare R2: key='exams/38/sessions/54/students/15/q_35.webm', source='C:\audio_review\15\prj123\35\q_35.webm', size=102404 bytes, status=OK
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (153ms) [Parameters=[@p18='?', @p0='?' (DbType = Int32), @p1='?' (DbType = Int64), @p2='?' (DbType = DateTime), @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?', @p7='?', @p8='?', @p9='?', @p10='?' (DbType = Int32), @p11='?', @p12='?' (DbType = Object), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int64), @p17='?'], CommandType='Text', CommandTimeout='30']
+      UPDATE media_uploads SET answer_id = @p0, chunk_size = @p1, completed_at = @p2, content_type = @p3, created_at = @p4, file_name = @p5, last_error = @p6, local_file_path = @p7, object_key = @p8, part_etags = @p9, question_id = @p10, r2_upload_id = @p11, received_chunk_indexes = @p12, session_id = @p13, student_id = @p14, total_chunks = @p15, total_size = @p16, upload_status = @p17
+      WHERE upload_id = @p18;
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Upload completed: uploadId=conc1-4b814449, objectKey=exams/38/sessions/54/students/15/q_35.webm, answerId=(null)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (45ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Merged 1 chunks → C:\audio_review\15\prj123\35\q_35.webm
+info: Aives.Infrastructure.Storage.CloudflareR2StorageService[0]
+      Local file uploaded to Cloudflare R2: key='exams/38/sessions/54/students/15/q_35.webm', source='C:\audio_review\15\prj123\35\q_35.webm', size=102404 bytes, status=OK
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (36ms) [Parameters=[@p18='?', @p0='?' (DbType = Int32), @p1='?' (DbType = Int64), @p2='?' (DbType = DateTime), @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?', @p7='?', @p8='?', @p9='?', @p10='?' (DbType = Int32), @p11='?', @p12='?' (DbType = Object), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int64), @p17='?'], CommandType='Text', CommandTimeout='30']
+      UPDATE media_uploads SET answer_id = @p0, chunk_size = @p1, completed_at = @p2, content_type = @p3, created_at = @p4, file_name = @p5, last_error = @p6, local_file_path = @p7, object_key = @p8, part_etags = @p9, question_id = @p10, r2_upload_id = @p11, received_chunk_indexes = @p12, session_id = @p13, student_id = @p14, total_chunks = @p15, total_size = @p16, upload_status = @p17
+      WHERE upload_id = @p18;
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Upload completed: uploadId=conc2-3e5a66a5, objectKey=exams/38/sessions/54/students/15/q_35.webm, answerId=(null)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (35ms) [Parameters=[@__uploadId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT m.upload_id, m.answer_id, m.chunk_size, m.completed_at, m.content_type, m.created_at, m.file_name, m.last_error, m.local_file_path, m.object_key, m.part_etags, m.question_id, m.r2_upload_id, m.received_chunk_indexes, m.session_id, m.student_id, m.total_chunks, m.total_size, m.upload_status
+      FROM media_uploads AS m
+      WHERE m.upload_id = @__uploadId_0
+      LIMIT 1
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Merged 1 chunks → C:\audio_review\15\prj123\35\q_35.webm
+info: Aives.Infrastructure.Storage.CloudflareR2StorageService[0]
+      Local file uploaded to Cloudflare R2: key='exams/38/sessions/54/students/15/q_35.webm', source='C:\audio_review\15\prj123\35\q_35.webm', size=102404 bytes, status=OK
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (46ms) [Parameters=[@p18='?', @p0='?' (DbType = Int32), @p1='?' (DbType = Int64), @p2='?' (DbType = DateTime), @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?', @p7='?', @p8='?', @p9='?', @p10='?' (DbType = Int32), @p11='?', @p12='?' (DbType = Object), @p13='?' (DbType = Int32), @p14='?' (DbType = Int32), @p15='?' (DbType = Int32), @p16='?' (DbType = Int64), @p17='?'], CommandType='Text', CommandTimeout='30']
+      UPDATE media_uploads SET answer_id = @p0, chunk_size = @p1, completed_at = @p2, content_type = @p3, created_at = @p4, file_name = @p5, last_error = @p6, local_file_path = @p7, object_key = @p8, part_etags = @p9, question_id = @p10, r2_upload_id = @p11, received_chunk_indexes = @p12, session_id = @p13, student_id = @p14, total_chunks = @p15, total_size = @p16, upload_status = @p17
+      WHERE upload_id = @p18;
+info: Aives.Infrastructure.Queue.ChunkedAudioUploadService[0]
+      Upload completed: uploadId=conc0-f87e5144, objectKey=exams/38/sessions/54/students/15/q_35.webm, answerId=(null)
+warn: Hangfire.Server.BackgroundProcessingServer[0]
+      Stopping the server due to DomainUnload or ProcessExit event...
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf caught stopping signal...
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf caught stopped signal...
+warn: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf caught shutdown signal...
+warn: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf stopped non-gracefully due to ServerWatchdog, ServerJobCancellationWatcher, ExpirationManager, CountersAggregator, Worker, DelayedJobScheduler, RecurringJobScheduler. Outstanding work on those dispatchers could be aborted, and there can be delays in background processing. This server instance will be incorrectly shown as active for a while. To avoid non-graceful shutdowns, investigate what prevents from stopping gracefully and add CancellationToken support for those methods.
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf successfully reported itself as stopped in 273.9566 ms
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-grading-laptop-7hslflor:24400:762e8caf has been stopped in total 276.776 ms
+warn: Hangfire.Server.BackgroundProcessingServer[0]
+      Stopping the server due to DomainUnload or ProcessExit event...
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 caught stopping signal...
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 caught stopped signal...
+warn: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 caught shutdown signal...
+warn: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 stopped non-gracefully due to ServerWatchdog, ServerJobCancellationWatcher, ExpirationManager, CountersAggregator, Worker, DelayedJobScheduler, RecurringJobScheduler. Outstanding work on those dispatchers could be aborted, and there can be delays in background processing. This server instance will be incorrectly shown as active for a while. To avoid non-graceful shutdowns, investigate what prevents from stopping gracefully and add CancellationToken support for those methods.
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 successfully reported itself as stopped in 38.6267 ms
+info: Hangfire.Server.BackgroundServerProcess[0]
+      Server aives-api-laptop-7hslflor:24400:2a9ae4b5 has been stopped in total 40.0134 ms
