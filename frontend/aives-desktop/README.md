@@ -95,7 +95,9 @@ flutter build windows --release
 
 Tests use a local HTTP stub without a live database or AI service. They cover API contracts, uploads, follow-ups, uncertain submissions, drafts, deadlines and desktop layouts. Manual checks: docs/desktop-test-flows.md. Shared Neon demo: docs/desktop-neon-demo.md.
 
-GitHub Actions runs the **Desktop Windows** workflow on desktop pull requests and pushes to `d_desktop-*`, `dev` and `main`. It installs Flutter 3.47.7, analyzes, tests and builds a Windows release without database credentials. Download **AIVES-Student-Windows** from the successful run's Artifacts section, extract the complete folder and run `aives_desktop.exe`. Artifacts expire after 14 days. The workflow builds the app but does not launch it or verify Windows shortcut interception and monitor coverage.
+GitHub Actions runs the **Desktop Windows** workflow on desktop pull requests and pushes to `d_desktop-*`, `dev` and `main`. It installs Flutter 3.47.7, analyzes, tests and builds a Windows release without database credentials. Download **AIVES-Student-Windows** from the successful run's Artifacts section, extract the complete folder and run `aives_desktop.exe`. Artifacts expire after 14 days.
+
+Pushes to `dev` or `main`, and manual **Run workflow** dispatches, also publish a GitHub Release. The zip is attached to that release and does not expire with the artifact. Releases from `dev` and `main` are marked latest, so the download link is the repository **Releases** page (`/releases/latest`). A manual run from any other branch is published as a pre-release and does not replace latest. Recipients who watch the repository with release notifications enabled receive GitHub's release notification. The workflow builds the app but does not launch it or verify Windows shortcut interception and monitor coverage.
 
 Mock speech recognition/scoring verifies integration, not voice accuracy. Question text-to-speech is not implemented. Two-examiner and moderator processing belongs to backend/web.
 
