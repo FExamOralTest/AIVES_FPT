@@ -82,18 +82,19 @@ jobs:
             echo "zip=${zip}"
           } >> "$GITHUB_OUTPUT"
           cat > release-notes.md <<EOF
-          ## Cài đặt
+          ## Install
 
-          1. Tải \`${zip}\` ở mục Assets phía dưới.
-          2. Giải nén toàn bộ thư mục \`AIVES-Student-Windows\`.
-          3. Chạy \`aives_desktop.exe\`.
+          1. Download \`${zip}\` from Assets below.
+          2. Extract the entire \`AIVES-Student-Windows\` folder.
+          3. Run \`aives_desktop.exe\`.
 
-          Không cần cài Flutter hay Visual Studio. Máy nhận cần Windows, quyền dùng microphone, và Microsoft Visual C++ Redistributable nếu Windows báo thiếu DLL.
+          Flutter and Visual Studio are not required. The computer needs Windows, microphone permission, and the Microsoft Visual C++ Redistributable if Windows reports a missing DLL.
 
-          Mở **Server settings** trong app và nhập địa chỉ backend, không thêm \`/api\`.
+          Open **Server settings** in the app and enter the backend address without \`/api\`.
 
-          - Nhánh: \`${branch}\`
+          - Branch: \`${branch}\`
           - Commit: \`${GITHUB_SHA}\`
+          - Author: Vo Tran Ngoc Huu
           EOF
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -102,7 +103,7 @@ jobs:
           name: ${{ steps.package.outputs.title }}
           body_path: release-notes.md
           files: ${{ steps.package.outputs.zip }}
-          generate_release_notes: true
+          generate_release_notes: false
           make_latest: ${{ (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && 'true' || 'false' }}
           prerelease: ${{ github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main' }}
           fail_on_unmatched_files: true
