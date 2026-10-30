@@ -3757,6 +3757,8 @@ public class ExamSessionService : IExamSessionService
 
 
 
+            PeriodId = session.PeriodId,
+            PeriodName = session.Period?.PeriodName,
             Room = session.Room,
 
 

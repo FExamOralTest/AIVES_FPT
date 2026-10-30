@@ -1,4 +1,5 @@
 import {
+  Calendar,
   Check,
   CircleAlert,
   Clock,
@@ -34,7 +35,9 @@ import { formatDateTime, formatTimeRange, parseApiDate } from '@/lib/format/date
 import { toApiError } from '@/lib/http/apiError'
 import { useApi } from '@/lib/http/useApi'
 import { cn } from '@/lib/utils'
+import { periodsApi } from '../api/periodsApi'
 import { sessionsApi } from '../api/sessionsApi'
+import type { ExamPeriod } from '../types'
 import type { DistributeExamsResponse, DistributeSlotsResponse, ExamSession } from '../types'
 import { AddStudentsForm } from './AddStudentsForm'
 import { ConfigureSlotsDialog } from './ConfigureSlotsDialog'
@@ -113,6 +116,8 @@ function SessionDetail({
   const [editStartTime, setEditStartTime] = useState('')
   const [editEndTime, setEditEndTime] = useState('')
   const [editExamIds, setEditExamIds] = useState<number[]>([])
+  const [editPeriodId, setEditPeriodId] = useState<number | null>(null)
+  const [sessionPeriods, setSessionPeriods] = useState<ExamPeriod[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [editErrors, setEditErrors] = useState<{
     form?: string
@@ -185,6 +190,8 @@ function SessionDetail({
         ? [session.examId]
         : []
     setEditExamIds(currentIds)
+    setEditPeriodId(session.periodId ?? null)
+    periodsApi.list(session.courseId ?? undefined).then(setSessionPeriods).catch(() => {})
     setEditErrors({})
     setEditing(true)
   }
@@ -247,6 +254,7 @@ function SessionDetail({
         startTime: sDate.toISOString(),
         endTime: eDate.toISOString(),
         examIds: editExamIds,
+        periodId: editPeriodId ?? undefined,
       })
       applyUpdate(updated)
       setEditing(false)
@@ -543,6 +551,25 @@ function SessionDetail({
                     <Pencil className="size-3.5" /> Edit Session Information
                   </h4>
                   <span className="text-xs text-muted-foreground">Modify directly in this session</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Calendar className="size-3.5 text-brand" />
+                    Academic Period / Semester
+                  </label>
+                  <select
+                    value={editPeriodId ?? ''}
+                    onChange={(e) => setEditPeriodId(e.target.value ? Number(e.target.value) : null)}
+                    className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-brand"
+                  >
+                    <option value="">-- No specific period / General --</option>
+                    {sessionPeriods.map((p) => (
+                      <option key={p.periodId} value={p.periodId}>
+                        {p.periodName}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <FormField

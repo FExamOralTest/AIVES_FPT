@@ -124,6 +124,8 @@ public class ExamSessionSummaryDto
     public string ExamCode { get; set; } = null!;
     public int? CourseId { get; set; }
     public string CourseName { get; set; } = "";
+    public int? PeriodId { get; set; }
+    public string? PeriodName { get; set; }
     public string? Room { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
