@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: desktop-windows-${{ github.ref }}
@@ -49,3 +49,62 @@ jobs:
           path: frontend/aives-desktop/build/windows/x64/runner/Release/
           if-no-files-found: error
           retention-days: 14
+
+  publish-release:
+    needs: validate-and-build
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: AIVES-Student-Windows
+          path: AIVES-Student-Windows
+      - name: Package release zip
+        id: package
+        run: |
+          set -euo pipefail
+          version="$(awk '/^version:/ { print $2; exit }' frontend/aives-desktop/pubspec.yaml)"
+          version="${version%%+*}"
+          branch="${GITHUB_REF_NAME//\//-}"
+          tag="desktop-v${version}-${branch}-${GITHUB_RUN_NUMBER}"
+          title="AIVES Student Windows ${version} (${branch} #${GITHUB_RUN_NUMBER})"
+          zip="AIVES-Student-Windows-${version}-${branch}-${GITHUB_RUN_NUMBER}.zip"
+          zip -r "$zip" AIVES-Student-Windows
+          {
+            echo "tag=${tag}"
+            echo "title=${title}"
+            echo "zip=${zip}"
+          } >> "$GITHUB_OUTPUT"
+          cat > release-notes.md <<EOF
+          ## Cài đặt
+
+          1. Tải \`${zip}\` ở mục Assets phía dưới.
+          2. Giải nén toàn bộ thư mục \`AIVES-Student-Windows\`.
+          3. Chạy \`aives_desktop.exe\`.
+
+          Không cần cài Flutter hay Visual Studio. Máy nhận cần Windows, quyền dùng microphone, và Microsoft Visual C++ Redistributable nếu Windows báo thiếu DLL.
+
+          Mở **Server settings** trong app và nhập địa chỉ backend, không thêm \`/api\`.
+
+          - Nhánh: \`${branch}\`
+          - Commit: \`${GITHUB_SHA}\`
+          EOF
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.package.outputs.tag }}
+          name: ${{ steps.package.outputs.title }}
+          body_path: release-notes.md
+          files: ${{ steps.package.outputs.zip }}
+          generate_release_notes: true
+          make_latest: ${{ (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && 'true' || 'false' }}
+          prerelease: ${{ github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main' }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
