@@ -104,6 +104,18 @@ public class SessionGradingService : ISessionGradingService
 
         var answersById = answers.ToDictionary(a => a.QuestionId.ToString(CultureInfo.InvariantCulture));
         var contextsById = evalRequest.QuestionAnswers.ToDictionary(q => q.QuestionId);
+        if (evalResponse.QuestionScores.Count != answersById.Count
+            || !answersById.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(
+                evalResponse.QuestionScores.Select(item => item.QuestionId)))
+        {
+            return await FailAsync(
+                result,
+                "question_ids_mismatch",
+                "AI evaluation did not return exactly one analysis for every submitted question.",
+                retryable: false,
+                finalAttempt);
+        }
+
         foreach (var itemEval in evalResponse.QuestionScores)
         {
             if (!answersById.ContainsKey(itemEval.QuestionId) || !contextsById.ContainsKey(itemEval.QuestionId))
@@ -120,25 +132,37 @@ public class SessionGradingService : ISessionGradingService
         foreach (var itemEval in evalResponse.QuestionScores)
         {
             var answer = answersById[itemEval.QuestionId];
+            var context = contextsById[itemEval.QuestionId];
+            itemEval.Score = MathF.Round(itemEval.CriterionAnalyses.Sum(criterion => criterion.AwardedScore), 4);
+            itemEval.MaxScore = context.Rubric.Sum(criterion => criterion.MaxScore);
             answer.AiScore = itemEval.Score;
             answer.AiFeedback = itemEval.Feedback;
             answer.Status = AnswerStatus.EVALUATED;
             answer.ErrorMessage = null;
-            answer.AiAnalysis = JsonSerializer.Serialize(new StoredAnswerAnalysisDto
-            {
-                Context = contextsById[itemEval.QuestionId],
-                Evaluation = itemEval
-            });
+            answer.AiAnalysis = JsonSerializer.Serialize(
+                StoredAnswerAnalysisDto.Create(
+                    evalResponse.Provider,
+                    evalResponse.Model,
+                    context.StudentAnswer,
+                    context.Rubric,
+                    itemEval),
+                StoredAnswerAnalysisDto.SerializerOptions);
         }
 
-        result.AiScore = evalResponse.TotalScore;
+        result.AiScore = MathF.Round(evalResponse.QuestionScores.Sum(question => question.Score), 4);
         result.AiFeedback = evalResponse.OverallFeedback;
         result.AiAnalysis = JsonSerializer.Serialize(new SessionAnalysisDto
         {
-            MaxTotalScore = evalResponse.MaxTotalScore,
-            Percentage = evalResponse.Percentage,
+            SchemaVersion = evalResponse.SchemaVersion,
+            Provider = evalResponse.Provider,
+            Model = evalResponse.Model,
+            GradedAt = DateTime.UtcNow,
+            MaxTotalScore = MathF.Round(evalResponse.QuestionScores.Sum(question => question.MaxScore), 4),
+            Percentage = evalResponse.QuestionScores.Sum(question => question.MaxScore) > 0
+                ? result.AiScore.Value / evalResponse.QuestionScores.Sum(question => question.MaxScore) * 100
+                : 0,
             StudySuggestions = evalResponse.StudySuggestions
-        });
+        }, StoredAnswerAnalysisDto.SerializerOptions);
         result.AiEvaluationStatus = AiEvaluationStatus.SUCCEEDED;
         result.AiEvaluationError = null;
 
@@ -175,7 +199,7 @@ public class SessionGradingService : ISessionGradingService
             result.AiEvaluationError = message;
             foreach (var answer in result.Answers)
             {
-                if (answer.Status != AnswerStatus.EVALUATED)
+                if (answer.Status != AnswerStatus.EVALUATED || !answer.AiScore.HasValue)
                 {
                     answer.Status = AnswerStatus.ERROR;
                     answer.ErrorMessage = message;

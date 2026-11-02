@@ -100,6 +100,10 @@ async def test_live_good_answer_scores_high():
     for analysis in result.criterion_analyses:
         assert analysis.judgment in {"met", "partial", "not_met"}
         assert analysis.explanation.strip()
+        assert 0 <= analysis.awarded_score <= 4.0
+    assert abs(result.score - sum(c.awarded_score for c in result.criterion_analyses)) < 1e-4
+    assert result.schema_version == "2.0"
+    assert result.provider and result.model
     assert result.score >= 6.5, f"good answer scored only {result.score}"
 
 
@@ -119,6 +123,7 @@ async def test_live_poor_answer_scores_low():
     assert result.success is True
     assert 0 <= result.score <= result.max_score <= 10.0
     assert result.weaknesses or result.missing_content
+    assert abs(result.score - sum(c.awarded_score for c in result.criterion_analyses)) < 1e-4
     assert result.score <= 5.0, f"poor answer scored {result.score}, expected <= 5.0"
 
 

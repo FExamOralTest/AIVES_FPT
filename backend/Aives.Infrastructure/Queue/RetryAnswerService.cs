@@ -153,11 +153,14 @@ public class RetryAnswerService : IRetryAnswerService
                 break;
 
             case UserRole.STAFF:
-            case UserRole.EXAMINER:
-                // Staff/Examiner retry được answer thuộc session do mình tạo (scheduledBy).
+                // Staff retry được answer thuộc session do mình tạo (scheduledBy).
                 if (result.Session?.ScheduledBy != userId)
                     throw new UnauthorizedAccessException(
                         "You can only retry answers for sessions you have scheduled.");
+                break;
+
+            case UserRole.EXAMINER:
+                // Examiners have system-wide result review access, matching ResultService.
                 break;
 
             case UserRole.ADMIN:

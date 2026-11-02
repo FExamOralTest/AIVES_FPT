@@ -3,7 +3,6 @@ from typing import Annotated, TypeVar
 from pydantic import (
     BaseModel,
     ConfigDict,
-    Field,
     StringConstraints,
     ValidationError,
     model_validator,
@@ -11,24 +10,6 @@ from pydantic import (
 
 
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
-Score = Annotated[float, Field(ge=0, allow_inf_nan=False)]
-
-
-class ScoringOutput(BaseModel):
-    model_config = ConfigDict(strict=True, extra="forbid")
-
-    score: Score
-    max_score: Score
-    feedback: NonEmptyText
-    strengths: list[NonEmptyText]
-    weaknesses: list[NonEmptyText]
-    missing_content: list[NonEmptyText]
-
-    @model_validator(mode="after")
-    def validate_score(self) -> "ScoringOutput":
-        if self.score > self.max_score:
-            raise ValueError("Score must not exceed max_score.")
-        return self
 
 
 class FollowUpOutput(BaseModel):

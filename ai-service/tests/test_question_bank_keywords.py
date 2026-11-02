@@ -9,10 +9,8 @@ from pydantic import ValidationError
 
 from app.core.ai_client import MockAIClient
 from app.models.question_bank import GeneratedQuestion, GenerateQuestionsRequest
-from app.models.request import EvaluateAnswerRequest, QuestionAnswerPair
 from app.services.question_bank_service import QuestionBankService
 from app.services.question_service import QuestionGenerationError
-from app.services.scoring_service import ScoringService
 
 
 def question_payload():
@@ -82,23 +80,3 @@ def test_provider_cannot_silently_omit_keywords(keywords):
     client.complete.return_value = json.dumps({"questions": questions})
     with pytest.raises(QuestionGenerationError):
         asyncio.run(QuestionBankService(client).generate(bank_request()))
-
-
-def test_generated_keywords_reach_scoring_prompt():
-    generated = asyncio.run(QuestionBankService(MockAIClient()).generate(bank_request())).questions[0]
-    client = AsyncMock()
-    client.complete_with_retry.return_value = json.dumps({
-        "score": 0.8, "max_score": 1.0, "feedback": "Relevant answer",
-        "strengths": [], "weaknesses": [], "missing_content": [],
-    })
-    request = EvaluateAnswerRequest(
-        exam_session_id="keyword-test", course_name="OOP", documents=[],
-        question_answer=QuestionAnswerPair(
-            question_id="1", question_text=generated.question_text,
-            student_answer="Encapsulation hides state.", expected_keywords=generated.expected_keywords,
-        ), max_score=1.0,
-    )
-    asyncio.run(ScoringService(client).evaluate_answer(request))
-    prompt = client.complete_with_retry.call_args.args[0]
-    assert "encapsulation" in prompt
-    assert "{expected_keywords}" not in prompt

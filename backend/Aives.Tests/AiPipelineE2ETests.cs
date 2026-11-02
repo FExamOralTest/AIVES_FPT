@@ -96,6 +96,9 @@ public class AiPipelineE2ETests : IDisposable
                 Percentage = 85.0f,
                 OverallFeedback = "Bài làm tốt, nội dung đầy đủ.",
                 Status = "PendingReview",
+                Provider = "mock",
+                Model = "mock",
+                SchemaVersion = "2.0",
                 StudySuggestions = new System.Collections.Generic.List<string> { "Ôn thêm chương 1" },
                 QuestionScores = new System.Collections.Generic.List<QuestionScoreDetailDto>
                 {
@@ -108,11 +111,31 @@ public class AiPipelineE2ETests : IDisposable
                         MaxScore = 10.0f,
                         Feedback = "Đúng khái niệm cốt lõi.",
                         Strengths = new() { "Định nghĩa chính xác" },
-                        Weaknesses = new(),
-                        MissingContent = new(),
+                        Weaknesses = new() { "Thiếu ví dụ" },
+                        MissingContent = new() { "Ví dụ thực tế" },
                         Improvements = new() { "Bổ sung ví dụ thực tế" },
-                        SentenceFeedback = new(),
+                        SentenceFeedback = new()
+                        {
+                            new()
+                            {
+                                Sentence = "AI là trí tuệ nhân tạo, giúp máy móc học hỏi.",
+                                Judgment = "correct",
+                                Comment = "Định nghĩa có liên quan."
+                            }
+                        },
                         CriterionAnalyses = new()
+                        {
+                            new()
+                            {
+                                CriterionId = "1",
+                                Judgment = "partial",
+                                AwardedScore = 8.5f,
+                                Explanation = "Định nghĩa tốt nhưng thiếu ví dụ.",
+                                Errors = new(),
+                                Omissions = new() { "Ví dụ thực tế" },
+                                EvidenceQuotes = new() { "AI là trí tuệ nhân tạo, giúp máy móc học hỏi." }
+                            }
+                        }
                     }
                 }
             });
@@ -141,8 +164,11 @@ public class AiPipelineE2ETests : IDisposable
         Assert.Equal(8.5f, dbAnswer.AiScore);
         Assert.Equal("AI là trí tuệ nhân tạo, giúp máy móc học hỏi.", dbAnswer.Transcript);
         Assert.NotNull(dbAnswer.AiAnalysis);
-        Assert.Contains("question_text", dbAnswer.AiAnalysis!);
+        Assert.Contains("\"questionText\"", dbAnswer.AiAnalysis!);
         Assert.Contains("\"score\":8.5", dbAnswer.AiAnalysis!);
+        Assert.Contains("\"schemaVersion\":\"2.0\"", dbAnswer.AiAnalysis!);
+        Assert.Contains("\"provider\":\"mock\"", dbAnswer.AiAnalysis!);
+        Assert.Contains("\"awardedScore\":8.5", dbAnswer.AiAnalysis!);
         Assert.Equal(QueueJobStatus.Completed, metadata.Status);
     }
 
@@ -403,7 +429,21 @@ public class AiPipelineE2ETests : IDisposable
         _db.Results.Add(result);
         await _db.SaveChangesAsync();
 
-        var qb = new QuestionBank { CourseId = course.CourseId, QuestionText = "AI là gì?", MaxScore = 10 };
+        var qb = new QuestionBank
+        {
+            CourseId = course.CourseId,
+            QuestionText = "AI là gì?",
+            MaxScore = 10,
+            Rubric = new List<QuestionRubricCriterion>
+            {
+                new()
+                {
+                    Position = 1,
+                    Description = "Define artificial intelligence",
+                    MaxScore = 10
+                }
+            }
+        };
         _db.QuestionBanks.Add(qb);
         await _db.SaveChangesAsync();
 

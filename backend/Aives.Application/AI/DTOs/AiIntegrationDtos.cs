@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace Aives.Application.AI.DTOs;
 
@@ -331,6 +332,10 @@ public class CriterionAnalysisDto
     public string Judgment { get; set; } = string.Empty;
 
     [JsonRequired]
+    [JsonPropertyName("awarded_score")]
+    public float AwardedScore { get; set; }
+
+    [JsonRequired]
     [JsonPropertyName("explanation")]
     public string Explanation { get; set; } = string.Empty;
 
@@ -349,12 +354,126 @@ public class CriterionAnalysisDto
 
 public class StoredAnswerAnalysisDto
 {
-    public QuestionAnswerPairDto Context { get; set; } = new();
-    public QuestionScoreDetailDto Evaluation { get; set; } = new();
+    public static JsonSerializerOptions SerializerOptions { get; } = new(JsonSerializerDefaults.Web);
+
+    [JsonPropertyName("schemaVersion")]
+    public string SchemaVersion { get; set; } = string.Empty;
+
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = string.Empty;
+
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = string.Empty;
+
+    [JsonPropertyName("gradedAt")]
+    public DateTime GradedAt { get; set; }
+
+    [JsonPropertyName("transcript")]
+    public string Transcript { get; set; } = string.Empty;
+
+    [JsonPropertyName("rubric")]
+    public List<StoredRubricCriterionDto> Rubric { get; set; } = new();
+
+    [JsonPropertyName("evaluation")]
+    public StoredEvaluationDto Evaluation { get; set; } = new();
+
+    public static StoredAnswerAnalysisDto Create(
+        string provider,
+        string model,
+        string transcript,
+        IEnumerable<AnswerRubricCriterionDto> rubric,
+        QuestionScoreDetailDto evaluation) => new()
+    {
+        SchemaVersion = "2.0",
+        Provider = provider,
+        Model = model,
+        GradedAt = DateTime.UtcNow,
+        Transcript = transcript,
+        Rubric = rubric.Select(criterion => new StoredRubricCriterionDto
+        {
+            CriterionId = criterion.CriterionId,
+            Description = criterion.Description,
+            MaxScore = criterion.MaxScore
+        }).ToList(),
+        Evaluation = new StoredEvaluationDto
+        {
+            QuestionId = evaluation.QuestionId,
+            QuestionText = evaluation.QuestionText,
+            StudentAnswer = evaluation.StudentAnswer,
+            Score = evaluation.Score,
+            MaxScore = evaluation.MaxScore,
+            Feedback = evaluation.Feedback,
+            Strengths = evaluation.Strengths,
+            Weaknesses = evaluation.Weaknesses,
+            MissingContent = evaluation.MissingContent,
+            SentenceFeedback = evaluation.SentenceFeedback.Select(sentence => new StoredSentenceFeedbackDto
+            {
+                Sentence = sentence.Sentence,
+                Judgment = sentence.Judgment,
+                Comment = sentence.Comment
+            }).ToList(),
+            CriterionAnalyses = evaluation.CriterionAnalyses.Select(criterion => new StoredCriterionAnalysisDto
+            {
+                CriterionId = criterion.CriterionId,
+                AwardedScore = criterion.AwardedScore,
+                Judgment = criterion.Judgment,
+                Explanation = criterion.Explanation,
+                Errors = criterion.Errors,
+                Omissions = criterion.Omissions,
+                EvidenceQuotes = criterion.EvidenceQuotes
+            }).ToList(),
+            Improvements = evaluation.Improvements
+        }
+    };
+}
+
+public class StoredRubricCriterionDto
+{
+    public string CriterionId { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public float MaxScore { get; set; }
+}
+
+public class StoredEvaluationDto
+{
+    public string QuestionId { get; set; } = string.Empty;
+    public string QuestionText { get; set; } = string.Empty;
+    public string StudentAnswer { get; set; } = string.Empty;
+    public float Score { get; set; }
+    public float MaxScore { get; set; }
+    public string Feedback { get; set; } = string.Empty;
+    public List<string> Strengths { get; set; } = new();
+    public List<string> Weaknesses { get; set; } = new();
+    public List<string> MissingContent { get; set; } = new();
+    public List<StoredSentenceFeedbackDto> SentenceFeedback { get; set; } = new();
+    public List<StoredCriterionAnalysisDto> CriterionAnalyses { get; set; } = new();
+    public List<string> Improvements { get; set; } = new();
+}
+
+public class StoredSentenceFeedbackDto
+{
+    public string Sentence { get; set; } = string.Empty;
+    public string Judgment { get; set; } = string.Empty;
+    public string Comment { get; set; } = string.Empty;
+}
+
+public class StoredCriterionAnalysisDto
+{
+    public string CriterionId { get; set; } = string.Empty;
+    public float AwardedScore { get; set; }
+    public string Judgment { get; set; } = string.Empty;
+    public string Explanation { get; set; } = string.Empty;
+    public List<string> Errors { get; set; } = new();
+    public List<string> Omissions { get; set; } = new();
+    public List<string> EvidenceQuotes { get; set; } = new();
 }
 
 public class SessionAnalysisDto
 {
+    public string SchemaVersion { get; set; } = string.Empty;
+    public string Provider { get; set; } = string.Empty;
+    public string Model { get; set; } = string.Empty;
+    public DateTime GradedAt { get; set; }
     public float MaxTotalScore { get; set; }
     public float Percentage { get; set; }
     public List<string> StudySuggestions { get; set; } = new();
@@ -392,6 +511,18 @@ public class EvaluateSessionResponse
     [JsonRequired]
     [JsonPropertyName("question_scores")]
     public List<QuestionScoreDetailDto> QuestionScores { get; set; } = new();
+
+    [JsonRequired]
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = string.Empty;
+
+    [JsonRequired]
+    [JsonPropertyName("schema_version")]
+    public string SchemaVersion { get; set; } = string.Empty;
 
     [JsonPropertyName("status")]
     public string Status { get; set; } = "PendingReview";

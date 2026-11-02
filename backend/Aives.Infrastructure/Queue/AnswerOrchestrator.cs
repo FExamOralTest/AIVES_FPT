@@ -210,7 +210,7 @@ public class AnswerOrchestrator : IAnswerOrchestrator
             ExamSessionId = answer.Result.SessionId.ToString(),
             StudentId = answer.Result.StudentId.ToString(),
             CourseName = answer.Result.Session?.Exam?.Course?.CourseName ?? string.Empty,
-            MaxScorePerQuestion = question.MaxScore ?? 1.0f,
+            MaxScorePerQuestion = question.MaxScore ?? 10.0f,
             QuestionAnswers = new() { context }
         };
 
@@ -222,14 +222,24 @@ public class AnswerOrchestrator : IAnswerOrchestrator
             if (!response.Success)
                 return EvalFail(response.ErrorCode ?? "evaluation_failed", response.Message ?? "AI evaluation failed.");
 
-            Aives.Application.AI.EvaluationContract.Validate(request, response);
+            Aives.Application.AI.EvaluationContract.Validate(
+                request,
+                response,
+                message => _logger.LogWarning("{EvaluationWarning}", message));
             var score = response.QuestionScores.Single(s => s.QuestionId == context.QuestionId);
             return new OrchestrationResult
             {
                 Success = true,
                 AiScore = score.Score,
                 AiFeedback = score.Feedback,
-                AiAnalysisJson = JsonSerializer.Serialize(new StoredAnswerAnalysisDto { Context = context, Evaluation = score })
+                AiAnalysisJson = JsonSerializer.Serialize(
+                    StoredAnswerAnalysisDto.Create(
+                        response.Provider,
+                        response.Model,
+                        transcript,
+                        context.Rubric,
+                        score),
+                    StoredAnswerAnalysisDto.SerializerOptions)
             };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -240,9 +250,14 @@ public class AnswerOrchestrator : IAnswerOrchestrator
         {
             return EvalFail("timeout", "AI evaluation timed out.");
         }
-        catch (InvalidDataException)
+        catch (InvalidDataException ex)
         {
-            return EvalFail("invalid_response", "AI evaluation returned an invalid response.");
+            _logger.LogWarning(
+                ex,
+                "AI evaluation contract rejected the response for Answer {AnswerId}: {ValidationError}",
+                answer.AnswerId,
+                ex.Message);
+            return EvalFail("invalid_response", $"AI evaluation response validation failed: {ex.Message}");
         }
         catch (Exception ex)
         {

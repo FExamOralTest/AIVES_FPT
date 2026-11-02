@@ -7,18 +7,15 @@ Chức năng:
 - Parse JSON hợp lệ
 - Kiểm tra 100% fields bắt buộc
 - Kiểm tra range: 0 <= score <= maxScore
-- Kiểm tra range: 0 <= AiScore <= 100
-- Kiểm tra range: 0.0 <= confidence <= 1.0
 """
 
 import json
 import re
-from typing import TypeVar, Type, Optional
+from typing import TypeVar, Type
 from pydantic import BaseModel, ValidationError
 from loguru import logger
 
 from app.models.contracts import (
-    AIEvaluationContract,
     QuestionGenerationContract,
     FollowUpQuestionContract,
 )
@@ -135,52 +132,6 @@ class ResponseValidator:
                 contract_name=contract_class.__name__,
                 violations=violations
             ) from exc
-    
-    @classmethod
-    def validate_evaluation_response(
-        cls,
-        raw_response: str,
-        expected_max_score: Optional[float] = None
-    ) -> AIEvaluationContract:
-        """
-        Validate response chấm điểm từ AI.
-        
-        Args:
-            raw_response: Response thô từ AI
-            expected_max_score: Max score mong đợi (để kiểm tra consistency)
-            
-        Returns:
-            Validated AIEvaluationContract
-            
-        Raises:
-            AIParseError, AIContractViolationError, AIValidationError
-        """
-        # Step 1: Sanitize markdown
-        cleaned = cls.sanitize_markdown(raw_response)
-        
-        # Step 2: Parse JSON
-        data = cls.parse_json(cleaned, context="evaluation response")
-        
-        # Step 3: Validate contract
-        contract = cls.validate_contract(data, AIEvaluationContract)
-        
-        # Step 4: Business rules validation
-        if expected_max_score is not None:
-            # Kiểm tra tổng max_score của rubric
-            total_max_score = sum(r.max_score for r in contract.rubric_results)
-            if abs(total_max_score - expected_max_score) > 0.01:
-                logger.warning(
-                    f"[ResponseValidator] Max score mismatch: "
-                    f"expected {expected_max_score}, got {total_max_score}"
-                )
-        
-        logger.info(
-            f"[ResponseValidator] Evaluation validated: "
-            f"AiScore={contract.ai_score}, confidence={contract.confidence}, "
-            f"rubric_count={len(contract.rubric_results)}"
-        )
-        
-        return contract
     
     @classmethod
     def validate_question_generation_response(

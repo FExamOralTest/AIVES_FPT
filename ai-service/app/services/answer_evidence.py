@@ -6,6 +6,8 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+from loguru import logger
+
 from app.models.feedback import CriterionAnalysis, FeedbackAnalysisOutput, SentenceFeedback
 from app.models.request import AnswerRubricCriterion
 
@@ -39,6 +41,7 @@ _STOPWORDS = frozenset(
     """.split()
 )
 _MET_RATIO = 0.75
+_SCORE_TOLERANCE = 1e-4
 
 
 def normalize(text: str) -> str:
@@ -104,6 +107,14 @@ def _ratio(text: str, required: list[str]) -> float:
     return len(_covers(text, required)) / len(required)
 
 
+def _partial_score(ratio: float, maximum: float) -> float:
+    """A partial award must stay strictly inside (0, maximum)."""
+    awarded = round(ratio * maximum, 4)
+    if not 0 < awarded < maximum:
+        awarded = round(maximum / 2, 4)
+    return awarded
+
+
 def _shares(text: str, reference: str) -> bool:
     reference_tokens = significant_tokens(reference)
     return any(
@@ -140,6 +151,7 @@ def blank_analysis(rubric: list[AnswerRubricCriterion], vietnamese: bool) -> Fee
             CriterionAnalysis(
                 criterion_id=criterion.criterion_id,
                 judgment="not_met",
+                awarded_score=0,
                 explanation=explanation.replace("{criterion_id}", criterion.criterion_id),
                 errors=[],
                 omissions=[criterion.description],
@@ -234,6 +246,7 @@ def build_mock_analysis(payload: dict) -> dict:
         ratio = _ratio(" ".join(evidence), tokens) if evidence else 0.0
         if tokens and ratio >= _MET_RATIO and all(judgments[sentence] == "correct" for sentence in evidence):
             judgment = "met"
+            awarded_score = criterion.max_score
             evidence_quotes = evidence
             errors: list[str] = []
             omissions: list[str] = []
@@ -244,6 +257,7 @@ def build_mock_analysis(payload: dict) -> dict:
             )
         elif tokens and ratio > 0 and evidence:
             judgment = "partial"
+            awarded_score = _partial_score(ratio, criterion.max_score)
             evidence_quotes = evidence
             errors = []
             omissions = [criterion.description]
@@ -254,6 +268,7 @@ def build_mock_analysis(payload: dict) -> dict:
             )
         else:
             judgment = "not_met"
+            awarded_score = 0.0
             evidence_quotes = [
                 sentence
                 for sentence in sentences
@@ -270,6 +285,7 @@ def build_mock_analysis(payload: dict) -> dict:
             CriterionAnalysis(
                 criterion_id=criterion.criterion_id,
                 judgment=judgment,
+                awarded_score=awarded_score,
                 explanation=explanation,
                 errors=errors,
                 omissions=omissions,
@@ -352,10 +368,18 @@ def validate_analysis(
     analysis: FeedbackAnalysisOutput,
     transcript: str,
     rubric: list[AnswerRubricCriterion],
+    max_score: float,
 ) -> FeedbackAnalysisOutput:
     # Quotes must occur in the transcript. Instructions inside the transcript are not evidence.
     sentences = split_sentences(transcript)
-    sentence_feedback = _align_sentences(analysis.sentence_feedback, sentences)
+    try:
+        sentence_feedback = _align_sentences(analysis.sentence_feedback, sentences)
+    except ValueError as exc:
+        logger.warning(
+            "Omitting sentence-level feedback that did not align with the transcript: {}",
+            exc,
+        )
+        sentence_feedback = []
     for item in sentence_feedback:
         if is_injection(item.sentence) and item.judgment == "correct":
             raise ValueError("Transcript instructions cannot be graded as correct content.")
@@ -365,9 +389,15 @@ def validate_analysis(
     if len(received) != len(set(received)) or sorted(received) != sorted(expected):
         raise ValueError("Feedback must analyze every rubric criterion exactly once.")
 
-    judgments = {item.sentence: item.judgment for item in sentence_feedback}
+    rubric_max = sum(criterion.max_score for criterion in rubric)
+    if abs(rubric_max - max_score) > _SCORE_TOLERANCE:
+        raise ValueError("Rubric max scores must add up to the question max score.")
+
     by_id = {item.criterion_id: item for item in analysis.criterion_analyses}
-    ordered = [_validate_criterion(by_id[criterion.criterion_id], transcript, sentences, judgments) for criterion in rubric]
+    ordered = [
+        _validate_criterion(by_id[criterion.criterion_id], criterion, transcript, sentences)
+        for criterion in rubric
+    ]
 
     if any(item.judgment != "met" for item in ordered) and not analysis.improvements:
         raise ValueError("Feedback must suggest an improvement for unmet rubric criteria.")
@@ -397,10 +427,11 @@ def _align_sentences(items: list[SentenceFeedback], sentences: list[str]) -> lis
 
 def _validate_criterion(
     item: CriterionAnalysis,
+    criterion: AnswerRubricCriterion,
     transcript: str,
     sentences: list[str],
-    judgments: dict[str, str],
 ) -> CriterionAnalysis:
+    _validate_awarded_score(item, criterion.max_score)
     if item.judgment == "met" and (item.errors or item.omissions):
         raise ValueError("A covered criterion cannot also list errors or omissions.")
     if item.judgment == "partial" and not item.omissions:
@@ -410,7 +441,6 @@ def _validate_criterion(
     if item.judgment in {"met", "partial"} and not item.evidence_quotes:
         raise ValueError("A met criterion needs a transcript excerpt.")
 
-    allowed = {"met": {"correct"}, "partial": {"correct", "omission"}, "not_met": {"error"}}[item.judgment]
     for quote in item.evidence_quotes:
         if len(_WORD.findall(quote)) < 2 or not contains_quote(transcript, quote):
             raise ValueError("Feedback cites text that is not in the transcript.")
@@ -420,6 +450,18 @@ def _validate_criterion(
         usable = [sentence for sentence in hosts if not is_injection(sentence)]
         if not usable:
             raise ValueError("Transcript instructions cannot be used as evidence.")
-        if not any(judgments[sentence] in allowed for sentence in usable):
-            raise ValueError("Feedback evidence does not match the sentence judgment.")
     return item
+
+
+def _validate_awarded_score(item: CriterionAnalysis, maximum: float) -> None:
+    awarded = item.awarded_score
+    if awarded < -_SCORE_TOLERANCE or awarded > maximum + _SCORE_TOLERANCE:
+        raise ValueError("An awarded score must stay within the criterion maximum.")
+    if item.judgment == "met" and abs(awarded - maximum) > _SCORE_TOLERANCE:
+        raise ValueError("A met criterion must award the full criterion score.")
+    if item.judgment == "not_met" and abs(awarded) > _SCORE_TOLERANCE:
+        raise ValueError("A not_met criterion must award zero.")
+    if item.judgment == "partial" and not (
+        _SCORE_TOLERANCE < awarded < maximum - _SCORE_TOLERANCE
+    ):
+        raise ValueError("A partial criterion must award part of the criterion score.")

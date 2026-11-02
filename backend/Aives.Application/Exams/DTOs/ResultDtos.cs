@@ -30,6 +30,7 @@ public class AnswerForReviewDto
 {
     public int AnswerId { get; set; }
     public string Status { get; set; } = "PROCESSING";
+    public string? ErrorMessage { get; set; }
     public int QuestionId { get; set; }
     public string QuestionText { get; set; } = null!;
     public float? MaxScore { get; set; }

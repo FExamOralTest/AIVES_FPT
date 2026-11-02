@@ -77,6 +77,9 @@ public class AiServiceClientInternalTokenTests
                     Percentage = 80.0f,
                     OverallFeedback = "Bài làm tốt",
                     Status = "PendingReview",
+                    Provider = "mock",
+                    Model = "mock",
+                    SchemaVersion = "2.0",
                     StudySuggestions = new List<string> { "Ôn lại chương 2" },
                     QuestionScores = new List<QuestionScoreDetailDto>
                     {
@@ -92,8 +95,28 @@ public class AiServiceClientInternalTokenTests
                             Weaknesses = new List<string>(),
                             MissingContent = new List<string>(),
                             Improvements = new List<string>(),
-                            SentenceFeedback = new List<SentenceFeedbackDto>(),
-                            CriterionAnalyses = new List<CriterionAnalysisDto>()
+                            SentenceFeedback = new List<SentenceFeedbackDto>
+                            {
+                                new()
+                                {
+                                    Sentence = "Trả lời test",
+                                    Judgment = "correct",
+                                    Comment = "Relevant."
+                                }
+                            },
+                            CriterionAnalyses = new List<CriterionAnalysisDto>
+                            {
+                                new()
+                                {
+                                    CriterionId = "1",
+                                    Judgment = "met",
+                                    AwardedScore = 10.0f,
+                                    Explanation = "Đạt",
+                                    Errors = new List<string>(),
+                                    Omissions = new List<string>(),
+                                    EvidenceQuotes = new List<string> { "Trả lời test" }
+                                }
+                            }
                         }
                     }
                 }))
@@ -115,7 +138,16 @@ public class AiServiceClientInternalTokenTests
                     QuestionText = "Câu hỏi test",
                     StudentAnswer = "Trả lời test",
                     IsFollowUp = false,
-                    MaxScore = 10.0f
+                    MaxScore = 10.0f,
+                    Rubric = new List<AnswerRubricCriterionDto>
+                    {
+                        new()
+                        {
+                            CriterionId = "1",
+                            Description = "Trả lời test",
+                            MaxScore = 10.0f
+                        }
+                    }
                 }
             }
         };
@@ -144,6 +176,54 @@ public class AiServiceClientInternalTokenTests
 
         Assert.False(result.Success);
         Assert.Equal("internal_auth_failed", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task EvaluateSession_InvalidJson_ReturnsDiagnosticValidationMessage()
+    {
+        var handler = new StubHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{")
+        }));
+        var client = BuildClient("test-key", handler);
+
+        var result = await client.EvaluateSessionAsync(new EvaluateSessionRequest
+        {
+            ExamSessionId = "session-1",
+            QuestionAnswers = new List<QuestionAnswerPairDto>
+            {
+                new() { QuestionId = "question-1" }
+            }
+        }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("invalid_response", result.ErrorCode);
+        Assert.False(string.IsNullOrWhiteSpace(result.Message));
+        Assert.DoesNotContain("AI evaluation returned an invalid response.", result.Message);
+    }
+
+    [Fact]
+    public async Task EvaluateSession_HttpError_PreservesSafeApiDetail()
+    {
+        var handler = new StubHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        {
+            Content = new StringContent("{\"detail\":\"AI provider request timed out.\"}")
+        }));
+        var client = BuildClient("test-key", handler);
+
+        var result = await client.EvaluateSessionAsync(new EvaluateSessionRequest
+        {
+            ExamSessionId = "session-1",
+            QuestionAnswers = new List<QuestionAnswerPairDto>
+            {
+                new() { QuestionId = "question-1" }
+            }
+        }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("http_error", result.ErrorCode);
+        Assert.Contains("HTTP 500", result.Message);
+        Assert.Contains("AI provider request timed out.", result.Message);
     }
 
     [Fact]

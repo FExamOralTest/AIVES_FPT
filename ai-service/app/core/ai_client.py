@@ -221,20 +221,6 @@ class MockAIClient(BaseAIClient):
 
             return json.dumps(build_mock_analysis(payload), ensure_ascii=False)
 
-        if task == "evaluate_answer":
-            max_score = payload["max_score"]
-            return json.dumps(
-                {
-                    "score": round(max_score * 0.75, 2),
-                    "max_score": max_score,
-                    "feedback": "Câu trả lời đã nêu đúng khái niệm cơ bản, tuy nhiên cần bổ sung thêm ví dụ thực tế.",
-                    "strengths": ["Nắm đúng khái niệm", "Trình bày rõ ràng"],
-                    "weaknesses": ["Thiếu ví dụ minh hoạ", "Chưa liên hệ thực tế"],
-                    "missing_content": ["Ví dụ ứng dụng thực tế", "Liên hệ với learning outcomes"],
-                },
-                ensure_ascii=False,
-            )
-
         raise ValueError("Unsupported mock AI task.")
 
 
@@ -256,8 +242,11 @@ class GeminiAIClient(BaseAIClient):
             raise ValueError("GEMINI_API_KEY is not set in environment variables.")
 
     async def complete(self, system_prompt: str, user_message: str) -> str:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
-        headers = {"Content-Type": "application/json"}
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.api_key,
+        }
         
         # Combine system + user into single text
         combined_input = f"{system_prompt}\n\n---\n\n{user_message}"
@@ -368,6 +357,16 @@ class OpenAIClient(BaseAIClient):
 # ─────────────────────────────────────────────
 #  Client Factory
 # ─────────────────────────────────────────────
+
+
+def get_model_name() -> str:
+    """Name of the model behind the configured provider, for audit payloads."""
+    provider = settings.ai_provider.lower()
+    if provider == "gemini":
+        return settings.gemini_model
+    if provider == "openai":
+        return settings.openai_model
+    return "mock"
 
 
 def get_ai_client() -> BaseAIClient:

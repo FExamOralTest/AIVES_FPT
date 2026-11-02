@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Aives.Application.AI.DTOs;
 using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Exams.Services;
@@ -87,6 +89,116 @@ public class ResultStateMachineAndAuditTests
             It.IsAny<string>(),
             examinerId,
             It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetStudentResultAsync_HidesAnalysisUntilPublished()
+    {
+        const int sessionId = 7;
+        const int studentId = 12;
+        var storedAnalysis = JsonSerializer.Serialize(
+            StoredAnswerAnalysisDto.Create(
+                "gemini",
+                "gemini-test",
+                "A transcript.",
+                new[] { new AnswerRubricCriterionDto { CriterionId = "1", Description = "Criterion", MaxScore = 5 } },
+                new QuestionScoreDetailDto
+                {
+                    QuestionId = "9",
+                    QuestionText = "Question",
+                    StudentAnswer = "A transcript.",
+                    Score = 5,
+                    MaxScore = 5,
+                    Feedback = "Good.",
+                    Strengths = new() { "Clear" },
+                    Weaknesses = new(),
+                    MissingContent = new(),
+                    SentenceFeedback = new(),
+                    CriterionAnalyses = new()
+                    {
+                        new()
+                        {
+                            CriterionId = "1",
+                            AwardedScore = 5,
+                            Judgment = "met",
+                            Explanation = "Met.",
+                            Errors = new(),
+                            Omissions = new(),
+                            EvidenceQuotes = new() { "A transcript." }
+                        }
+                    },
+                    Improvements = new()
+                }),
+            StoredAnswerAnalysisDto.SerializerOptions);
+        var answer = new Answer
+        {
+            AnswerId = 2,
+            QuestionId = 9,
+            Question = new QuestionBank { QuestionId = 9, QuestionText = "Question", SampleAnswer = "Private sample answer" },
+            StudentAnswer = "A transcript.",
+            AiAnalysis = storedAnalysis
+        };
+        var unpublished = new Result
+        {
+            ResultId = 3,
+            SessionId = sessionId,
+            StudentId = studentId,
+            Status = SubmissionStatus.PENDING_REVIEW,
+            Answers = new List<Answer> { answer }
+        };
+        _resultRepoMock.Setup(r => r.GetBySessionAndStudentAsync(sessionId, studentId)).ReturnsAsync(unpublished);
+
+        var beforePublish = await _resultService.GetStudentResultAsync(sessionId, studentId);
+
+        Assert.False(beforePublish.IsPublished);
+        Assert.Empty(beforePublish.Answers);
+
+        unpublished.Status = SubmissionStatus.PUBLISHED;
+        var afterPublish = await _resultService.GetStudentResultAsync(sessionId, studentId);
+
+        Assert.True(afterPublish.IsPublished);
+        var studentAnalysis = Assert.Single(afterPublish.Answers).AiAnalysis;
+        Assert.NotNull(studentAnalysis);
+        Assert.Equal("2.0", studentAnalysis.SchemaVersion);
+        Assert.Equal("gemini-test", studentAnalysis.Model);
+        Assert.Single(studentAnalysis.Evaluation.CriterionAnalyses);
+        var serialized = JsonSerializer.Serialize(studentAnalysis, StoredAnswerAnalysisDto.SerializerOptions);
+        Assert.DoesNotContain("sampleAnswer", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"context\"", serialized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetResultForReviewAsync_ReturnsAnswerProcessingError()
+    {
+        const int resultId = 11;
+        const int examinerId = 99;
+        const int sessionId = 5;
+        const string processingError = "AI evaluation response validation failed: Invalid session evaluation.";
+        var examiner = new User { UserId = examinerId, Role = UserRole.EXAMINER };
+        var session = new ExamSession { SessionId = sessionId, ScheduledBy = examinerId };
+        var result = new Result
+        {
+            ResultId = resultId,
+            SessionId = sessionId,
+            Status = SubmissionStatus.PENDING_REVIEW,
+            Answers = new List<Answer>
+            {
+                new()
+                {
+                    AnswerId = 7,
+                    QuestionId = 3,
+                    Status = AnswerStatus.ERROR,
+                    ErrorMessage = processingError
+                }
+            }
+        };
+        _userRepoMock.Setup(repository => repository.GetByIdAsync(examinerId)).ReturnsAsync(examiner);
+        _sessionRepoMock.Setup(repository => repository.GetByIdAsync(sessionId)).ReturnsAsync(session);
+        _resultRepoMock.Setup(repository => repository.GetByIdWithDetailsAsync(resultId)).ReturnsAsync(result);
+
+        var response = await _resultService.GetResultForReviewAsync(resultId, examinerId);
+
+        Assert.Equal(processingError, Assert.Single(response.Answers).ErrorMessage);
     }
 
     [Fact]
@@ -294,6 +406,68 @@ public class ResultStateMachineAndAuditTests
             It.IsAny<string>(),
             examinerId,
             It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PublishResultAsync_RejectsAnswerWithoutAiOrExaminerScore()
+    {
+        const int resultId = 104;
+        const int examinerId = 99;
+        const int sessionId = 1;
+        var examiner = new User { UserId = examinerId, Role = UserRole.EXAMINER };
+        var session = new ExamSession { SessionId = sessionId, ScheduledBy = examinerId };
+        var result = new Result
+        {
+            ResultId = resultId,
+            SessionId = sessionId,
+            Status = SubmissionStatus.PENDING_REVIEW,
+            AiScore = 7.0f,
+            Answers = new List<Answer>
+            {
+                new() { AnswerId = 1, Status = AnswerStatus.EVALUATED, AiScore = 7.0f },
+                new() { AnswerId = 2, Status = AnswerStatus.ERROR, AiScore = null }
+            }
+        };
+
+        _userRepoMock.Setup(u => u.GetByIdAsync(examinerId)).ReturnsAsync(examiner);
+        _resultRepoMock.Setup(r => r.GetByIdWithDetailsAsync(resultId)).ReturnsAsync(result);
+        _sessionRepoMock.Setup(s => s.GetByIdAsync(sessionId)).ReturnsAsync(session);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _resultService.PublishResultAsync(resultId, examinerId));
+
+        Assert.Contains("Every answer must have an AI score or an examiner score", exception.Message);
+        _resultRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Result>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task PublishResultAsync_AllowsExaminerScoresForAiFailedAnswers()
+    {
+        const int resultId = 105;
+        const int examinerId = 99;
+        const int sessionId = 1;
+        var examiner = new User { UserId = examinerId, Role = UserRole.EXAMINER };
+        var session = new ExamSession { SessionId = sessionId, ScheduledBy = examinerId };
+        var result = new Result
+        {
+            ResultId = resultId,
+            SessionId = sessionId,
+            Status = SubmissionStatus.REVIEWED,
+            FinalScore = 8.0f,
+            Answers = new List<Answer>
+            {
+                new() { AnswerId = 1, Status = AnswerStatus.ERROR, FinalScore = 2.0f }
+            }
+        };
+
+        _userRepoMock.Setup(u => u.GetByIdAsync(examinerId)).ReturnsAsync(examiner);
+        _resultRepoMock.Setup(r => r.GetByIdWithDetailsAsync(resultId)).ReturnsAsync(result);
+        _sessionRepoMock.Setup(s => s.GetByIdAsync(sessionId)).ReturnsAsync(session);
+
+        var published = await _resultService.PublishResultAsync(resultId, examinerId);
+
+        Assert.Equal(SubmissionStatus.PUBLISHED.ToString(), published.Status);
+        Assert.Equal(examinerId, result.PublishedBy);
     }
 
     [Fact]

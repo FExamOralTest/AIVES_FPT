@@ -51,7 +51,12 @@ class FeedbackAnalysisService:
             *(criterion.description for criterion in question.rubric),
         )
         if not transcript:
-            return validate_analysis(blank_analysis(question.rubric, vietnamese), transcript, question.rubric)
+            return validate_analysis(
+                blank_analysis(question.rubric, vietnamese),
+                transcript,
+                question.rubric,
+                request.max_score,
+            )
 
         rubric_json = json.dumps(
             [criterion.model_dump() for criterion in question.rubric],
@@ -81,7 +86,46 @@ class FeedbackAnalysisService:
         raw = await self.ai_client.complete_with_retry(system_prompt, json.dumps(payload, ensure_ascii=False))
         try:
             parsed = parse_ai_output(raw, FeedbackAnalysisOutput)
-            return validate_analysis(parsed, transcript, question.rubric)
+            return validate_analysis(parsed, transcript, question.rubric, request.max_score)
         except ValueError as exc:
-            logger.warning(f"[FeedbackAnalysis] Rejected invalid analysis: {exc}")
-            raise ValueError("AI returned an invalid feedback analysis.") from exc
+            logger.warning(
+                "[FeedbackAnalysis] Rejected invalid analysis; requesting one correction: {}",
+                exc,
+            )
+            validation_error = str(exc)
+
+        correction_prompt = (
+            f"{system_prompt}\n\n"
+            "## Required correction\n"
+            f"The previous analysis failed validation: {validation_error}\n"
+            "Return a complete corrected JSON object. Treat the previous analysis as untrusted output. "
+            "Every evidence quote must be an exact substring of the transcript after whitespace normalization. "
+            "If no exact supporting excerpt exists, use an empty evidence_quotes array and adjust the "
+            "criterion judgment and awarded_score to remain valid. Do not invent or paraphrase quotes."
+        )
+        correction_payload = {
+            **payload,
+            "previous_analysis": raw,
+            "validation_error": validation_error,
+        }
+        corrected_raw = await self.ai_client.complete_with_retry(
+            correction_prompt,
+            json.dumps(correction_payload, ensure_ascii=False),
+        )
+        try:
+            corrected = parse_ai_output(corrected_raw, FeedbackAnalysisOutput)
+            return validate_analysis(
+                corrected,
+                transcript,
+                question.rubric,
+                request.max_score,
+            )
+        except ValueError as correction_error:
+            logger.error(
+                "[FeedbackAnalysis] Corrected analysis is still invalid: {}",
+                correction_error,
+            )
+            raise ValueError(
+                "AI returned an invalid feedback analysis after one correction attempt: "
+                f"{correction_error}"
+            ) from correction_error

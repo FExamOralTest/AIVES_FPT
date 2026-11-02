@@ -144,9 +144,12 @@ class EvaluateAnswerResponse(BaseResponse):
     """Response from evaluating a single Q&A pair."""
 
     question_id: str = Field(..., description="UUID of the evaluated Question")
-    score: float = Field(..., ge=0, description="Score awarded for this answer")
-    max_score: float = Field(..., ge=0, description="Maximum possible score")
+    score: float = Field(..., ge=0, description="Sum of the awarded rubric scores")
+    max_score: float = Field(..., ge=0, description="Sum of the rubric criterion maxima")
     feedback: str = Field(..., description="AI-generated textual feedback")
+    provider: str = Field(..., description="AI provider that produced the evaluation")
+    model: str = Field(..., description="Model name used by the provider")
+    schema_version: str = Field(default="2.0", description="Audit schema version")
     strengths: List[str] = Field(
         default_factory=list, description="What the student did well"
     )
@@ -210,6 +213,9 @@ class EvaluateSessionResponse(BaseResponse):
     question_scores: List[QuestionScoreDetail] = Field(
         ..., description="Per-question breakdown"
     )
+    provider: str = Field(..., description="AI provider that produced the evaluation")
+    model: str = Field(..., description="Model name used by the provider")
+    schema_version: str = Field(default="2.0", description="Audit schema version")
     study_suggestions: List[str] = Field(
         default_factory=list,
         description="Review targets taken from unmet rubric criteria",
@@ -218,22 +224,6 @@ class EvaluateSessionResponse(BaseResponse):
         default="PendingReview",
         description="Result status: always 'PendingReview' after AI evaluation",
     )
-
-
-# ─────────────────────────────────────────────
-#  Health Check
-# ─────────────────────────────────────────────
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: str = "ok"
-    service: str = "aives-ai"
-    version: str = "1.0.0"
-    ai_provider: Optional[str] = None
-    stt_provider: Optional[str] = None
-    tts_provider: Optional[str] = None
 
 
 # ─────────────────────────────────────────────

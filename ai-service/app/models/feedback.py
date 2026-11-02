@@ -21,6 +21,7 @@ class CriterionAnalysis(BaseModel):
 
     criterion_id: NonEmptyText
     judgment: CriterionJudgment
+    awarded_score: float = Field(ge=0, allow_inf_nan=False)
     explanation: NonEmptyText
     errors: list[NonEmptyText]
     omissions: list[NonEmptyText]

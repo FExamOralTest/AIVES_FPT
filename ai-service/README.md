@@ -35,13 +35,13 @@ ai-service/
     ├── prompts/
     │   ├── question_prompt.txt   # Prompt tạo câu hỏi vấn đáp
     │   ├── followup_prompt.txt   # Prompt tạo câu hỏi đào sâu
-    │   └── scoring_prompt.txt    # Prompt chấm điểm câu trả lời
+    │   └── feedback_analysis_prompt.txt # Phân tích câu trả lời theo rubric
     ├── services/
     │   ├── question_service.py   # Logic tạo câu hỏi
     │   ├── followup_service.py   # Logic tạo câu hỏi follow-up
     │   ├── interview_service.py  # Orchestrator phỏng vấn
-    │   ├── scoring_service.py    # Logic chấm điểm (single + session)
-    │   ├── evaluation_service.py # Wrapper evaluation cho API layer
+    │   ├── feedback_analysis_service.py # Phân tích theo rubric + evidence
+    │   ├── evaluation_service.py # Tính điểm từ awarded_score
     │   ├── speech_service.py     # STT (Mock/Google/Whisper)
     │   └── tts_service.py        # TTS (Mock/Google/OpenAI)
     └── api/
@@ -89,7 +89,6 @@ python main.py
 
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
-- Health check: http://localhost:8000/health
 
 ## 🔧 Cấu hình AI Provider
 
@@ -144,9 +143,3 @@ docker run -p 8000:8000 --env-file .env aives-ai-service
 |--------|------|-------|
 | POST | `/ai/evaluate/answer` | Chấm điểm 1 câu Q&A |
 | POST | `/ai/evaluate/session` | Chấm điểm toàn bộ session |
-
-### Health
-
-| Method | Path | Mô tả |
-|--------|------|-------|
-| GET | `/health` | Kiểm tra trạng thái service |

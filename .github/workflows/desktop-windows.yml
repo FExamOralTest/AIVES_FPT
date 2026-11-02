@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: desktop-windows-${{ github.ref }}
@@ -49,3 +49,64 @@ jobs:
           path: frontend/aives-desktop/build/windows/x64/runner/Release/
           if-no-files-found: error
           retention-days: 14
+
+  publish-release:
+    needs: validate-and-build
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: AIVES-Student-Windows
+          path: AIVES-Student-Windows
+      - name: Package release zip
+        id: package
+        run: |
+          set -euo pipefail
+          version="$(awk '/^version:/ { print $2; exit }' frontend/aives-desktop/pubspec.yaml)"
+          version="${version%%+*}"
+          branch="${GITHUB_REF_NAME//\//-}"
+          tag="desktop-v${version}-${branch}-${GITHUB_RUN_NUMBER}"
+          title="AIVES Student Windows ${version} (${branch} #${GITHUB_RUN_NUMBER}) — Người release: 𝐕𝐨 𝐓𝐫𝐚𝐧 𝐍𝐠𝐨𝐜 𝐇𝐮𝐮"
+          zip="AIVES-Student-Windows-${version}-${branch}-${GITHUB_RUN_NUMBER}.zip"
+          zip -r "$zip" AIVES-Student-Windows
+          {
+            echo "tag=${tag}"
+            echo "title=${title}"
+            echo "zip=${zip}"
+          } >> "$GITHUB_OUTPUT"
+          cat > release-notes.md <<EOF
+          **Người release: Vo Tran Ngoc Huu**
+
+          ## Install
+
+          1. Download \`${zip}\` from Assets below.
+          2. Extract the entire \`AIVES-Student-Windows\` folder.
+          3. Run \`aives_desktop.exe\`.
+
+          Flutter and Visual Studio are not required. The computer needs Windows, microphone permission, and the Microsoft Visual C++ Redistributable if Windows reports a missing DLL.
+
+          Open **Server settings** in the app and enter the backend address without \`/api\`.
+
+          - Branch: \`${branch}\`
+          - Commit: \`${GITHUB_SHA}\`
+          EOF
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.package.outputs.tag }}
+          name: ${{ steps.package.outputs.title }}
+          body_path: release-notes.md
+          files: ${{ steps.package.outputs.zip }}
+          generate_release_notes: false
+          make_latest: ${{ (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && 'true' || 'false' }}
+          prerelease: ${{ github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main' }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

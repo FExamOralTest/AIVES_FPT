@@ -40,10 +40,9 @@ DOCS = [
 ]
 
 
-def test_health():
-    r = client.get("/health")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+def test_health_and_model_discovery_endpoints_are_not_exposed():
+    assert client.get("/health").status_code == 404
+    assert client.get("/v1/models").status_code == 404
 
 
 def test_generate_question():
@@ -86,26 +85,17 @@ def test_generate_followup():
 def test_evaluate_answer():
     r = client.post(
         "/ai/evaluate/answer",
-        json={
-            "exam_session_id": "s1",
-            "course_name": "Software Architecture",
-            "documents": DOCS,
-            "question_answer": {
-                "question_id": "q1",
-                "question_text": "What is microservices?",
-                "student_answer": "It is a way to build apps using small services.",
-                "is_follow_up": False,
-            },
-            "max_score": 10.0,
-        },
+        json=analysis_request("It is a way to build apps using small services."),
     )
     assert r.status_code == 200
     data = r.json()
     assert data["success"] is True
     assert 0 <= data["score"] <= 10.0
-    assert data["sentence_feedback"] == []
-    assert data["criterion_analyses"] == []
-    assert "khái niệm" in data["feedback"]
+    assert len(data["criterion_analyses"]) == len(RUBRIC)
+    assert data["score"] == pytest.approx(
+        sum(item["awarded_score"] for item in data["criterion_analyses"])
+    )
+    assert data["feedback"]
 
 
 def test_evaluate_session():
@@ -117,12 +107,7 @@ def test_evaluate_session():
             "course_name": "Software Architecture",
             "documents": DOCS,
             "question_answers": [
-                {
-                    "question_id": "q1",
-                    "question_text": "What is microservices?",
-                    "student_answer": "It is a way to build apps using small services.",
-                    "is_follow_up": False,
-                }
+                analysis_request("It is a way to build apps using small services.")["question_answer"]
             ],
             "max_score_per_question": 10.0,
         },
@@ -132,9 +117,8 @@ def test_evaluate_session():
     assert data["success"] is True
     assert data["exam_session_id"] == "s1"
     assert len(data["question_scores"]) == 1
-    assert data["study_suggestions"] == []
-    assert data["question_scores"][0]["sentence_feedback"] == []
-    assert "Sinh viên nắm được các kiến thức cơ bản" in data["overall_feedback"]
+    assert data["total_score"] == pytest.approx(data["question_scores"][0]["score"])
+    assert data["question_scores"][0]["criterion_analyses"]
 
 
 def test_text_to_speech():
@@ -163,7 +147,7 @@ def test_speech_to_text():
 
 RUBRIC = [
     {"criterion_id": "c1", "description": "Explain independent services", "max_score": 4},
-    {"criterion_id": "c2", "description": "Explain communication through APIs", "max_score": 3},
+    {"criterion_id": "c2", "description": "Explain communication through APIs", "max_score": 6},
 ]
 SAMPLE = "Microservices are independent services that communicate through APIs."
 OUTCOME = "LO1: Explain microservices architecture and service communication through APIs."
@@ -175,7 +159,7 @@ CANNED_FEEDBACK = (
 )
 
 
-def analysis_request(answer, rubric=None, sample=SAMPLE, outcome=OUTCOME, question="What is microservices?"):
+def analysis_request(answer, rubric=None, sample=SAMPLE, outcome=OUTCOME, question="What is microservices?", max_score=10):
     return {
         "exam_session_id": "s1",
         "course_name": "Software Architecture",
@@ -190,7 +174,7 @@ def analysis_request(answer, rubric=None, sample=SAMPLE, outcome=OUTCOME, questi
             "topic": "Microservices",
             "rubric": RUBRIC if rubric is None else rubric,
         },
-        "max_score": 10,
+        "max_score": max_score,
     }
 
 
@@ -285,7 +269,7 @@ def test_feedback_uses_vietnamese_for_vietnamese_transcript():
     answer = "Hệ thống gồm các dịch vụ độc lập. Các dịch vụ giao tiếp qua API."
     response = client.post(
         "/ai/evaluate/answer",
-        json=analysis_request(answer, rubric=rubric, sample="Các dịch vụ độc lập giao tiếp qua API.", outcome="CLO1: Giải thích dịch vụ độc lập và giao tiếp qua API."),
+        json=analysis_request(answer, rubric=rubric, sample="Các dịch vụ độc lập giao tiếp qua API.", outcome="CLO1: Giải thích dịch vụ độc lập và giao tiếp qua API.", max_score=2),
     )
     assert response.status_code == 200
     data = response.json()
@@ -367,14 +351,14 @@ def test_analysis_rejects_ungrounded_model_output():
     fabricated = FeedbackAnalysisOutput.model_validate(raw)
     fabricated.criterion_analyses[0].evidence_quotes = ["this was never said by the student"]
     with pytest.raises(ValueError, match="not in the transcript"):
-        validate_analysis(fabricated, transcript, rubric)
+        validate_analysis(fabricated, transcript, rubric, 10.0)
 
     unknown = FeedbackAnalysisOutput.model_validate(raw)
     unknown.criterion_analyses[0].criterion_id = "other"
     with pytest.raises(ValueError, match="exactly once"):
-        validate_analysis(unknown, transcript, rubric)
+        validate_analysis(unknown, transcript, rubric, 10.0)
 
     missing_excerpt = FeedbackAnalysisOutput.model_validate(raw)
     missing_excerpt.criterion_analyses[0].evidence_quotes = []
     with pytest.raises(ValueError, match="transcript excerpt"):
-        validate_analysis(missing_excerpt, transcript, rubric)
+        validate_analysis(missing_excerpt, transcript, rubric, 10.0)

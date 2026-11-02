@@ -1,40 +1,59 @@
-"""Combine numeric scoring with rubric-grounded feedback."""
+"""Score an answer from the rubric analysis alone. No weighted heuristic."""
 
-from app.core.ai_client import BaseAIClient
+from loguru import logger
+
+from app.core.ai_client import BaseAIClient, get_model_name
+from app.core.config import get_settings
+from app.exceptions.ai_exceptions import (
+    AIValidationError,
+    AITimeoutError,
+    MaxRetriesExceededError,
+)
 from app.models.request import EvaluateAnswerRequest, EvaluateSessionRequest
 from app.models.response import EvaluateAnswerResponse, EvaluateSessionResponse, QuestionScoreDetail
 from app.services.answer_evidence import SubmissionPart, build_submission_feedback
 from app.services.feedback_analysis_service import FeedbackAnalysisService
-from app.services.scoring_service import ScoringService
+
+SCHEMA_VERSION = "2.0"
 
 
 class EvaluationService:
-    """Score an answer, then attach transcript evidence when a rubric is supplied."""
+    """Award points from the rubric analysis: score = sum of awarded criterion scores."""
 
     def __init__(self, ai_client: BaseAIClient | None = None) -> None:
-        self.scoring = ScoringService(ai_client)
         self.analysis = FeedbackAnalysisService(ai_client)
+        self.provider = get_settings().ai_provider
+        self.model = get_model_name()
 
     async def evaluate_answer(self, request: EvaluateAnswerRequest) -> EvaluateAnswerResponse:
-        scored = await self.scoring.evaluate_answer(request)
         if not request.question_answer.rubric:
-            return scored
+            raise ValueError("A rubric is required for scoring.")
 
-        analysis = await self.analysis.analyze(request)
-        return scored.model_copy(update={
-            "feedback": analysis.feedback,
-            "strengths": list(analysis.strengths),
-            "weaknesses": list(analysis.weaknesses),
-            "missing_content": list(analysis.missing_content),
-            "sentence_feedback": analysis.sentence_feedback,
-            "criterion_analyses": analysis.criterion_analyses,
-            "improvements": list(analysis.improvements),
-        })
+        try:
+            analysis = await self.analysis.analyze(request)
+        except (AIValidationError, AITimeoutError, MaxRetriesExceededError) as exc:
+            logger.error(f"[EvaluationService] AI error: {exc}")
+            raise ValueError(f"AI evaluation failed: {exc.message}") from exc
+
+        score = round(sum(item.awarded_score for item in analysis.criterion_analyses), 4)
+        return EvaluateAnswerResponse(
+            success=True,
+            question_id=request.question_answer.question_id,
+            score=score,
+            max_score=request.max_score,
+            feedback=analysis.feedback,
+            strengths=list(analysis.strengths),
+            weaknesses=list(analysis.weaknesses),
+            missing_content=list(analysis.missing_content),
+            sentence_feedback=analysis.sentence_feedback,
+            criterion_analyses=analysis.criterion_analyses,
+            improvements=list(analysis.improvements),
+            provider=self.provider,
+            model=self.model,
+            schema_version=SCHEMA_VERSION,
+        )
 
     async def evaluate_session(self, request: EvaluateSessionRequest) -> EvaluateSessionResponse:
-        if not any(pair.rubric for pair in request.question_answers):
-            return await self.scoring.evaluate_session(request)
-
         question_scores: list[QuestionScoreDetail] = []
         parts: list[SubmissionPart] = []
         total_score = 0.0
@@ -77,16 +96,21 @@ class EvaluationService:
                 )
             )
 
-        percentage = (total_score / max_total * 100) if max_total > 0 else 0.0
+        total_score = round(total_score, 4)
+        max_total = round(max_total, 4)
+        percentage = round(total_score / max_total * 100, 2) if max_total > 0 else 0.0
         overall_feedback, study_suggestions = build_submission_feedback(parts)
         return EvaluateSessionResponse(
             success=True,
             exam_session_id=request.exam_session_id,
-            total_score=round(total_score, 2),
-            max_total_score=round(max_total, 2),
-            percentage=round(percentage, 2),
+            total_score=total_score,
+            max_total_score=max_total,
+            percentage=percentage,
             overall_feedback=overall_feedback,
             question_scores=question_scores,
             study_suggestions=study_suggestions,
             status="PendingReview",
+            provider=self.provider,
+            model=self.model,
+            schema_version=SCHEMA_VERSION,
         )
