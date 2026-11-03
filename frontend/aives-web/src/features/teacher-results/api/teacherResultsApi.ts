@@ -1,7 +1,13 @@
 import { http } from '@/lib/http/client'
-import type { ResultForReviewDto, ReviewResultRequest, RetakeDto, GrantRetakeRequest } from '../types'
+import type { ResultForReviewDto, ResultSearchResponse, ReviewResultRequest, RetakeDto, GrantRetakeRequest } from '../types'
 
 export const teacherResultsApi = {
+  async search(query: string, signal?: AbortSignal): Promise<ResultSearchResponse> {
+    return (await http.get<ResultSearchResponse>(`/api/results?${query}`, { signal })).data
+  },
+  async get(resultId: number, signal?: AbortSignal): Promise<ResultForReviewDto> {
+    return (await http.get<ResultForReviewDto>(`/api/results/${resultId}`, { signal })).data
+  },
   async retakeHistory(resultId: number): Promise<RetakeDto[]> {
     return (await http.get<RetakeDto[]>(`/api/results/${resultId}/retake-history`)).data
   },

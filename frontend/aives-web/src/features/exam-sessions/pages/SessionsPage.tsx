@@ -40,7 +40,7 @@ export default function SessionsPage() {
 
   // Hierarchical Filter states
   const [periods, setPeriods] = useState<ExamPeriod[]>([])
-  const [selectedPeriodId, setSelectedPeriodId] = useState<number | 'ALL'>('ALL')
+  const [selectedPeriodId, setSelectedPeriodId] = useState<number | 'ALL'>(() => Number(params.get('periodId')) || 'ALL')
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [selectedRoom, setSelectedRoom] = useState<string>('')
 

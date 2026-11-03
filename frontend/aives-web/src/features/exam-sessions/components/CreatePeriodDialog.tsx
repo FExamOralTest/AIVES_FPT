@@ -1,5 +1,5 @@
 import { AlertCircle, Calendar, Loader2 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { FormField } from '@/components/common/FormField'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -47,10 +47,12 @@ export function CreatePeriodDialog({
   const [startDate, setStartDate] = useState(todayIso())
   const [endDate, setEndDate] = useState(defaultEndIso())
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (submittingRef.current) return
     const name = periodName.trim()
     if (!name) {
       setError('Please provide an exam period name.')
@@ -72,6 +74,7 @@ export function CreatePeriodDialog({
       return
     }
 
+    submittingRef.current = true
     setSubmitting(true)
     setError(null)
 
@@ -88,6 +91,7 @@ export function CreatePeriodDialog({
     } catch (err) {
       setError(toApiError(err, 'Failed to create exam period.').message)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }

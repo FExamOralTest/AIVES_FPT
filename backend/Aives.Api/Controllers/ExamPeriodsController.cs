@@ -16,7 +16,7 @@ namespace Aives.Api.Controllers;
 
 [ApiController]
 [Route("api/exam-periods")]
-[Authorize(Roles = "STAFF,ADMIN")]
+[Authorize(Roles = "STAFF,EXAMINER,ADMIN")]
 public class ExamPeriodsController : ControllerBase
 {
     private readonly AivesDbContext _db;
@@ -34,6 +34,13 @@ public class ExamPeriodsController : ControllerBase
             .Include(p => p.Course)
             .Include(p => p.ExamSessions)
             .AsNoTracking();
+
+        if (User.IsInRole("STAFF"))
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var staffId))
+                return Unauthorized(new { message = "Invalid token." });
+            query = query.Where(p => p.Course.TeacherId == staffId);
+        }
 
         if (courseId.HasValue && courseId.Value > 0)
         {
@@ -61,6 +68,7 @@ public class ExamPeriodsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "STAFF,ADMIN")]
     [ProducesResponseType(typeof(ExamPeriodDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -76,17 +84,22 @@ public class ExamPeriodsController : ControllerBase
         if (request.StartDate > request.EndDate)
             return BadRequest(new { message = "StartDate must be earlier than EndDate." });
 
+        if (string.IsNullOrWhiteSpace(request.PeriodName) || request.StartDate == default || request.EndDate == default)
+            return BadRequest(new { message = "A name and valid start/end dates are required." });
+
         var course = await _db.Courses.FindAsync(request.CourseId);
         if (course == null)
             return BadRequest(new { message = "Course not found." });
+
+        if (!User.IsInRole("ADMIN") && course.TeacherId != userId) return Forbid();
 
         var period = new ExamPeriod
         {
             CourseId = request.CourseId,
             PeriodName = request.PeriodName.Trim(),
             Description = request.Description?.Trim(),
-            StartDate = request.StartDate,
-            EndDate = request.EndDate,
+            StartDate = DateTime.SpecifyKind(request.StartDate.Date, DateTimeKind.Utc),
+            EndDate = DateTime.SpecifyKind(request.EndDate.Date, DateTimeKind.Utc),
             Status = ExamPeriodStatus.ACTIVE,
             CreatedBy = userId,
             CreatedAt = DateTime.UtcNow

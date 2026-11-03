@@ -134,17 +134,22 @@ function CreateSessionForm({
   useEffect(() => {
     let isMounted = true
     const courseId = primaryExam?.courseId
+    if (!courseId) {
+      setPeriods([])
+      setSelectedPeriodId('')
+      setLoadingPeriods(false)
+      return
+    }
     setLoadingPeriods(true)
     periodsApi.list(courseId)
       .then((res) => {
         if (isMounted) {
-          setPeriods(res)
-          if (res.length > 0 && !selectedPeriodId) {
-            setSelectedPeriodId(String(res[0].periodId))
-          }
+          const active = res.filter(p => p.status === 'ACTIVE')
+          setPeriods(active)
+          setSelectedPeriodId(current => active.some(p => String(p.periodId) === current) ? current : '')
         }
       })
-      .catch(() => {})
+      .catch(() => { if (isMounted) { setPeriods([]); setSelectedPeriodId(''); setFormError('Could not load periods for this course. Please try again.') } })
       .finally(() => {
         if (isMounted) setLoadingPeriods(false)
       })
@@ -405,7 +410,7 @@ function CreateSessionForm({
                       id="session-period-select"
                       value={selectedPeriodId}
                       onChange={(e) => setSelectedPeriodId(e.target.value)}
-                      disabled={loadingPeriods}
+                      disabled={loadingPeriods || !primaryExam?.courseId}
                       className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-brand"
                     >
                       <option value="">-- No specific period / General --</option>
@@ -814,7 +819,7 @@ function CreateSessionForm({
                 Continue: Enrolled Students
                 <ArrowRight className="size-3.5" />
               </Button>
-              <Button type="submit" disabled={submitting} className="gap-1.5">
+              <Button type="submit" disabled={submitting || loadingPeriods} className="gap-1.5">
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
                 {submitting ? 'Creating…' : 'Create Session'}
               </Button>
@@ -830,7 +835,7 @@ function CreateSessionForm({
                 <ArrowLeft className="size-3.5" />
                 Back to Overview
               </Button>
-              <Button type="submit" disabled={submitting} className="gap-1.5">
+              <Button type="submit" disabled={submitting || loadingPeriods} className="gap-1.5">
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
                 {submitting
                   ? 'Creating & enrolling students…'
