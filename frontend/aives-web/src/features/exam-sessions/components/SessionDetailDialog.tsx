@@ -1,4 +1,5 @@
 import {
+  Calendar,
   Check,
   CircleAlert,
   Clock,
@@ -34,9 +35,12 @@ import { formatDateTime, formatTimeRange, parseApiDate } from '@/lib/format/date
 import { toApiError } from '@/lib/http/apiError'
 import { useApi } from '@/lib/http/useApi'
 import { cn } from '@/lib/utils'
+import { periodsApi } from '../api/periodsApi'
 import { sessionsApi } from '../api/sessionsApi'
+import type { ExamPeriod } from '../types'
 import type { DistributeExamsResponse, DistributeSlotsResponse, ExamSession } from '../types'
 import { AddStudentsForm } from './AddStudentsForm'
+import { ConfigureSlotsDialog } from './ConfigureSlotsDialog'
 
 interface SessionDetailDialogProps {
   sessionId: number | null
@@ -103,6 +107,7 @@ function SessionDetail({
   const [slotExamMode, setSlotExamMode] = useState<'EXAM_PER_SLOT' | 'SHUFFLE_IN_SLOT'>('EXAM_PER_SLOT')
   const [selectedSlotFilter, setSelectedSlotFilter] = useState<number | 'ALL'>('ALL')
   const [reassigningSlotStudentId, setReassigningSlotStudentId] = useState<number | null>(null)
+  const [configureSlotsOpen, setConfigureSlotsOpen] = useState(false)
 
   // Inline edit state
   const [editSessionName, setEditSessionName] = useState('')
@@ -111,6 +116,8 @@ function SessionDetail({
   const [editStartTime, setEditStartTime] = useState('')
   const [editEndTime, setEditEndTime] = useState('')
   const [editExamIds, setEditExamIds] = useState<number[]>([])
+  const [editPeriodId, setEditPeriodId] = useState<number | null>(null)
+  const [sessionPeriods, setSessionPeriods] = useState<ExamPeriod[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [editErrors, setEditErrors] = useState<{
     form?: string
@@ -183,6 +190,8 @@ function SessionDetail({
         ? [session.examId]
         : []
     setEditExamIds(currentIds)
+    setEditPeriodId(session.periodId ?? null)
+    periodsApi.list(session.courseId ?? undefined).then(setSessionPeriods).catch(() => {})
     setEditErrors({})
     setEditing(true)
   }
@@ -245,6 +254,7 @@ function SessionDetail({
         startTime: sDate.toISOString(),
         endTime: eDate.toISOString(),
         examIds: editExamIds,
+        periodId: editPeriodId ?? undefined,
       })
       applyUpdate(updated)
       setEditing(false)
@@ -543,6 +553,25 @@ function SessionDetail({
                   <span className="text-xs text-muted-foreground">Modify directly in this session</span>
                 </div>
 
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Calendar className="size-3.5 text-brand" />
+                    Academic Period / Semester
+                  </label>
+                  <select
+                    value={editPeriodId ?? ''}
+                    onChange={(e) => setEditPeriodId(e.target.value ? Number(e.target.value) : null)}
+                    className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-brand"
+                  >
+                    <option value="">-- No specific period / General --</option>
+                    {sessionPeriods.map((p) => (
+                      <option key={p.periodId} value={p.periodId}>
+                        {p.periodName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <FormField
                   label="Session Name"
                   required
@@ -732,11 +761,19 @@ function SessionDetail({
                     <h4 id="session-slots" className="font-semibold text-sm">
                       Time Slots Configuration ({slots.length} slots)
                     </h4>
-                    <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">
-                      {session.durationMinutes} mins/slot
-                    </span>
                   </div>
-
+                  {notStarted && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 h-7.5 text-xs font-medium"
+                      onClick={() => setConfigureSlotsOpen(true)}
+                    >
+                      <Layers className="size-3.5 text-brand" />
+                      Configure Slots
+                    </Button>
+                  )}
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -819,12 +856,23 @@ function SessionDetail({
                     <Clock className="size-4.5" />
                   </span>
                   <div>
-                    <h4 className="text-sm font-semibold text-foreground">Continuous Exam Session</h4>
+                    <h4 className="text-sm font-semibold text-foreground">No Time Slots Configured</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      No predefined time slots were configured for this exam paper. All students take the exam continuously in a single time window.
+                      Divide this exam session into time slots  to manage student arrival and balance exam papers.
                     </p>
                   </div>
                 </div>
+                {notStarted && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="gap-1.5 shrink-0"
+                    onClick={() => setConfigureSlotsOpen(true)}
+                  >
+                    <Layers className="size-4" />
+                    Configure Time Slots
+                  </Button>
+                )}
               </div>
             )}
 
@@ -1226,6 +1274,17 @@ function SessionDetail({
       </div>
 
 
+      {configureSlotsOpen && (
+        <ConfigureSlotsDialog
+          open={configureSlotsOpen}
+          session={session}
+          onClose={() => setConfigureSlotsOpen(false)}
+          onSaved={(updated) => {
+            applyUpdate(updated)
+            monitor.reload()
+          }}
+        />
+      )}
     </div>
   )
 }

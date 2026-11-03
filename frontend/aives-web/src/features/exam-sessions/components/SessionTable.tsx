@@ -172,17 +172,25 @@ export function SessionTable({
                   <tr key={s.sessionId} onClick={() => onOpen(s)} className="cursor-pointer transition-colors hover:bg-muted/50">
                     <td className="max-w-0 py-3.5 pr-3 pl-4 sm:pl-6">
                       <div className="flex min-w-0 items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onOpen(s)
-                          }}
-                          title={s.sessionName}
-                          className="truncate text-left hover:underline"
-                        >
-                          {s.sessionName}
-                        </button>
+                        <div className="min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onOpen(s)
+                            }}
+                            title={s.sessionName}
+                            className="truncate text-left font-medium hover:underline block w-full"
+                          >
+                            {s.sessionName}
+                          </button>
+                          {s.periodName && (
+                            <span className="text-[11px] text-muted-foreground/80 flex items-center gap-1 mt-0.5">
+                              <CalendarClock className="size-3 text-brand shrink-0" />
+                              <span className="truncate">{s.periodName}</span>
+                            </span>
+                          )}
+                        </div>
                         {/* The menu sits inside the clickable row, so keep its clicks from opening the row. */}
                         <span onClick={(e) => e.stopPropagation()} className="contents">
                           <ActionMenu

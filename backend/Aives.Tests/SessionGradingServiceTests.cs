@@ -55,6 +55,7 @@ public class SessionGradingServiceTests
             Mock.Of<IAiServiceClient>(),
             Mock.Of<IStorageService>(),
             queueService.Object,
+            Mock.Of<IMediaUploadRepository>(),
             NullLogger<VivaSessionService>.Instance);
 
         await service.FinishSessionAsync(result.SessionId, result.StudentId);

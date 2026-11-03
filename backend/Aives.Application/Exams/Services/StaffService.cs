@@ -8716,6 +8716,8 @@ public class StaffService : IStaffService
 
 
 
+            PeriodId = s.PeriodId,
+            PeriodName = s.Period?.PeriodName,
             Room = s.Room,
 
 
