@@ -8,6 +8,7 @@ export interface StudentAnswerItemDto {
   transcript?: string | null
   audioUrl?: string | null
   finalScore?: number | null
+  maxScore?: number | null
   teacherComment?: string | null
   isFollowUp: boolean
   aiAnalysis?: StoredAnswerAnalysis | null

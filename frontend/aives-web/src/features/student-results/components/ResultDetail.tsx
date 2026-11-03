@@ -43,7 +43,7 @@ export function ResultDetail({ result }: { result: StudentResultDto }) {
                 {result.finalScore != null ? Number(result.finalScore).toFixed(1) : '--'}
               </span>
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-1">
-                Final score
+                Final score (%)
               </span>
             </div>
 
@@ -111,7 +111,7 @@ export function ResultDetail({ result }: { result: StudentResultDto }) {
 
                 {answer.finalScore != null && (
                   <span className="rounded-full bg-brand-soft px-3 py-1 font-mono text-sm font-bold text-brand">
-                    {Number(answer.finalScore).toFixed(1)} pts
+                    {Number(answer.finalScore).toFixed(1)} / {answer.maxScore ?? answer.aiAnalysis?.evaluation.maxScore ?? 100}%
                   </span>
                 )}
               </div>

@@ -49,7 +49,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
 
           {question.maxScore != null && (
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
-              Max: {question.maxScore} pts
+              {question.maxScore}% of the exam
             </span>
           )}
         </div>

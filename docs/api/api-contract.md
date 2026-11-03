@@ -269,7 +269,7 @@ Chấm toàn bộ buổi thi (worker gọi sau khi có transcript).
 | `study_suggestions[]` | string[] | Gợi ý ôn tập |
 | `status` | string | Trạng thái tổng kết |
 
-Backend tính lại điểm từng câu từ `criterion_analyses[].awarded_score`, sau đó tính `total_score`, `max_total_score` và `percentage`; các tổng AI trả về không được dùng làm nguồn dữ liệu chuẩn.
+Backend tính lại điểm rubric từng câu từ `criterion_analyses[].awarded_score`, rồi quy đổi điểm câu theo phần trăm của câu đó trên đề thi (tổng đề = 100%). `total_score` là tổng các điểm câu đã quy đổi; `percentage` = `total_score / max_total_score * 100`. Các tổng AI trả về không được dùng làm nguồn dữ liệu chuẩn.
 
 **Lỗi:** `422` · `500`.
 
