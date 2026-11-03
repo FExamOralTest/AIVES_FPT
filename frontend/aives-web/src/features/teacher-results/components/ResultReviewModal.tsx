@@ -22,11 +22,11 @@ interface ResultReviewModalProps {
 
 export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewModalProps) {
   const readOnly = result.status === 'CANCELLED' || result.status === 'PUBLISHED'
-  const maxTotalScore = result.aiAnalysis?.maxTotalScore
-    ?? result.answers.reduce((total, answer) => total + (answer.maxScore ?? 10), 0)
-  const [overallScore, setOverallScore] = useState<number>(
-    result.finalScore ?? result.aiScore ?? 0,
-  )
+  const maxTotalScore = result.answers.reduce((total, answer) => total + (answer.maxScore ?? 0), 0)
+    || result.aiAnalysis?.maxTotalScore
+    || 100
+  const sumScores = (scores: Record<number, number>) =>
+    Math.round(result.answers.reduce((total, answer) => total + (scores[answer.answerId] ?? 0), 0) * 10000) / 10000
   const [overallFeedback, setOverallFeedback] = useState<string>(
     result.finalFeedback ?? result.aiFeedback ?? '',
   )
@@ -40,6 +40,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
       return init
     },
   )
+  const aggregatedScore = sumScores(answerScores)
 
   const [answerComments, setAnswerComments] = useState<Record<number, string>>(
     () => {
@@ -58,8 +59,8 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
   const [retryNotes, setRetryNotes] = useState<Record<number, { ok: boolean; text: string }>>({})
 
   function validateReviewScores() {
-    if (!Number.isFinite(overallScore) || overallScore < 0 || overallScore > maxTotalScore) {
-      setErrorMessage(`The overall score must be between 0 and ${maxTotalScore}.`)
+    if (!Number.isFinite(aggregatedScore) || aggregatedScore < 0 || aggregatedScore > maxTotalScore) {
+      setErrorMessage(`The overall score must be between 0 and ${maxTotalScore}%.`)
       return false
     }
 
@@ -70,7 +71,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
     })
     if (invalidAnswer) {
       setErrorMessage(
-        `The score for question ${result.answers.indexOf(invalidAnswer) + 1} must be between 0 and ${invalidAnswer.maxScore ?? 10}.`,
+        `The score for question ${result.answers.indexOf(invalidAnswer) + 1} must be between 0 and ${invalidAnswer.maxScore ?? 10}%.`,
       )
       return false
     }
@@ -96,7 +97,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
     setErrorMessage(null)
     try {
       const payload = {
-        finalScore: overallScore,
+        finalScore: aggregatedScore,
         finalFeedback: overallFeedback,
         answerReviews: result.answers.map((a) => ({
           answerId: a.answerId,
@@ -181,18 +182,15 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
             <div className="mt-4 grid gap-4 sm:grid-cols-[10rem_1fr]">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Score (0 - {maxTotalScore})
+                  Total (0 - {maxTotalScore}%)
                 </label>
                 <input
-                  disabled={readOnly}
+                  readOnly
                   type="number"
-                  step="0.1"
-                  min="0"
-                  max={maxTotalScore}
-                  value={overallScore}
-                  onChange={(e) => setOverallScore(parseFloat(e.target.value) || 0)}
-                  className="mt-1.5 h-12 w-full rounded-xl border border-input bg-background px-4 font-heading text-2xl font-bold text-brand outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                  value={aggregatedScore}
+                  className="mt-1.5 h-12 w-full rounded-xl border border-input bg-muted px-4 font-heading text-2xl font-bold text-brand outline-none"
                 />
+                <p className="mt-1.5 text-xs text-muted-foreground">Sum of the question scores.</p>
                 {result.aiScore != null && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     AI-suggested score: <span className="font-semibold">{result.aiScore.toFixed(1)}</span>
@@ -256,7 +254,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                   {answer.aiScore != null && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Sparkles className="size-3.5 text-amber-500" />
-                      AI suggests: <b>{answer.aiScore.toFixed(1)} pts</b>
+                      AI suggests: <b>{answer.aiScore.toFixed(1)} / {answer.maxScore ?? 100}%</b>
                     </span>
                   )}
                 </div>
@@ -314,11 +312,14 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
 
                 {answer.aiAnalysis?.evaluation.criterionAnalyses.length ? (
                   <section className="overflow-hidden rounded-xl border" aria-label={`Rubric assessment for question ${index + 1}`}>
-                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b bg-muted/40 px-4 py-3">
-                      <h4 className="font-semibold text-sm">Rubric assessment</h4>
-                      <span className="text-xs text-muted-foreground">
-                        {answer.aiAnalysis.provider} · {answer.aiAnalysis.model} · schema {answer.aiAnalysis.schemaVersion}
-                      </span>
+                    <div className="border-b bg-muted/40 px-4 py-3">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h4 className="font-semibold text-sm">Rubric assessment</h4>
+                        <span className="text-xs text-muted-foreground">
+                          {answer.aiAnalysis.provider} · {answer.aiAnalysis.model} · schema {answer.aiAnalysis.schemaVersion}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">Criterion points stay on the question rubric. The question score below is that result scaled to this question's share of the exam.</p>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[42rem] text-left text-xs">
@@ -374,7 +375,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                 <div className="grid gap-3 sm:grid-cols-[8rem_1fr] border-t pt-3">
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground">
-                      Score for this question (0 - {answer.maxScore ?? 10})
+                      Score for this question (0 - {answer.maxScore ?? 10}%)
                     </label>
                     <input
                       disabled={readOnly}

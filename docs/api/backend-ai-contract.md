@@ -289,8 +289,8 @@ Content-Type: application/json
 | Field | Type | Description |
 |-------|------|-------------|
 | `provider`, `model`, `schema_version` | string | Model provenance and response schema version (`2.0`) |
-| `total_score` | float | Sum of rubric criterion awards; recalculated by Backend |
-| `max_total_score` | float | Maximum possible score |
+| `total_score` | float | Sum of question scores after each rubric award is scaled to that question's exam percentage; recalculated by Backend |
+| `max_total_score` | float | Sum of the exam question percentages, normally 100 |
 | `percentage` | float | Backend-calculated `(total_score / max_total_score) * 100` |
 | `overall_feedback` | string | Summary feedback |
 | `question_scores` | array | Per-question evaluation |
@@ -344,7 +344,7 @@ Backend validates AI response:
 2. **Rubric snapshot:** Criterion IDs are unique and complete; rubric maximum must match the requested question maximum within `1e-4`.
 3. **Criterion score:** `0 ≤ awarded_score ≤ criterion.max_score`; `met` awards full points, `not_met` awards zero, and `partial` awards an interior value.
 4. **Evidence:** Every non-empty evidence quote must be a normalized substring of the submitted transcript.
-5. **Backend totals:** Backend recalculates each question score from criterion awards, then recalculates session totals and percentage. AI total mismatches are logged and replaced, not rejected.
+5. **Backend totals:** Backend recalculates each rubric award, scales that question score to its exam percentage, then sums the question scores. AI total mismatches are logged and replaced, not rejected.
 
 > **See:** `Aives.Application.AI.EvaluationContract.cs`
 

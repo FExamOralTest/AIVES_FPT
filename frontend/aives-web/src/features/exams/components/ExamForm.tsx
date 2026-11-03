@@ -10,6 +10,29 @@ import type { Exam, UpdateExamInput } from '../types'
 
 const inputClass = 'mt-1 block w-full rounded-xl border bg-background px-3 py-2 text-sm'
 
+function roundPercent(value: number) {
+  return Math.round(value * 10000) / 10000
+}
+
+function weightTotal(weights: Map<number, number>) {
+  return roundPercent([...weights.values()].reduce((sum, weight) => sum + (Number.isFinite(weight) ? weight : 0), 0))
+}
+
+function splitEvenly(ids: number[]) {
+  const next = new Map<number, number>()
+  if (!ids.length) return next
+  const share = roundPercent(100 / ids.length)
+  let used = 0
+  ids.forEach((id, index) => {
+    if (index === ids.length - 1) next.set(id, roundPercent(100 - used))
+    else {
+      next.set(id, share)
+      used = roundPercent(used + share)
+    }
+  })
+  return next
+}
+
 function getLevelBadge(level?: number | null) {
   if (level === 1) {
     return (
@@ -88,7 +111,10 @@ export function ExamForm({
     setSelected((previous) => {
       const next = new Map(previous)
       if (next.has(question.questionId)) next.delete(question.questionId)
-      else next.set(question.questionId, question.maxScore ?? 1)
+      else {
+        const remaining = roundPercent(100 - weightTotal(next))
+        next.set(question.questionId, remaining > 0 ? remaining : 0.01)
+      }
       return next
     })
   }
@@ -100,14 +126,7 @@ export function ExamForm({
     setError(null)
     try {
       const result = await teacherQuestionsApi.suggestQuestions(exam.courseId, maxQuestions)
-      setSelected(
-        new Map(
-          result.suggestedQuestions.map((question) => [
-            question.questionId,
-            selected.get(question.questionId) ?? question.maxScore ?? 1,
-          ])
-        )
-      )
+      setSelected(splitEvenly(result.suggestedQuestions.map((question) => question.questionId)))
       setRationale(result.rationale)
     } catch (err) {
       setError(toApiError(err).message)
@@ -128,6 +147,12 @@ export function ExamForm({
 
     if (selected.size > maxQuestions) {
       setError(`Selected ${selected.size} questions, exceeding Max Questions (${maxQuestions}).`)
+      return
+    }
+
+    const totalWeight = weightTotal(selected)
+    if (Math.abs(totalWeight - 100) > 0.05) {
+      setError(`Question percentages must add up to 100%. Current total is ${totalWeight}%.`)
       return
     }
 
@@ -230,7 +255,7 @@ export function ExamForm({
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            Select questions from the approved question bank and specify point weights.
+            Select questions and give each one a percentage of the exam. The weights must add up to 100%.
           </p>
 
           <Button
@@ -247,6 +272,21 @@ export function ExamForm({
               <Sparkles className="size-3.5 text-brand" />
             )}
             {suggesting ? 'Suggesting…' : 'Suggest questions'}
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/60 px-3 py-2 text-sm">
+          <span>
+            Total weight: <b className={Math.abs(weightTotal(selected) - 100) <= 0.05 ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'}>{weightTotal(selected)}%</b> / 100%
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={selected.size === 0 || pending || suggesting}
+            onClick={() => setSelected(splitEvenly([...selected.keys()]))}
+          >
+            Split evenly
           </Button>
         </div>
 
@@ -296,7 +336,7 @@ export function ExamForm({
 
                 {selected.has(question.questionId) && (
                   <div className="flex items-center gap-3 pt-2 border-t text-xs text-muted-foreground">
-                    <span>Score weight for #{question.questionId}:</span>
+                    <span>Share of the exam for #{question.questionId}:</span>
                     <input
                       required
                       type="number"
@@ -314,7 +354,7 @@ export function ExamForm({
                         )
                       }
                     />
-                    <span>points</span>
+                    <span>%</span>
                   </div>
                 )}
               </div>
@@ -338,7 +378,8 @@ export function ExamForm({
             suggesting ||
             !loaded ||
             selected.size > maxQuestions ||
-            selected.size === 0
+            selected.size === 0 ||
+            Math.abs(weightTotal(selected) - 100) > 0.05
           }
         >
           {pending ? 'Saving…' : submitLabel}

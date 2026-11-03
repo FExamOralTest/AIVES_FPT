@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Aives.Application.AI.DTOs;
 using Aives.Application.AI.Interfaces;
+using Aives.Application.Exams;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Services;
 using Aives.Application.Queue.Contracts.Stt;
@@ -227,6 +228,9 @@ public class AnswerOrchestrator : IAnswerOrchestrator
                 response,
                 message => _logger.LogWarning("{EvaluationWarning}", message));
             var score = response.QuestionScores.Single(s => s.QuestionId == context.QuestionId);
+            var questionPercent = ExamPercentage.WeightFor(answer.Result, answer.QuestionId, score.MaxScore);
+            score.Score = ExamPercentage.Scale(score.Score, score.MaxScore, questionPercent);
+            score.MaxScore = questionPercent;
             return new OrchestrationResult
             {
                 Success = true,

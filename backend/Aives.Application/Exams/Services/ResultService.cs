@@ -1,4 +1,5 @@
 using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams;
 using Aives.Application.AI.DTOs;
 using System.Text.Json;
 using Aives.Application.Exams.Interfaces;
@@ -90,7 +91,7 @@ public class ResultService : IResultService
             throw new InvalidOperationException(
                 $"Cannot review result with status '{result.Status}'. Only PENDING_REVIEW or REVIEWED results can be reviewed.");
 
-        var maxTotalScore = result.Answers.Sum(answer => answer.Question?.MaxScore ?? 10f);
+        var maxTotalScore = result.Answers.Sum(answer => QuestionWeight(result, answer));
         if (request.FinalScore.HasValue && !IsScoreWithinRange(request.FinalScore.Value, maxTotalScore))
             throw new InvalidOperationException($"The overall score must be between 0 and {maxTotalScore}.");
 
@@ -102,7 +103,7 @@ public class ResultService : IResultService
             if (!answerReview.FinalScore.HasValue)
                 continue;
 
-            var maxAnswerScore = answer.Question?.MaxScore ?? 10f;
+            var maxAnswerScore = QuestionWeight(result, answer);
             if (!IsScoreWithinRange(answerReview.FinalScore.Value, maxAnswerScore))
                 throw new InvalidOperationException(
                     $"The score for answer {answer.AnswerId} must be between 0 and {maxAnswerScore}.");
@@ -112,8 +113,6 @@ public class ResultService : IResultService
         var oldFeedback = result.FinalFeedback ?? result.AiFeedback;
 
         // BR-15: Không ghi đè ai_score/ai_feedback, chỉ cập nhật final_score và final_feedback
-        if (request.FinalScore.HasValue)
-            result.FinalScore = request.FinalScore.Value;
         if (request.FinalFeedback != null)
             result.FinalFeedback = request.FinalFeedback;
 
@@ -132,6 +131,11 @@ public class ResultService : IResultService
                 answer.TeacherComment = ansReq.TeacherComment;
             }
         }
+
+        var aggregated = MathF.Round(result.Answers.Sum(answer => answer.FinalScore ?? answer.AiScore ?? 0f), 4);
+        if (!IsScoreWithinRange(aggregated, maxTotalScore))
+            throw new InvalidOperationException($"The overall score must be between 0 and {maxTotalScore}.");
+        result.FinalScore = aggregated;
 
         await _resultRepository.UpdateAsync(result);
         await _resultRepository.SaveChangesAsync();
@@ -254,6 +258,7 @@ public class ResultService : IResultService
                 Transcript = a.Transcript,
                 AudioUrl = _storageService.ResolvePlaybackUrl(a.AudioUrl),
                 FinalScore = a.FinalScore ?? a.AiScore,
+                MaxScore = QuestionWeight(result, a),
                 TeacherComment = a.TeacherComment ?? a.AiFeedback,
                 IsFollowUp = a.IsFollowUp ?? false,
                 AiAnalysis = a.AiAnalysis == null
@@ -312,7 +317,7 @@ public class ResultService : IResultService
             ErrorMessage = a.ErrorMessage,
             QuestionId = a.QuestionId,
             QuestionText = a.Question?.QuestionText ?? "",
-            MaxScore = a.Question?.MaxScore,
+            MaxScore = QuestionWeight(result, a),
             StudentAnswer = a.StudentAnswer,
             Transcript = a.Transcript,
             AudioUrl = _storageService.ResolvePlaybackUrl(a.AudioUrl),
@@ -326,6 +331,9 @@ public class ResultService : IResultService
             IsFollowUp = a.IsFollowUp ?? false
         }).ToList()
     };
+
+    private static float QuestionWeight(Result result, Answer answer) =>
+        ExamPercentage.WeightFor(result, answer.QuestionId, answer.Question?.MaxScore);
 
     private static bool IsScoreWithinRange(float score, float maximum) =>
         float.IsFinite(score) && float.IsFinite(maximum) && maximum >= 0 && score >= 0 && score <= maximum;

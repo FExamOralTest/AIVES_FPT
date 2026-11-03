@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Aives.Application.Exams.DTOs;
+using Aives.Application.Exams;
 using Aives.Application.Exams.Exceptions;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
@@ -32,6 +33,9 @@ public class ExamService(
 
             if (items.Count > maxQuestions)
                 throw new ArgumentException("Question count exceeds MaxQuestions.");
+            ExamPercentage.EnsureTotal(items.Select(item => item.QuestionScore), "This exam");
+            foreach (var subPaper in request.GeneratedSubPapers ?? [])
+                ExamPercentage.EnsureTotal(subPaper.Questions.Select(item => item.QuestionScore), subPaper.Title);
             var ids = items.Select(q => q.QuestionId).ToList();
             if (ids.Distinct().Count() != ids.Count)
                 throw new ArgumentException("Duplicate question IDs are not allowed.");
@@ -189,6 +193,8 @@ public class ExamService(
             exam.DurationMinutes = request.DurationMinutes;
             exam.MaxQuestions = maxQuestions;
             await ReplaceQuestionsAsync(examId, request.Questions);
+            foreach (var subPaper in request.GeneratedSubPapers ?? [])
+                ExamPercentage.EnsureTotal(subPaper.Questions.Select(item => item.QuestionScore), subPaper.Title);
 
             var slotExamsMap = new Dictionary<int, List<int>>();
 
@@ -365,6 +371,7 @@ public class ExamService(
             var subPaperTitle = $"{baseTitle} - {slotName}";
 
             var slotQs = slotsQuestions[i];
+            var weights = ExamPercentage.SplitEvenly(slotQs.Count);
             previewSlots.Add(new SlotPartitionPreviewDto
             {
                 SlotIndex = slotIndex,
@@ -374,11 +381,11 @@ public class ExamService(
                 EasyCount = slotQs.Count(q => q.Level == 1),
                 MediumCount = slotQs.Count(q => q.Level == 2),
                 HardCount = slotQs.Count(q => q.Level >= 3 || q.Level < 1),
-                Questions = slotQs.Select(q => new ExamQuestionDto
+                Questions = slotQs.Select((q, index) => new ExamQuestionDto
                 {
                     QuestionId = q.QuestionId,
                     QuestionText = q.QuestionText,
-                    QuestionScore = q.MaxScore ?? 1.0f,
+                    QuestionScore = weights[index],
                     MaxScore = q.MaxScore,
                     IsFollowUpAllowed = q.IsFollowUpAllowed,
                     Level = q.Level
@@ -450,6 +457,7 @@ public class ExamService(
         }
         if (items.Count > maxQuestions)
             throw new ArgumentException("Question count exceeds MaxQuestions.");
+        ExamPercentage.EnsureTotal(items.Select(item => item.QuestionScore), "This exam");
         var ids = items.Select(q => q.QuestionId).ToList();
         if (ids.Distinct().Count() != ids.Count)
             throw new ArgumentException("Duplicate question IDs are not allowed.");
