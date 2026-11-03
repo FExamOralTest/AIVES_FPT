@@ -11,12 +11,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toApiError } from '@/lib/http/apiError'
+import { useApi } from '@/lib/http/useApi'
+import { teacherCoursesApi } from '@/features/teacher-courses/api/teacherCoursesApi'
 import { periodsApi } from '../api/periodsApi'
 import type { ExamPeriod } from '../types'
 
 interface CreatePeriodDialogProps {
   open: boolean
-  courseId: number
+  courseId?: number
   courseName?: string | null
   onClose: () => void
   onCreated: (period: ExamPeriod) => void
@@ -42,6 +44,9 @@ export function CreatePeriodDialog({
   onClose,
   onCreated,
 }: CreatePeriodDialogProps) {
+  const courses = useApi(() => courseId ? Promise.resolve([]) : teacherCoursesApi.listMine(), courseId ?? 0, 'Could not load your courses.')
+  const [chosenCourseId, setChosenCourseId] = useState('')
+  const effectiveCourseId = courseId ?? Number(chosenCourseId)
   const [periodName, setPeriodName] = useState('')
   const [description, setDescription] = useState('')
   const [startDate, setStartDate] = useState(todayIso())
@@ -69,7 +74,7 @@ export function CreatePeriodDialog({
       return
     }
 
-    if (!courseId) {
+    if (!effectiveCourseId) {
       setError('A course is required to create an exam period.')
       return
     }
@@ -80,7 +85,7 @@ export function CreatePeriodDialog({
 
     try {
       const created = await periodsApi.create({
-        courseId,
+        courseId: effectiveCourseId,
         periodName: name,
         description: description.trim() || undefined,
         startDate: new Date(startDate).toISOString(),
@@ -104,7 +109,7 @@ export function CreatePeriodDialog({
           <DialogTitle className="text-lg font-bold">New Exam Period</DialogTitle>
         </div>
         <DialogDescription className="text-xs text-muted-foreground">
-          Create an academic term / exam period for {courseName ? <strong className="text-foreground">{courseName}</strong> : 'this course'}.
+          Create an academic term / exam period for {courseName ? <strong className="text-foreground">{courseName}</strong> : 'a course you manage'}.
         </DialogDescription>
 
         {error && (
@@ -115,6 +120,14 @@ export function CreatePeriodDialog({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          {!courseId && <div className="space-y-1">
+            <label htmlFor="new-period-course" className="text-sm font-medium">Course</label>
+            <select id="new-period-course" required value={chosenCourseId} onChange={e => setChosenCourseId(e.target.value)} disabled={submitting || courses.state.status !== 'ready'} className="h-10 w-full rounded-xl border bg-background px-3 text-sm">
+              <option value="">{courses.state.status === 'loading' ? 'Loading courses…' : 'Choose a course'}</option>
+              {courses.state.status === 'ready' && courses.state.data.map(c => <option key={c.courseId} value={c.courseId}>{c.courseCode} · {c.courseName}</option>)}
+            </select>
+            {courses.state.status === 'error' && <p role="alert" className="text-xs text-destructive">{courses.state.message} <button type="button" className="underline" onClick={courses.reload}>Try again</button></p>}
+          </div>}
           <FormField
             label="Period / Semester Name"
             placeholder="e.g. Fall 2026 - Final Term"
@@ -151,7 +164,7 @@ export function CreatePeriodDialog({
             <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={submitting}>
+            <Button type="submit" size="sm" disabled={submitting || !effectiveCourseId}>
               {submitting ? (
                 <>
                   <Loader2 className="size-3.5 mr-1.5 animate-spin" />

@@ -28,7 +28,7 @@ The list projects summary fields only and preserves null scores. A real zero sco
 
 1. Restart backend and frontend with the updated code.
 2. Log in as Staff. Open Exam periods, select an assigned course and create a period covering today's Vietnam date.
-3. Open Exam sessions, select a paper from that course and the new period; create a session inside its dates. A wrong-course/inactive/out-of-window period must be rejected by the API.
+3. Open Exam sessions and choose the period first. The paper selector must list only papers from that period's course. Switching to a period for another course must remove incompatible selected papers; switching between periods of the same course can keep the papers. New Period must also work before any paper is selected: choose an assigned course in that dialog, then create the period; it is selected immediately. General sessions remain available through the explicit General option. Create a session inside the period dates. A wrong-course/inactive/out-of-window period must be rejected by the API.
 4. Have a student submit answers using the existing exam flow.
 5. Log in as Examiner. Open Review & publish, select the period and confirm that attempts from all its sessions appear. Filter by session, review/AI status and student name/code/email; test pagination.
 6. Open a row, review/publish using the existing modal, and verify the list refreshes according to the current filters. Test a published and a voided attempt using View.
