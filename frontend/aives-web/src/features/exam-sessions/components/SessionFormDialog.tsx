@@ -93,9 +93,14 @@ function CreateSessionForm({
   })
 
   // Periods state
-  const [periods, setPeriods] = useState<ExamPeriod[]>([])
-  const [loadingPeriods, setLoadingPeriods] = useState(false)
+  const periodResource = useApi(() => periodsApi.list(), '', 'Could not load exam periods.')
+  const [createdPeriods, setCreatedPeriods] = useState<ExamPeriod[]>([])
+  const loadedPeriods = periodResource.state.status === 'ready' ? periodResource.state.data : []
+  const periods = [...createdPeriods, ...loadedPeriods.filter(p => !createdPeriods.some(created => created.periodId === p.periodId))]
+    .filter(p => p.status === 'ACTIVE')
+  const loadingPeriods = periodResource.state.status === 'loading'
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>('')
+  const selectedPeriod = periods.find(p => String(p.periodId) === selectedPeriodId)
   const [openCreatePeriod, setOpenCreatePeriod] = useState(false)
 
   const [sessionName, setSessionName] = useState('')
@@ -119,39 +124,31 @@ function CreateSessionForm({
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const availableExams = examList.filter((e) => !selectedExamIds.includes(e.examId))
   const selectedExamsData = selectedExamIds.map((id) => {
     const found = examList.find((e) => e.examId === id)
     return found ?? ({ examId: id, examCode: `ID #${id}`, title: 'Exam', durationMinutes: 0, maxQuestions: 0 } as Exam)
   })
 
   const primaryExam = selectedExamsData[0] as Exam | undefined
+  const selectedCourseId = selectedPeriod?.courseId ?? (selectedPeriodId === 'GENERAL' ? primaryExam?.courseId : undefined)
+  const availableExams = examList.filter(e => selectedPeriodId &&
+    (!selectedCourseId || e.courseId === selectedCourseId) && !selectedExamIds.includes(e.examId))
 
   // Total session duration (minutes) default to exam duration or 60 mins
   const totalDurationMinutes = primaryExam?.durationMinutes || 60
 
-  // Automatically fetch periods when primary exam's courseId changes
-  useEffect(() => {
-    let isMounted = true
-    const courseId = primaryExam?.courseId
-    setLoadingPeriods(true)
-    periodsApi.list(courseId)
-      .then((res) => {
-        if (isMounted) {
-          setPeriods(res)
-          if (res.length > 0 && !selectedPeriodId) {
-            setSelectedPeriodId(String(res[0].periodId))
-          }
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (isMounted) setLoadingPeriods(false)
-      })
-    return () => {
-      isMounted = false
+  function choosePeriod(value: string, period = periods.find(p => String(p.periodId) === value)) {
+    setSelectedPeriodId(value)
+    setPickerValue('')
+    // Preserve papers for the same course; drop incompatible papers when the period changes course.
+    if (period) {
+      setSelectedExamIds(ids => ids.filter(id => examList.find(e => e.examId === id)?.courseId === period.courseId))
+    } else if (value !== 'GENERAL') {
+      setSelectedExamIds([])
     }
-  }, [primaryExam?.courseId])
+    setEditErrors(prev => ({ ...prev, periodId: '', examId: '' }))
+    setFormError(null)
+  }
 
   // Automatically update endTime whenever startTime or totalDurationMinutes changes
   useEffect(() => {
@@ -164,7 +161,7 @@ function CreateSessionForm({
 
   function addExam(examIdStr: string) {
     const id = Number(examIdStr)
-    if (!id || selectedExamIds.includes(id)) return
+    if (!id || selectedExamIds.includes(id) || !availableExams.some(e => e.examId === id)) return
     const nextList = [...selectedExamIds, id]
     setSelectedExamIds(nextList)
     setPickerValue('')
@@ -214,7 +211,13 @@ function CreateSessionForm({
 
   function validate() {
     const next: Record<string, string> = {}
+    if (!selectedPeriodId || (selectedPeriodId !== 'GENERAL' && !selectedPeriod))
+      next.periodId = 'Please choose an active exam period or General sessions first.'
     if (selectedExamIds.length === 0) next.examId = 'Please select at least 1 exam paper for this session.'
+    else if (exams.status !== 'ready' || selectedExamIds.some(id => {
+      const exam = examList.find(e => e.examId === id)
+      return !exam || exam.courseId !== selectedCourseId
+    })) next.examId = 'All exam papers must belong to the selected period or course.'
     const name = sessionName.trim()
     if (!name) next.sessionName = 'Please enter session name.'
     else if (name.length > 150) next.sessionName = 'Session name cannot exceed 150 characters.'
@@ -247,8 +250,8 @@ function CreateSessionForm({
       const created = await sessionsApi.create({
         examId: selectedExamIds[0],
         examIds: selectedExamIds,
-        courseId: primaryExam?.courseId,
-        periodId: selectedPeriodId ? Number(selectedPeriodId) : undefined,
+        courseId: selectedCourseId,
+        periodId: selectedPeriod?.periodId,
         sessionName: sessionName.trim(),
         room: room.trim() || undefined,
         startTime: startIso,
@@ -404,26 +407,29 @@ function CreateSessionForm({
                     <select
                       id="session-period-select"
                       value={selectedPeriodId}
-                      onChange={(e) => setSelectedPeriodId(e.target.value)}
+                      onChange={(e) => choosePeriod(e.target.value)}
                       disabled={loadingPeriods}
                       className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-brand"
                     >
-                      <option value="">-- No specific period / General --</option>
+                      <option value="">{loadingPeriods ? 'Loading exam periods…' : '-- Choose an exam period first --'}</option>
+                      <option value="GENERAL">-- No specific period / General --</option>
                       {periods.map((p) => (
                         <option key={p.periodId} value={p.periodId}>
                           {p.periodName} {p.courseName ? `(${p.courseName})` : ''}
                         </option>
                       ))}
                     </select>
+                    {selectedPeriod && <p className="text-xs text-muted-foreground">Course: {selectedPeriod.courseName}. Exam papers below are limited to this course.</p>}
+                    {errors.periodId && <p className="text-xs text-destructive">{errors.periodId}</p>}
+                    {periodResource.state.status === 'error' && <p role="alert" className="text-xs text-destructive">{periodResource.state.message} <button type="button" className="underline" onClick={periodResource.reload}>Try again</button></p>}
                   </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="h-10 px-3 text-xs"
-                    disabled={!primaryExam?.courseId}
                     onClick={() => setOpenCreatePeriod(true)}
-                    title={!primaryExam?.courseId ? 'Select an exam paper first to link a period to its course' : 'Create new period'}
+                    title="Create a new period for a course you manage"
                   >
                     <Plus className="size-3.5 mr-1" />
                     New Period
@@ -549,18 +555,19 @@ function CreateSessionForm({
                     id={examSelectId}
                     value={pickerValue}
                     onChange={(e) => setPickerValue(e.target.value)}
-                    disabled={exams.status !== 'ready' || availableExams.length === 0}
+                    disabled={!selectedPeriodId || exams.status !== 'ready' || availableExams.length === 0}
                     className={cn(
                       'h-10 w-full rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-brand',
                       errors.examId && 'border-destructive ring-2 ring-destructive/20'
                     )}
                   >
                     <option value="">
-                      {exams.status === 'loading'
+                      {!selectedPeriodId ? 'Choose an exam period first'
+                        : exams.status === 'loading'
                         ? 'Loading exams…'
                         : availableExams.length
                         ? '+ Select exam paper to add to session'
-                        : 'All available exams have been added'}
+                        : selectedExamIds.length ? 'All available exams have been added' : 'No exam papers available for this course'}
                     </option>
                     {availableExams.map((exam) => (
                       <option key={exam.examId} value={exam.examId}>
@@ -582,6 +589,7 @@ function CreateSessionForm({
                 </div>
 
                 {errors.examId && <p className="text-xs text-destructive">{errors.examId}</p>}
+                {exams.status === 'error' && <p role="alert" className="text-xs text-destructive">{exams.message}</p>}
               </div>
 
               {/* Card 3: Quick Time Slot Setup */}
@@ -814,7 +822,7 @@ function CreateSessionForm({
                 Continue: Enrolled Students
                 <ArrowRight className="size-3.5" />
               </Button>
-              <Button type="submit" disabled={submitting} className="gap-1.5">
+              <Button type="submit" disabled={submitting || loadingPeriods} className="gap-1.5">
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
                 {submitting ? 'Creating…' : 'Create Session'}
               </Button>
@@ -830,7 +838,7 @@ function CreateSessionForm({
                 <ArrowLeft className="size-3.5" />
                 Back to Overview
               </Button>
-              <Button type="submit" disabled={submitting} className="gap-1.5">
+              <Button type="submit" disabled={submitting || loadingPeriods} className="gap-1.5">
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
                 {submitting
                   ? 'Creating & enrolling students…'
@@ -842,15 +850,15 @@ function CreateSessionForm({
       </form>
 
       {/* Mini dialog for creating new exam period */}
-      {openCreatePeriod && primaryExam?.courseId && (
+      {openCreatePeriod && (
         <CreatePeriodDialog
           open={openCreatePeriod}
-          courseId={primaryExam.courseId}
-          courseName={primaryExam.courseName}
+          courseId={selectedPeriod?.courseId ?? primaryExam?.courseId}
+          courseName={selectedPeriod?.courseName ?? primaryExam?.courseName}
           onClose={() => setOpenCreatePeriod(false)}
           onCreated={(created) => {
-            setPeriods((prev) => [created, ...prev])
-            setSelectedPeriodId(String(created.periodId))
+            setCreatedPeriods(prev => [created, ...prev])
+            choosePeriod(String(created.periodId), created)
           }}
         />
       )}

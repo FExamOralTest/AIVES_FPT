@@ -43,6 +43,7 @@ public class RetakeService(AivesDbContext db, TimeProvider? clock = null) : IRet
                 || examId != original.Session.ExamId && exam.ExamStatus == ExamStatus.DRAFT)
                 throw new InvalidOperationException("The retake must use an active exam with questions from the same course.");
             var session = new ExamSession {
+                PeriodId = original.Session.PeriodId, CourseId = exam.CourseId,
                 ExamId = examId, ScheduledBy = callerId, SessionName = $"Thi bù - bài {original.ResultId}",
                 StartTime = request.StartTime, EndTime = request.EndTime, CreatedAt = Now,
                 // Time gates still apply; the examiner does not need a staff account to open this private session.

@@ -1,5 +1,30 @@
 export type AnswerStatusType = 'PROCESSING' | 'EVALUATED' | 'ERROR'
 
+export interface ResultListItem {
+  resultId: number
+  sessionId: number
+  periodId: number | null
+  periodName: string | null
+  studentName: string
+  studentEmail: string
+  studentCode: string
+  sessionName: string
+  examTitle: string
+  status: string
+  aiEvaluationStatus: string | null
+  aiScore: number | null
+  finalScore: number | null
+  submittedAt: string | null
+}
+
+export interface ResultSearchResponse {
+  items: ResultListItem[]
+  sessions: { sessionId: number; sessionName: string }[]
+  totalCount: number
+  page: number
+  pageSize: number
+}
+
 export interface CriterionAnalysis {
   criterionId: string
   awardedScore: number

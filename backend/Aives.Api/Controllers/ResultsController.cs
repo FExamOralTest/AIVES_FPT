@@ -28,6 +28,18 @@ public class ResultsController : ControllerBase
         _resultService = resultService;
     }
 
+    [HttpGet]
+    [ProducesResponseType(typeof(ResultSearchResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Search([FromQuery] ResultSearchQuery query, CancellationToken ct)
+    {
+        var examinerId = GetCurrentUserId();
+        if (examinerId is null) return Unauthorized(new { message = "Invalid token." });
+        try { return Ok(await _resultService.SearchAsync(query, examinerId.Value, ct)); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     /// <summary>
     /// [EXAMINER] Lấy tất cả kết quả PENDING_REVIEW của tất cả sessions do Examiner quản lý.
     /// </summary>

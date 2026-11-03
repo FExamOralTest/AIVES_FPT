@@ -86,6 +86,14 @@ export const FEATURES: FeatureDef[] = [
   // ── Staff ──────────────────────────────────────────────────────────
   {
     role: 'STAFF',
+    path: 'periods',
+    title: 'Exam periods',
+    icon: CalendarClock,
+    summary: 'Create course exam periods and organize their sessions.',
+    status: 'done',
+  },
+  {
+    role: 'STAFF',
     path: 'courses',
     title: 'Courses & documents',
     icon: BookOpen,
@@ -124,7 +132,7 @@ export const FEATURES: FeatureDef[] = [
     path: 'results',
     title: 'Review & publish',
     icon: ClipboardCheck,
-    summary: 'Check AI-suggested scores, replay answers, adjust scores and publish results.',
+    summary: 'Choose an exam period to find student attempts, review scores and publish results.',
     status: 'done',
   },
 

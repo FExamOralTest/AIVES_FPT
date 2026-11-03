@@ -7,6 +7,7 @@ import { UsersPage } from '@/features/admin-users'
 import { GuestRoute, LoginPage, ProtectedRoute, RegisterPage, ROLE_HOME, type UserRole } from '@/features/auth'
 import { EnrollPage } from '@/features/enroll'
 import { SessionsPage } from '@/features/exam-sessions'
+import StaffPeriodsPage from '@/features/exam-sessions/pages/StaffPeriodsPage'
 import { ExamsPage } from '@/features/exams'
 import { LandingPage } from '@/features/landing'
 import { StudentResultsPage } from '@/features/student-results'
@@ -33,6 +34,7 @@ const PAGES: Record<string, ComponentType> = {
   'STAFF/questions': TeacherQuestionsPage,
   'STAFF/exams': ExamsPage,
   'STAFF/sessions': SessionsPage,
+  'STAFF/periods': StaffPeriodsPage,
   'EXAMINER/results': TeacherResultsPage,
   'STUDENT/enroll': EnrollPage,
   'STUDENT/sessions': StudentSessionsPage,

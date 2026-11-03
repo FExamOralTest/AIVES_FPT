@@ -254,7 +254,7 @@ function SessionDetail({
         startTime: sDate.toISOString(),
         endTime: eDate.toISOString(),
         examIds: editExamIds,
-        periodId: editPeriodId ?? undefined,
+        periodId: editPeriodId ?? 0,
       })
       applyUpdate(updated)
       setEditing(false)

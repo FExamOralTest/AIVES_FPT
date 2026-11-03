@@ -1,5 +1,6 @@
 using Aives.Application.Exams.DTOs;
 using Aives.Application.Exams.Interfaces;
+using Aives.Application.Exams.Services;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
@@ -22,6 +23,7 @@ public class ExamSessionRepository : IExamSessionRepository
 
     public async Task<ExamSession> CreateAsync(ExamSession session)
     {
+        await ValidatePeriodAsync(session);
         _db.ExamSessions.Add(session);
         await _db.SaveChangesAsync();
         return session;
@@ -287,7 +289,26 @@ public class ExamSessionRepository : IExamSessionRepository
     public async Task UpdateAsync(ExamSession session)
     {
         await RejectPrivateSessionAsync(session.SessionId);
+        var previous = await _db.ExamSessions.AsNoTracking().Where(s => s.SessionId == session.SessionId)
+            .Select(s => new { s.PeriodId, s.StartTime, s.EndTime, s.CourseId, s.ExamId, s.Status }).SingleOrDefaultAsync();
+        if (previous is not null && previous.PeriodId != session.PeriodId &&
+            (previous.Status != SessionStatus.NOT_STARTED || await _db.SessionEnrollments.AnyAsync(e =>
+                e.SessionId == session.SessionId && e.StartedAt != null) || await _db.Results.AnyAsync(r => r.SessionId == session.SessionId)))
+            throw new InvalidOperationException("The period of an attempt that has started cannot be changed.");
+        if (previous is null || previous.PeriodId != session.PeriodId || previous.StartTime != session.StartTime
+            || previous.EndTime != session.EndTime || previous.CourseId != session.CourseId || previous.ExamId != session.ExamId)
+            await ValidatePeriodAsync(session);
         _db.ExamSessions.Update(session);
+    }
+
+    private async Task ValidatePeriodAsync(ExamSession session)
+    {
+        // Null keeps existing general sessions available in the examiner's Unassigned filter.
+        if (session.PeriodId is not int periodId) return;
+        var period = await _db.ExamPeriods.AsNoTracking().SingleOrDefaultAsync(p => p.PeriodId == periodId)
+            ?? throw new InvalidOperationException("Exam period not found.");
+        var courseId = session.CourseId ?? await _db.Exams.Where(e => e.ExamId == session.ExamId).Select(e => e.CourseId).SingleAsync();
+        ExamPeriodRules.ValidateSession(period, courseId, session.StartTime, session.EndTime);
     }
 
     public async Task<bool> SessionCodeExistsAsync(string sessionCode)

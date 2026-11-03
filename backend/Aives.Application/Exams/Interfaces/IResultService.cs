@@ -4,6 +4,7 @@ namespace Aives.Application.Exams.Interfaces;
 
 public interface IResultService
 {
+    Task<ResultSearchResponse> SearchAsync(ResultSearchQuery query, int examinerId, CancellationToken ct = default);
     Task<IEnumerable<ResultForReviewDto>> GetResultsForReviewAsync(int sessionId, int teacherId);
     Task<ResultForReviewDto> GetResultForReviewAsync(int resultId, int teacherId);
     Task<ResultForReviewDto> ReviewResultAsync(int resultId, ReviewResultRequest request, int teacherId);

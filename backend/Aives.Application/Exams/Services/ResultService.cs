@@ -34,6 +34,19 @@ public class ResultService : IResultService
         _retakes = retakes;
     }
 
+    public async Task<ResultSearchResponse> SearchAsync(ResultSearchQuery query, int examinerId, CancellationToken ct = default)
+    {
+        await EnsureAccessAsync(examinerId, -1);
+        if (query.PeriodId.HasValue && query.Unassigned)
+            throw new ArgumentException("Choose either a period or unassigned sessions.");
+        if (query.Page < 1 || query.Page > 1000000 || query.PageSize < 1 || query.PageSize > 100)
+            throw new ArgumentException("Invalid pagination parameters.");
+        if (query.Status.HasValue && !Enum.IsDefined(query.Status.Value)
+            || query.AiStatus.HasValue && !Enum.IsDefined(query.AiStatus.Value))
+            throw new ArgumentException("Unknown grading status.");
+        return await _resultRepository.SearchAsync(query, ct);
+    }
+
     public async Task<IEnumerable<ResultForReviewDto>> GetResultsForReviewAsync(int sessionId, int teacherId)
     {
         var session = await _sessionRepository.GetByIdAsync(sessionId)

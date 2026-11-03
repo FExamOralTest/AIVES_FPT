@@ -1,4 +1,5 @@
 using Aives.Application.Exams.Interfaces;
+using Aives.Application.Exams.DTOs;
 using Aives.Domain.Entities;
 using Aives.Domain.Enums;
 using Aives.Infrastructure.Persistence;
@@ -13,6 +14,40 @@ public class ResultRepository : IResultRepository
     public ResultRepository(AivesDbContext db)
     {
         _db = db;
+    }
+
+    public async Task<ResultSearchResponse> SearchAsync(ResultSearchQuery query, CancellationToken ct = default)
+    {
+        if (query.PeriodId.HasValue && !await _db.ExamPeriods.AnyAsync(p => p.PeriodId == query.PeriodId, ct))
+            throw new KeyNotFoundException("Exam period not found.");
+        var sessions = _db.ExamSessions.AsNoTracking().AsQueryable();
+        if (query.PeriodId.HasValue) sessions = sessions.Where(s => s.PeriodId == query.PeriodId);
+        if (query.Unassigned) sessions = sessions.Where(s => s.PeriodId == null);
+        var options = await sessions.OrderByDescending(s => s.StartTime).ThenByDescending(s => s.SessionId)
+            .Select(s => new ResultSessionOptionDto { SessionId = s.SessionId, SessionName = s.SessionName }).ToListAsync(ct);
+        var results = _db.Results.AsNoTracking().Where(r => sessions.Select(s => s.SessionId).Contains(r.SessionId));
+        if (query.SessionId.HasValue) results = results.Where(r => r.SessionId == query.SessionId);
+        if (query.Status.HasValue) results = results.Where(r => r.Status == query.Status);
+        if (query.AiStatus.HasValue) results = results.Where(r => r.AiEvaluationStatus == query.AiStatus);
+        var term = query.Search?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(term)) results = results.Where(r =>
+            r.Student.FullName.ToLower().Contains(term) || (r.Student.Email != null && r.Student.Email.ToLower().Contains(term))
+            || (r.Student.Username != null && r.Student.Username.ToLower().Contains(term)));
+        var count = await results.CountAsync(ct);
+        // Only project list fields; load transcripts/audio/analysis via the existing detail endpoint on demand.
+        var items = await results.OrderByDescending(r => r.SubmittedAt.HasValue).ThenByDescending(r => r.SubmittedAt)
+            .ThenByDescending(r => r.ResultId).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
+            .Select(r => new ResultListItemDto {
+                ResultId = r.ResultId, SessionId = r.SessionId, PeriodId = r.Session.PeriodId,
+                PeriodName = r.Session.Period != null ? r.Session.Period.PeriodName : null,
+                StudentName = r.Student.FullName, StudentEmail = r.Student.Email ?? "", StudentCode = r.Student.Username ?? "",
+                SessionName = r.Session.SessionName,
+                ExamTitle = r.Exam != null ? r.Exam.Title : r.Session.Exam != null ? r.Session.Exam.Title : "",
+                Status = r.Status.HasValue ? r.Status.Value.ToString() : "",
+                AiEvaluationStatus = r.AiEvaluationStatus.HasValue ? r.AiEvaluationStatus.Value.ToString() : null,
+                AiScore = r.AiScore, FinalScore = r.FinalScore, SubmittedAt = r.SubmittedAt
+            }).ToListAsync(ct);
+        return new ResultSearchResponse { Items = items, Sessions = options, TotalCount = count, Page = query.Page, PageSize = query.PageSize };
     }
 
     public async Task<Result?> GetByIdAsync(int resultId)
