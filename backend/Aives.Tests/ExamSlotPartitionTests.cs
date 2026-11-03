@@ -195,7 +195,7 @@ public class ExamSlotPartitionTests : IDisposable
             Questions = questions.Take(10).Select(q => new ExamQuestionItem
             {
                 QuestionId = q.QuestionId,
-                QuestionScore = 1.0f
+                QuestionScore = 10f
             }).ToList(),
             SlotTemplates = new List<CreateExamSlotTemplateInput>
             {
@@ -211,7 +211,7 @@ public class ExamSlotPartitionTests : IDisposable
                     Questions = questions.Take(5).Select(q => new ExamQuestionItem
                     {
                         QuestionId = q.QuestionId,
-                        QuestionScore = 1.0f
+                        QuestionScore = 20f
                     }).ToList()
                 },
                 new()
@@ -221,7 +221,7 @@ public class ExamSlotPartitionTests : IDisposable
                     Questions = questions.Skip(5).Take(5).Select(q => new ExamQuestionItem
                     {
                         QuestionId = q.QuestionId,
-                        QuestionScore = 1.0f
+                        QuestionScore = 20f
                     }).ToList()
                 }
             }

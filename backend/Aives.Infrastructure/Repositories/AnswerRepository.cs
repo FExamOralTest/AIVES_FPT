@@ -29,6 +29,13 @@ public class AnswerRepository : IAnswerRepository
                 .ThenInclude(r => r.Session)
                     .ThenInclude(s => s.Exam)
                         .ThenInclude(e => e.Course)
+            .Include(a => a.Result)
+                .ThenInclude(r => r.Session)
+                    .ThenInclude(s => s.Exam)
+                        .ThenInclude(e => e.ExamQuestions)
+            .Include(a => a.Result)
+                .ThenInclude(r => r.Exam)
+                    .ThenInclude(e => e!.ExamQuestions)
             .FirstOrDefaultAsync(a => a.AnswerId == answerId, cancellationToken);
     }
 

@@ -144,7 +144,7 @@ public class VivaSessionService : IVivaSessionService
                 TotalQuestions = totalQuestions,
                 QuestionText = currentEq.Question?.QuestionText ?? "",
                 Level = currentEq.Question?.Level ?? 1,
-                MaxScore = currentEq.Question?.MaxScore ?? currentEq.QuestionScore,
+                MaxScore = currentEq.QuestionScore,
                 IsFollowUpAllowed = currentEq.Question?.IsFollowUpAllowed ?? true,
                 IsFollowUp = false
             };
@@ -202,7 +202,7 @@ public class VivaSessionService : IVivaSessionService
             TotalQuestions = totalQuestions,
             QuestionText = currentEq.Question?.QuestionText ?? "",
             Level = currentEq.Question?.Level ?? 1,
-            MaxScore = currentEq.Question?.MaxScore ?? currentEq.QuestionScore,
+            MaxScore = currentEq.QuestionScore,
             IsFollowUpAllowed = currentEq.Question?.IsFollowUpAllowed ?? true,
             IsFollowUp = false
         };
@@ -395,7 +395,8 @@ public class VivaSessionService : IVivaSessionService
                 TotalQuestions = totalQuestions,
                 QuestionText = followUpQuestionText!,
                 Level = question.Level,
-                MaxScore = question.MaxScore,
+                MaxScore = examQuestions.FirstOrDefault(item => item.QuestionId == request.QuestionId)?.QuestionScore
+                    ?? question.MaxScore,
                 IsFollowUpAllowed = false,
                 IsFollowUp = true
             };
@@ -410,7 +411,7 @@ public class VivaSessionService : IVivaSessionService
                 TotalQuestions = totalQuestions,
                 QuestionText = nextEq.Question?.QuestionText ?? "",
                 Level = nextEq.Question?.Level ?? 1,
-                MaxScore = nextEq.Question?.MaxScore ?? nextEq.QuestionScore,
+                MaxScore = nextEq.QuestionScore,
                 IsFollowUpAllowed = nextEq.Question?.IsFollowUpAllowed ?? true,
                 IsFollowUp = false
             };

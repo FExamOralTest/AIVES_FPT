@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Aives.Application.AI.DTOs;
 using Aives.Application.AI.Interfaces;
+using Aives.Application.Exams;
 using Aives.Application.Exams.Interfaces;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Application.Queue.Contracts;
@@ -133,8 +134,11 @@ public class SessionGradingService : ISessionGradingService
         {
             var answer = answersById[itemEval.QuestionId];
             var context = contextsById[itemEval.QuestionId];
-            itemEval.Score = MathF.Round(itemEval.CriterionAnalyses.Sum(criterion => criterion.AwardedScore), 4);
-            itemEval.MaxScore = context.Rubric.Sum(criterion => criterion.MaxScore);
+            var rubricScore = MathF.Round(itemEval.CriterionAnalyses.Sum(criterion => criterion.AwardedScore), 4);
+            var rubricMax = context.Rubric.Sum(criterion => criterion.MaxScore);
+            var questionPercent = ExamPercentage.WeightFor(result, answer.QuestionId, rubricMax);
+            itemEval.Score = ExamPercentage.Scale(rubricScore, rubricMax, questionPercent);
+            itemEval.MaxScore = questionPercent;
             answer.AiScore = itemEval.Score;
             answer.AiFeedback = itemEval.Feedback;
             answer.Status = AnswerStatus.EVALUATED;

@@ -444,7 +444,11 @@ public class ResultEndToEndTests : IDisposable
         var reviewAction = await resultsController.ReviewResult(seed.Result.ResultId, new ReviewResultRequest
         {
             FinalScore = 9.0f,
-            FinalFeedback = "Excellent performance."
+            FinalFeedback = "Excellent performance.",
+            AnswerReviews = new List<AnswerReviewItem>
+            {
+                new() { AnswerId = seed.Answer.AnswerId, FinalScore = 9.0f }
+            }
         });
         var okReview = Assert.IsType<OkObjectResult>(reviewAction);
         var reviewDto = Assert.IsType<ResultForReviewDto>(okReview.Value);

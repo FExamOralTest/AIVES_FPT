@@ -31,6 +31,11 @@ public class ResultRepository : IResultRepository
             .Include(r => r.Session)
                 .ThenInclude(s => s.Exam)
                     .ThenInclude(e => e.Course)
+            .Include(r => r.Session)
+                .ThenInclude(s => s.Exam)
+                    .ThenInclude(e => e.ExamQuestions)
+            .Include(r => r.Exam)
+                .ThenInclude(e => e!.ExamQuestions)
             .Include(r => r.Student)
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
@@ -42,6 +47,11 @@ public class ResultRepository : IResultRepository
     public async Task<IEnumerable<Result>> GetBySessionIdWithDetailsAsync(int sessionId)
     {
         return await _db.Results
+            .Include(r => r.Session)
+                .ThenInclude(s => s.Exam)
+                    .ThenInclude(e => e.ExamQuestions)
+            .Include(r => r.Exam)
+                .ThenInclude(e => e!.ExamQuestions)
             .Include(r => r.Student)
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
@@ -56,6 +66,9 @@ public class ResultRepository : IResultRepository
         return await _db.Results
             .Include(r => r.Session)
                 .ThenInclude(s => s.Exam)
+                    .ThenInclude(e => e.ExamQuestions)
+            .Include(r => r.Exam)
+                .ThenInclude(e => e!.ExamQuestions)
             .Include(r => r.Student)
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
@@ -132,6 +145,9 @@ public class ResultRepository : IResultRepository
         return await _db.Results
             .Include(r => r.Session)
                 .ThenInclude(s => s.Exam)
+                    .ThenInclude(e => e.ExamQuestions)
+            .Include(r => r.Exam)
+                .ThenInclude(e => e!.ExamQuestions)
             .Include(r => r.Student)
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
@@ -147,6 +163,9 @@ public class ResultRepository : IResultRepository
         return await _db.Results
             .Include(r => r.Session)
                 .ThenInclude(s => s.Exam)
+                    .ThenInclude(e => e.ExamQuestions)
+            .Include(r => r.Exam)
+                .ThenInclude(e => e!.ExamQuestions)
             .Include(r => r.Student)
             .Include(r => r.ReviewedByNavigation)
             .Include(r => r.Answers)
