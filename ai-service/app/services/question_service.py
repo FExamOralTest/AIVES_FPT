@@ -12,6 +12,11 @@ from app.core.ai_client import BaseAIClient, get_ai_client
 from app.models.request import GenerateQuestionRequest
 from app.models.response import GenerateQuestionResponse
 from app.services.markdown_processor import MarkdownProcessor
+from app.exceptions.ai_exceptions import (
+    AIValidationError,
+    AITimeoutError,
+    MaxRetriesExceededError,
+)
 
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "question_prompt.txt"
@@ -108,9 +113,12 @@ class QuestionService:
             raise ValueError("Return valid JSON without surrounding commentary") from exc
         if not isinstance(data, dict):
             raise ValueError("Return one JSON object, not a list or scalar")
+        fields = set(GenerateQuestionResponse.model_fields) - {"success", "message"}
+        if set(data) - fields:
+            raise ValueError("Return only the requested question fields")
         try:
             response = GenerateQuestionResponse.model_validate(
-                {**data, "success": True, "message": None}
+                {**data, "success": True, "message": None}, strict=True
             )
         except ValidationError as exc:
             errors = "; ".join(
@@ -156,9 +164,15 @@ class QuestionService:
             if correction:
                 payload["validation_feedback"] = correction
             try:
-                raw = await self.ai_client.complete(
+                # Use complete_with_retry for automatic retry with exponential backoff
+                raw = await self.ai_client.complete_with_retry(
                     _QUESTION_PROMPT_TEMPLATE, json.dumps(payload, ensure_ascii=False)
                 )
+            except (AITimeoutError, MaxRetriesExceededError) as exc:
+                logger.error(f"[QuestionService] AI error: {exc}")
+                raise QuestionGenerationError(
+                    "The AI provider timed out or exceeded max retries."
+                ) from exc
             except ValueError as exc:
                 raise QuestionGenerationError(
                     "The AI provider returned an unreadable response."

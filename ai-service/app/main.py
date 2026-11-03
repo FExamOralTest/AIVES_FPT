@@ -16,8 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.api import interview, speech, evaluation, markdown
-from app.models.response import HealthResponse
+from app.api import interview, speech, evaluation, markdown, questions
 
 settings = get_settings()
 
@@ -87,29 +86,13 @@ def create_app() -> FastAPI:
     app.include_router(speech.router, prefix=api_prefix)
     app.include_router(evaluation.router, prefix=api_prefix)
     app.include_router(markdown.router, prefix=api_prefix)
+    app.include_router(questions.router, prefix=api_prefix)
     
-    # Aliases for backend backwards compatibility
+    # Aliases for backwards compatibility
     app.post("/ai/generate-questions", tags=["Interview"], include_in_schema=False)(interview.batch_generate_questions)
     app.post("/api/ai/generate-questions", tags=["Interview"], include_in_schema=False)(interview.batch_generate_questions)
 
-    # ── Health & Root ──────────────────────────────────────
-    @app.get(
-        "/health",
-        response_model=HealthResponse,
-        tags=["Health"],
-        summary="Health Check",
-        description="Returns service status and configured AI providers.",
-    )
-    async def health_check() -> HealthResponse:
-        return HealthResponse(
-            status="ok",
-            service="aives-ai",
-            version="1.0.0",
-            ai_provider=settings.ai_provider,
-            stt_provider=settings.stt_provider,
-            tts_provider=settings.tts_provider,
-        )
-
+    # ── Root ───────────────────────────────────────────────
     @app.get("/", include_in_schema=False)
     async def root():
         return JSONResponse(
@@ -117,7 +100,6 @@ def create_app() -> FastAPI:
                 "service": "AIVES AI Service",
                 "version": "1.0.0",
                 "docs": "/docs",
-                "health": "/health",
             }
         )
 

@@ -23,6 +23,16 @@ public partial class Exam
 
     public ExamStatus? ExamStatus { get; set; }
 
+    /// <summary>
+    /// Soft-delete flag. Khi <c>false</c>, exam bị ẩn khỏi các API đọc mặc định
+    /// (ví dụ <c>GET /api/admin/exams</c> với <c>includeInactive=false</c>) nhưng vẫn còn trong DB.
+    /// </summary>
+    /// <remarks>
+    /// Mặc định <c>true</c> để exam mới luôn hiện diện. Soft-delete là thao tác UPDATE
+    /// (không phải INSERT) nên không bị ảnh hưởng bởi sentinel value của EF Core.
+    /// </remarks>
+    public bool IsActive { get; set; } = true;
+
     public DateTime? CreatedAt { get; set; }
 
     public virtual Course Course { get; set; } = null!;
@@ -32,4 +42,16 @@ public partial class Exam
     public virtual ICollection<ExamQuestion> ExamQuestions { get; set; } = new List<ExamQuestion>();
 
     public virtual ICollection<ExamSession> ExamSessions { get; set; } = new List<ExamSession>();
+
+    public virtual ICollection<ExamSessionExam> SessionExams { get; set; } = new List<ExamSessionExam>();
+
+    public virtual ICollection<SessionEnrollment> AssignedEnrollments { get; set; } = new List<SessionEnrollment>();
+
+    public virtual ICollection<Result> Results { get; set; } = new List<Result>();
+
+    public virtual ICollection<ExamSlotTemplate> SlotTemplates { get; set; } = new List<ExamSlotTemplate>();
+
+    public virtual ICollection<ExamSlotTemplateExam> SlotTemplateExams { get; set; } = new List<ExamSlotTemplateExam>();
+
+    public virtual ICollection<ExamSessionSlotExam> SessionSlotExams { get; set; } = new List<ExamSessionSlotExam>();
 }

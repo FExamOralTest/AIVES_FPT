@@ -1,3 +1,5 @@
+using Aives.Application.AI.DTOs;
+
 namespace Aives.Application.Exams.DTOs;
 
 public class StudentResultDto
@@ -25,6 +27,8 @@ public class StudentAnswerItemDto
     public string? Transcript { get; set; }
     public string? AudioUrl { get; set; }
     public float? FinalScore { get; set; }
+    public float? MaxScore { get; set; }
     public string? TeacherComment { get; set; }
     public bool IsFollowUp { get; set; }
+    public StoredAnswerAnalysisDto? AiAnalysis { get; set; }
 }

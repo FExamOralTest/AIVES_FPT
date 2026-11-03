@@ -9,35 +9,41 @@ export interface ApiError {
   rawMessage: string | null
 }
 
-// Backend returns English messages; map the known ones to Vietnamese for the UI.
-const KNOWN_MESSAGES: Record<string, string> = {
-  'Username already exists.': 'Tên đăng nhập này đã được sử dụng.',
-  'Email already exists.': 'Email này đã được đăng ký. Đăng nhập hoặc dùng email khác.',
-  'Invalid username or password.': 'Email hoặc mật khẩu không đúng.',
-  'Email already in use.': 'Email này đã được tài khoản khác sử dụng.',
-  'Cannot change your own role.': 'Bạn không thể tự đổi vai trò của chính mình.',
-  'Cannot demote the last admin user.': 'Không thể hạ quyền quản trị viên cuối cùng.',
-  'Password must be at least 8 characters long.': 'Mật khẩu cần ít nhất 8 ký tự.',
-  'Password must contain at least one uppercase letter.': 'Mật khẩu cần ít nhất một chữ hoa.',
-  'Password must contain at least one lowercase letter.': 'Mật khẩu cần ít nhất một chữ thường.',
-  'Password must contain at least one digit.': 'Mật khẩu cần ít nhất một chữ số.',
-  'Password must contain at least one special character.': 'Mật khẩu cần ít nhất một ký tự đặc biệt.',
-  'Invalid or expired Enroll Code.': 'Mã tham gia không đúng. Kiểm tra lại mã giảng viên cung cấp.',
-  'This session is not open for enrollment.': 'Ca thi này đã kết thúc hoặc đã bị huỷ, không thể tham gia.',
-  'Session has reached maximum capacity.': 'Ca thi đã đủ số lượng sinh viên. Liên hệ giảng viên để được hỗ trợ.',
-  'You are already enrolled in this session.': 'Bạn đã tham gia ca thi này rồi.',
-  'StartTime must be earlier than EndTime.': 'Giờ bắt đầu phải trước giờ kết thúc.',
-  'StartTime cannot be in the past.': 'Giờ bắt đầu không được ở quá khứ.',
-  'You do not have permission to create a session for this exam.': 'Bạn không phải người tạo đề thi này.',
+// Backend messages are already English; these rewrite the terse or technical ones for end users.
+const FRIENDLY_MESSAGES: Record<string, string> = {
+  'Invalid username or password.': 'Incorrect email or password.',
+  'Username already exists.': 'This username is already taken.',
+  'Email already exists.': 'This email is already registered. Sign in or use another email.',
+  'Email already in use.': 'This email is already used by another account.',
+  'Invalid or expired Enroll Code.': 'This join code is not valid. Check the code your lecturer gave you.',
+  'This session is not open for enrollment.': 'This exam session has ended or was cancelled, so you can no longer join.',
+  'Session has reached maximum capacity.': 'This exam session is full. Contact your lecturer for help.',
+  'You are already enrolled in this session.': 'You have already joined this exam session.',
+  'StartTime must be earlier than EndTime.': 'The start time must be before the end time.',
+  'StartTime cannot be in the past.': 'The start time cannot be in the past.',
+  'You do not have permission to create a session for this exam.': 'You did not create this exam.',
+  'This question is already in use. Create a new question instead.':
+    'This question is already used in an exam. Create a new question to change its content.',
+  'Only pending questions can be approved.': 'This question has already been reviewed. Refresh the list to see its status.',
+  'Only pending questions can be rejected.': 'This question has already been reviewed. Refresh the list to see its status.',
+  'A rejection reason is required.': 'Enter a reason for rejecting this question.',
+  'You are not assigned to this course.': 'You are not assigned to this course, so you cannot review its questions.',
+  'This course already has a document of this type. Replace the existing document instead.':
+    'This course already has a document of this type. Replace the existing one instead.',
 }
 
-// Statuses whose meaning doesn't depend on the endpoint, so the UI message is fixed.
+// Statuses whose meaning doesn't depend on the endpoint.
 const STATUS_MESSAGES: Record<number, string> = {
-  403: 'Tài khoản của bạn không có quyền thực hiện thao tác này.',
-  429: 'Bạn đã thử quá nhiều lần. Vui lòng đợi khoảng 15 phút rồi thử lại.',
+  401: 'Your session has expired or you are not signed in. Please sign in again.',
+  403: 'Your account does not have permission to do this.',
+  404: 'The requested item could not be found. Refresh the page and try again.',
+  409: 'This action conflicts with the current state of the item. Refresh the page and try again.',
+  429: 'Too many attempts. Please wait about 15 minutes and try again.',
 }
 
-export function toApiError(error: unknown, fallback = 'Đã có lỗi xảy ra. Vui lòng thử lại.'): ApiError {
+const INVALID_INPUT = 'Some details are not valid. Check the fields below.'
+
+export function toApiError(error: unknown, fallback = 'Something went wrong. Please try again.'): ApiError {
   if (!axios.isAxiosError(error)) {
     return { status: null, message: fallback, fieldErrors: {}, rawMessage: null }
   }
@@ -46,7 +52,7 @@ export function toApiError(error: unknown, fallback = 'Đã có lỗi xảy ra. 
   if (!error.response || [502, 503, 504].includes(error.response.status)) {
     return {
       status: null,
-      message: 'Không kết nối được máy chủ. Kiểm tra mạng hoặc thử lại sau.',
+      message: 'Cannot reach the server. Check your connection or try again later.',
       fieldErrors: {},
       rawMessage: null,
     }
@@ -58,7 +64,7 @@ export function toApiError(error: unknown, fallback = 'Đã có lỗi xảy ra. 
   if (data && typeof data === 'object' && 'errors' in data && data.errors && typeof data.errors === 'object') {
     for (const [key, messages] of Object.entries(data.errors as Record<string, string[]>)) {
       const field = key.charAt(0).toLowerCase() + key.slice(1)
-      if (Array.isArray(messages) && messages.length) fieldErrors[field] = KNOWN_MESSAGES[messages[0]] ?? messages[0]
+      if (Array.isArray(messages) && messages.length) fieldErrors[field] = FRIENDLY_MESSAGES[messages[0]] ?? messages[0]
     }
   }
 
@@ -67,11 +73,13 @@ export function toApiError(error: unknown, fallback = 'Đã có lỗi xảy ra. 
       ? data.message
       : null
 
-  if (STATUS_MESSAGES[status]) return { status, message: STATUS_MESSAGES[status], fieldErrors, rawMessage }
+  if (status === 429) return { status, message: STATUS_MESSAGES[status], fieldErrors, rawMessage }
 
   const message =
-    (rawMessage && KNOWN_MESSAGES[rawMessage]) ??
-    (status === 400 ? 'Thông tin chưa hợp lệ. Kiểm tra lại các trường bên dưới.' : rawMessage ?? fallback)
+    (rawMessage && FRIENDLY_MESSAGES[rawMessage]) ??
+    (status === 400 && Object.keys(fieldErrors).length > 0 ? INVALID_INPUT : rawMessage) ??
+    STATUS_MESSAGES[status] ??
+    (status === 400 ? INVALID_INPUT : fallback)
 
   return { status, message, fieldErrors, rawMessage }
 }

@@ -20,7 +20,7 @@ export function Logo({ to = '/', className }: LogoProps) {
   return (
     <Link
       to={to}
-      aria-label="AIVES, về trang chủ"
+      aria-label="AIVES, go to home page"
       className={cn('inline-flex items-center gap-2.5 font-heading text-xl tracking-tight text-foreground', className)}
     >
       <LogoMark />

@@ -1,4 +1,4 @@
-﻿using Aives.Application.DTOs;
+using Aives.Application.DTOs;
 using Aives.Application.Interfaces.Repositories;
 using Aives.Application.Interfaces.Services;
 using Aives.Domain.Entities;
@@ -45,11 +45,11 @@ public class MarkdownDocumentService : IMarkdownDocumentService
         var uploader = await _userRepo.GetByIdAsync(req.UploadedBy)
             ?? throw new KeyNotFoundException("User not found.");
 
-        if (uploader.Role != UserRole.TEACHER && uploader.Role != UserRole.ADMIN)
-            throw new UnauthorizedAccessException("Only teachers or admins can upload documents.");
+        if (uploader.Role != UserRole.STAFF && uploader.Role != UserRole.ADMIN)
+            throw new UnauthorizedAccessException("Only academic staff or admins can upload documents.");
 
-        if (uploader.Role == UserRole.TEACHER && course.TeacherId != req.UploadedBy)
-            throw new UnauthorizedAccessException("Teacher is not assigned to this course.");
+        if (uploader.Role == UserRole.STAFF && course.TeacherId != req.UploadedBy)
+            throw new UnauthorizedAccessException("Staff is not assigned to this course.");
 
         if (await _docRepo.ExistsByTypeAsync(req.CourseId, req.DocType))
             throw new InvalidOperationException(
@@ -125,9 +125,12 @@ public class MarkdownDocumentService : IMarkdownDocumentService
         var requester = await _userRepo.GetByIdAsync(requestedByUserId)
             ?? throw new KeyNotFoundException("User not found.");
 
-        if (doc.UploadedBy != requestedByUserId && requester.Role != UserRole.ADMIN)
+        var course = await _courseRepo.GetByIdAsync(doc.CourseId);
+        var isAssignedTeacher = course != null && course.TeacherId == requestedByUserId;
+
+        if (doc.UploadedBy != requestedByUserId && !isAssignedTeacher && requester.Role != UserRole.ADMIN)
             throw new UnauthorizedAccessException(
-                "Only the uploading teacher or an admin can delete this document.");
+                "Only the assigned teacher, uploading teacher, or an admin can delete this document.");
 
         await _docRepo.DeleteAsync(documentId);
     }

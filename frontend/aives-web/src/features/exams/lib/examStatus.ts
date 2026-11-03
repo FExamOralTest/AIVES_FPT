@@ -1,11 +1,11 @@
 import type { ExamStatus } from '../types'
 
 export const EXAM_STATUS_LABEL: Record<ExamStatus, string> = {
-  DRAFT: 'Nháp',
-  SCHEDULED: 'Đã lên lịch',
-  OPEN: 'Đang mở',
-  CLOSED: 'Đã đóng',
-  CANCELLED: 'Đã huỷ',
+  DRAFT: 'Draft',
+  SCHEDULED: 'Scheduled',
+  OPEN: 'Open',
+  CLOSED: 'Closed',
+  CANCELLED: 'Cancelled',
 }
 
 export const EXAM_STATUS_TONE: Record<ExamStatus, string> = {

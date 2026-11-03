@@ -8,7 +8,7 @@ export function SiteFooter() {
           <LogoMark />
           aives
         </span>
-        <span>Hệ thống thi vấn đáp với AI. Dữ liệu cá nhân xử lý theo Nghị định 13/2023/NĐ-CP.</span>
+        <span>AI-powered viva exam system. Personal data is processed in accordance with Decree 13/2023/ND-CP.</span>
       </div>
     </footer>
   )

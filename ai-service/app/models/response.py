@@ -6,6 +6,8 @@ Pydantic schemas for all outgoing API responses to the Backend.
 from typing import Annotated, List, Literal, Optional
 from pydantic import BaseModel, Field, StringConstraints
 
+from app.models.feedback import CriterionAnalysis, SentenceFeedback
+
 
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -85,10 +87,17 @@ class GenerateFollowUpResponse(BaseResponse):
 # ─────────────────────────────────────────────
 
 
+class SttErrorPayload(BaseModel):
+    code: str
+    message: str
+    retryable: bool
+
+
 class SpeechToTextResponse(BaseResponse):
     """Response from STT transcription."""
 
     transcript: str = Field(..., description="Transcribed text from student's audio")
+    duration: float = Field(default=0.0, ge=0, allow_inf_nan=False, description="Audio duration in seconds")
     confidence: Optional[float] = Field(
         default=None,
         ge=0.0,
@@ -96,8 +105,17 @@ class SpeechToTextResponse(BaseResponse):
         description="Confidence score (0.0 to 1.0)",
     )
     language_detected: Optional[str] = Field(
-        default=None, description="Detected language BCP-47 code"
+        default=None, description="Language code returned by the STT provider"
     )
+    error: Optional[SttErrorPayload] = None
+
+
+class StoredSpeechToTextResponse(BaseResponse):
+    answer_id: int = Field(serialization_alias="answerId")
+    transcript: str
+    language: str
+    duration: float = Field(ge=0, allow_inf_nan=False)
+    error: Optional[SttErrorPayload] = None
 
 
 # ─────────────────────────────────────────────
@@ -126,9 +144,12 @@ class EvaluateAnswerResponse(BaseResponse):
     """Response from evaluating a single Q&A pair."""
 
     question_id: str = Field(..., description="UUID of the evaluated Question")
-    score: float = Field(..., ge=0, description="Score awarded for this answer")
-    max_score: float = Field(..., ge=0, description="Maximum possible score")
+    score: float = Field(..., ge=0, description="Sum of the awarded rubric scores")
+    max_score: float = Field(..., ge=0, description="Sum of the rubric criterion maxima")
     feedback: str = Field(..., description="AI-generated textual feedback")
+    provider: str = Field(..., description="AI provider that produced the evaluation")
+    model: str = Field(..., description="Model name used by the provider")
+    schema_version: str = Field(default="2.0", description="Audit schema version")
     strengths: List[str] = Field(
         default_factory=list, description="What the student did well"
     )
@@ -138,6 +159,18 @@ class EvaluateAnswerResponse(BaseResponse):
     missing_content: List[str] = Field(
         default_factory=list,
         description="Key content missing from the student's answer",
+    )
+    sentence_feedback: List[SentenceFeedback] = Field(
+        default_factory=list,
+        description="Judgment of each transcript sentence",
+    )
+    criterion_analyses: List[CriterionAnalysis] = Field(
+        default_factory=list,
+        description="Correctness, errors, and omissions for each rubric criterion",
+    )
+    improvements: List[str] = Field(
+        default_factory=list,
+        description="What the student should add for unmet criteria",
     )
 
 
@@ -158,6 +191,9 @@ class QuestionScoreDetail(BaseModel):
     strengths: List[str] = Field(default_factory=list)
     weaknesses: List[str] = Field(default_factory=list)
     missing_content: List[str] = Field(default_factory=list)
+    sentence_feedback: List[SentenceFeedback] = Field(default_factory=list)
+    criterion_analyses: List[CriterionAnalysis] = Field(default_factory=list)
+    improvements: List[str] = Field(default_factory=list)
 
 
 class EvaluateSessionResponse(BaseResponse):
@@ -177,26 +213,17 @@ class EvaluateSessionResponse(BaseResponse):
     question_scores: List[QuestionScoreDetail] = Field(
         ..., description="Per-question breakdown"
     )
+    provider: str = Field(..., description="AI provider that produced the evaluation")
+    model: str = Field(..., description="Model name used by the provider")
+    schema_version: str = Field(default="2.0", description="Audit schema version")
+    study_suggestions: List[str] = Field(
+        default_factory=list,
+        description="Review targets taken from unmet rubric criteria",
+    )
     status: str = Field(
         default="PendingReview",
         description="Result status: always 'PendingReview' after AI evaluation",
     )
-
-
-# ─────────────────────────────────────────────
-#  Health Check
-# ─────────────────────────────────────────────
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: str = "ok"
-    service: str = "aives-ai"
-    version: str = "1.0.0"
-    ai_provider: Optional[str] = None
-    stt_provider: Optional[str] = None
-    tts_provider: Optional[str] = None
 
 
 # ─────────────────────────────────────────────

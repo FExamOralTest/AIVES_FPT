@@ -6,6 +6,14 @@ import { tokenStorage } from '../lib/tokenStorage'
 import type { LoginRequest, User } from '../types'
 import { AuthContext, type AuthContextValue, type AuthStatus } from './authContext'
 
+// Configure token getter immediately so early API requests have access to stored token
+configureHttpAuth({
+  getToken: tokenStorage.getToken,
+  onUnauthorized: () => {
+    tokenStorage.clear()
+  },
+})
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => (tokenStorage.getToken() ? tokenStorage.getUser() : null))
   const [status, setStatus] = useState<AuthStatus>(() => (tokenStorage.getToken() ? 'loading' : 'guest'))

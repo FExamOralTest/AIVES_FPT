@@ -1,0 +1,53 @@
+{
+  "exam_session_id": "s1",
+  "course_name": "Software Engineering",
+  "documents": [
+    {
+      "document_id": "doc-course-1",
+      "title": "Agile Methodology",
+      "content": "# Agile\n\n## Core principles\n\n- Individuals and interactions over processes and tools\n- Working software over comprehensive documentation\n- Customer collaboration over contract negotiation\n- Responding to change over following a plan\n\n## Scrum\n\n- A Scrum project is delivered in sprints that last 2-4 weeks.\n- The team holds a daily standup meeting to synchronise work.\n- At the end of every sprint the team runs a sprint review with stakeholders and a retrospective to improve the process.\n",
+      "document_type": "course_content"
+    },
+    {
+      "document_id": "doc-los-1",
+      "title": "Learning Outcomes",
+      "content": "# Learning Outcomes\n\n- Explain the core principles of the Agile Manifesto.\n- Compare Agile with the Waterfall methodology.\n- Apply Scrum practices including sprints, daily standups, sprint review and retrospective.\n- Identify project types where Agile is a good fit.\n",
+      "document_type": "learning_outcomes"
+    }
+  ],
+  "question_answer": {
+    "question_id": "q-case-a",
+    "question_text": "Giải thích phương pháp Agile và so sánh nó với mô hình Waterfall.",
+    "student_answer": "Phương pháp Agile là một cách tiếp cận lặp (iterative) và tăng dần, trong đó dự án được chia thành các sprint ngắn thay vì thực hiện tuần tự một lần từ đầu đến cuối. Khác với mô hình Waterfall vốn đi theo trình tự thu hoạch, thiết kế, phát triển, kiểm thử và rất khó thay đổi yêu cầu khi đã vào giai đoạn sau, Agile cho phép khách hàng điều chỉnh yêu cầu sau mỗi sprint. Bốn giá trị cốt lõi của Agile Manifesto là: cá nhân và tương tác hơn là quy trình và công cụ; phần mềm chạy được hơn là tài liệu đầy đủ; cộng tác với khách hàng hơn là đàm phán hợp đồng; và sẵn sàng đáp ứng thay đổi hơn là bám theo kế hoạch. Trong một dự án thực tế, nhóm của tôi đã áp dụng Scrum với sprint 2 tuần: mỗi sáng có daily standup để đồng bộ tiến độ, cuối mỗi sprint có sprint review trình bày sản phẩm cho khách hàng và retrospective để nhóm rút kinh nghiệm cải tiến quy trình.",
+    "is_follow_up": false,
+    "sample_answer": "Agile phát triển sản phẩm theo các vòng lặp ngắn, ưu tiên một bản chạy được sau mỗi sprint, với Scrum sprint kéo dài 2-4 tuần kèm daily standup, sprint review và retrospective.",
+    "learning_outcome": "Compare Agile with the Waterfall methodology.",
+    "topic": "Agile Methodology",
+    "max_score": 10.0,
+    "rubric": [
+      {
+        "criterion_id": "c1",
+        "description": "Explain core Agile principles accurately",
+        "max_score": 4.0
+      },
+      {
+        "criterion_id": "c2",
+        "description": "Compare with Waterfall methodology",
+        "max_score": 3.0
+      },
+      {
+        "criterion_id": "c3",
+        "description": "Provide real-world examples",
+        "max_score": 3.0
+      }
+    ],
+    "expected_keywords": [
+      "Agile",
+      "iterative",
+      "Waterfall",
+      "Agile Manifesto",
+      "Scrum"
+    ]
+  },
+  "max_score": 10.0
+}

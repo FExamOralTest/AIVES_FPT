@@ -59,5 +59,38 @@ public static class DatabaseSeeder
         await db.SaveChangesAsync();
 
         logger.LogInformation("Admin user '{Username}' seeded successfully", adminUsername);
+
+        // In Development mode, seed test users for all roles if they don't exist
+        var isDev = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?.Equals("Development", StringComparison.OrdinalIgnoreCase) ?? true;
+
+        if (isDev)
+        {
+            var testUsers = new[]
+            {
+                (Username: "staff_01", FullName: "Nguyen Van Staff (Giang vien)", Email: "staff01@aives.edu.vn", Role: UserRole.STAFF),
+                (Username: "examiner_01", FullName: "Tran Thi Examiner (Khao thi)", Email: "examiner01@aives.edu.vn", Role: UserRole.EXAMINER),
+                (Username: "student_01", FullName: "Le Van Student (Sinh vien)", Email: "student01@aives.edu.vn", Role: UserRole.STUDENT),
+            };
+
+            foreach (var (username, fullName, email, role) in testUsers)
+            {
+                if (!await db.Users.AnyAsync(u => u.Username == username))
+                {
+                    db.Users.Add(new User
+                    {
+                        Username = username,
+                        FullName = fullName,
+                        Email = email,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("Dev@12345", workFactor: 12),
+                        Role = role,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    logger.LogInformation("Test user '{Username}' ({Role}) seeded successfully", username, role);
+                }
+            }
+            await db.SaveChangesAsync();
+        }
     }
 }
+

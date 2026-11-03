@@ -34,7 +34,7 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
         {children}
         <DialogPrimitive.Close className="absolute top-4 right-4 inline-flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
           <XIcon className="size-[18px]" />
-          <span className="sr-only">Đóng</span>
+          <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

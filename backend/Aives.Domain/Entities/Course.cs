@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Aives.Domain.Entities;
@@ -22,6 +22,10 @@ public partial class Course
     public virtual ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
 
     public virtual ICollection<Exam> Exams { get; set; } = new List<Exam>();
+
+    public virtual ICollection<ExamPeriod> ExamPeriods { get; set; } = new List<ExamPeriod>();
+
+    public virtual ICollection<ExamSession> ExamSessions { get; set; } = new List<ExamSession>();
 
     public virtual ICollection<MarkdownDocument> MarkdownDocuments { get; set; } = new List<MarkdownDocument>();
 

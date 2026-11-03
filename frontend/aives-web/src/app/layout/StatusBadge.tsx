@@ -3,20 +3,14 @@ import { ENDPOINT_STATE_LABEL, STATUS_LABEL, type EndpointState, type FeatureSta
 
 const TONE = {
   done: 'bg-success text-white',
-  ready: 'bg-success-soft text-success',
   ok: 'bg-success-soft text-success',
-  partial: 'bg-warning-soft text-warning',
-  issue: 'bg-warning-soft text-warning',
   pending: 'bg-muted text-muted-foreground',
   missing: 'bg-muted text-muted-foreground',
 } as const
 
 const DOT = {
   done: 'bg-white',
-  ready: 'bg-success',
   ok: 'bg-success',
-  partial: 'bg-warning',
-  issue: 'bg-warning',
   pending: 'bg-muted-foreground/60',
   missing: 'bg-muted-foreground/60',
 } as const

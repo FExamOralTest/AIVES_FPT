@@ -1,53 +1,54 @@
-// Landing copy, taken from the AIVES SRS (business rules BR-01…BR-13, user stories US-01…US-12).
+// Landing copy, taken from the AIVES SRS (business rules BR-01…BR-13, user stories US-01…US-12),
+// updated for the four roles in use: ADMIN, STAFF, EXAMINER, STUDENT.
 
 export const NAV_LINKS = [
-  { href: '#how', label: 'Cách hoạt động' },
-  { href: '#features', label: 'Tính năng' },
-  { href: '#roles', label: 'Vai trò' },
-  { href: '#faq', label: 'Hỏi đáp' },
+  { href: '#how', label: 'How it works' },
+  { href: '#features', label: 'Features' },
+  { href: '#roles', label: 'Roles' },
+  { href: '#faq', label: 'FAQ' },
 ]
 
 export const FACTS = [
-  { value: '3', label: 'Vai trò trong hệ thống' },
-  { value: '4', label: 'Bước cho một buổi thi' },
-  { value: '2', label: 'File .md cho mỗi môn' },
-  { value: '100%', label: 'Điểm do giảng viên duyệt' },
+  { value: '4', label: 'Roles in the system' },
+  { value: '4', label: 'Steps per viva exam' },
+  { value: '2', label: '.md files per course' },
+  { value: '100%', label: 'Scores reviewed by examiners' },
 ]
 
 export const STEPS = [
-  { title: 'Nhập mã kỳ thi', body: 'Mã giảng viên cung cấp mở đúng buổi vấn đáp của bạn.', tone: 'dark' },
-  { title: 'Trả lời bằng giọng nói', body: 'AI đọc câu hỏi thành tiếng, bạn trả lời qua micro, hệ thống ghi transcript.', tone: 'brand' },
-  { title: 'AI chấm và nhận xét', body: 'AI chấm từng câu theo nội dung môn và viết nhận xét gợi ý.', tone: 'sun' },
-  { title: 'Giảng viên công bố', body: 'Giảng viên xem lại, điều chỉnh nếu cần, rồi công bố điểm chính thức.', tone: 'light' },
+  { title: 'Enter the join code', body: 'The code from your lecturer opens the right viva session for you.', tone: 'dark' },
+  { title: 'Answer by voice', body: 'The AI reads each question aloud, you answer through your microphone and the system records a transcript.', tone: 'brand' },
+  { title: 'AI scores and comments', body: 'The AI scores every answer against the course content and drafts feedback.', tone: 'sun' },
+  { title: 'Examiners publish', body: 'An examiner reviews the scores, adjusts them if needed, then publishes the official result.', tone: 'light' },
 ] as const
 
 export const COURSE_FILES = [
-  { name: 'noi-dung-mon-hoc.md', kind: 'Nội dung bài học' },
-  { name: 'chuan-dau-ra.md', kind: 'Chuẩn đầu ra (learning outcomes)' },
+  { name: 'course-content.md', kind: 'Course content' },
+  { name: 'learning-outcomes.md', kind: 'Learning outcomes' },
 ]
 
 export const FEATURES = [
-  { title: 'Câu hỏi bám sát nội dung môn', body: 'Giảng viên tải lên nội dung và chuẩn đầu ra, AI chỉ hỏi trong phạm vi đó.' },
-  { title: 'Hỏi thêm khi trả lời chưa rõ', body: 'AI đặt câu hỏi phụ để bạn giải thích kỹ hơn, trong giới hạn số câu.' },
-  { title: 'Có transcript cho từng câu', body: 'Mọi câu trả lời được ghi lại để giảng viên và sinh viên xem lại.' },
-  { title: 'Giảng viên duyệt trước khi công bố', body: 'Điểm AI chỉ là gợi ý cho tới khi giảng viên phê duyệt.' },
+  { title: 'Questions stay on the syllabus', body: 'Staff upload the course content and learning outcomes; the AI only asks within that scope.' },
+  { title: 'Follow-up when an answer is unclear', body: 'The AI asks follow-up questions so you can explain further, within the question limit.' },
+  { title: 'A transcript for every answer', body: 'Every answer is recorded so examiners and students can review it later.' },
+  { title: 'Reviewed before it is published', body: 'AI scores are only suggestions until an examiner approves them.' },
 ]
 
 export const ROLES = [
   {
     key: 'student',
-    name: 'Sinh viên',
-    items: ['Vào thi bằng mã kỳ thi', 'Trả lời bằng giọng nói', 'Xem điểm, nhận xét và transcript'],
+    name: 'Students',
+    items: ['Join an exam with a code', 'Answer by voice', 'See scores, feedback and transcripts'],
   },
   {
     key: 'teacher',
-    name: 'Giảng viên',
-    items: ['Tải nội dung môn và chuẩn đầu ra', 'Tạo kỳ thi, lên lịch phòng thi', 'Duyệt kết quả AI và công bố điểm'],
+    name: 'Staff & examiners',
+    items: ['Upload course content and learning outcomes', 'Create exams and schedule sessions', 'Review AI results and publish scores'],
   },
   {
     key: 'admin',
-    name: 'Quản trị viên',
-    items: ['Tạo và quản lý môn học', 'Cấp tài khoản giảng viên', 'Phân quyền theo vai trò'],
+    name: 'Administrators',
+    items: ['Create and manage courses', 'Issue staff and examiner accounts', 'Control access by role'],
   },
 ] as const
 
@@ -55,19 +56,19 @@ export type RoleKey = (typeof ROLES)[number]['key']
 
 export const FAQS = [
   {
-    q: 'Ai được tạo tài khoản?',
-    a: 'Sinh viên tự đăng ký bằng email. Tài khoản giảng viên và quản trị viên do nhà trường cấp.',
+    q: 'Who can create an account?',
+    a: 'Students sign up with their email. Staff, examiner and admin accounts are issued by the school.',
   },
   {
-    q: 'Điểm AI chấm có phải điểm chính thức không?',
-    a: 'Không. AI chỉ đưa ra điểm gợi ý. Điểm chính thức là điểm giảng viên đã duyệt và công bố.',
+    q: 'Is the AI score the official score?',
+    a: 'No. The AI only suggests a score. The official score is the one an examiner has reviewed and published.',
   },
   {
-    q: 'Tôi cần chuẩn bị gì để vào thi?',
-    a: 'Một máy tính có micro, trình duyệt và mã kỳ thi do giảng viên cung cấp.',
+    q: 'What do I need to take an exam?',
+    a: 'A computer with a microphone, a web browser and the join code from your lecturer.',
   },
   {
-    q: 'Ai xem được bài làm của tôi?',
-    a: 'Chỉ bạn và giảng viên phụ trách kỳ thi. Dữ liệu được bảo vệ theo Nghị định 13/2023/NĐ-CP.',
+    q: 'Who can see my answers?',
+    a: 'Only you and the staff and examiners in charge of the exam. Data is protected under Decree 13/2023/ND-CP.',
   },
 ]

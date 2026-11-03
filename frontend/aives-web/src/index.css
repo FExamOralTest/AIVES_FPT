@@ -34,6 +34,8 @@
   --color-brand-soft: var(--brand-soft);
   --color-logo: var(--logo);
   --color-sun: var(--sun);
+  --color-navy: var(--navy);
+  --color-navy-hover: var(--navy-hover);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
@@ -76,6 +78,10 @@
   --brand-hover: #0c56b6;
   --brand-soft: #e5f1ff;
   --sun: #ffd54a;
+
+  /* Landing hero buttons: muted navy that carries white text (5.0:1). */
+  --navy: #4570ad;
+  --navy-hover: #385d93;
 
   /* Status text colors keep ≥4.5:1 on their soft backgrounds. */
   --success: #067647;

@@ -19,6 +19,12 @@ public partial class Result
 
     public string? AiFeedback { get; set; }
 
+    public string? AiAnalysis { get; set; }
+
+    public AiEvaluationStatus? AiEvaluationStatus { get; set; }
+
+    public string? AiEvaluationError { get; set; }
+
     public float? FinalScore { get; set; }
 
     public string? FinalFeedback { get; set; }
@@ -30,12 +36,20 @@ public partial class Result
     public DateTime? ReviewedAt { get; set; }
 
     public DateTime? PublishedAt { get; set; }
+ 
+    public int? PublishedBy { get; set; }
+
+    public int? ExamId { get; set; }
 
     public virtual ICollection<Answer> Answers { get; set; } = new List<Answer>();
 
     public virtual User? ReviewedByNavigation { get; set; }
 
+    public virtual User? PublishedByNavigation { get; set; }
+
     public virtual ExamSession Session { get; set; } = null!;
 
     public virtual User Student { get; set; } = null!;
+
+    public virtual Exam? Exam { get; set; }
 }

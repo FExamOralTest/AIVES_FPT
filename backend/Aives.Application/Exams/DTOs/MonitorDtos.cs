@@ -12,6 +12,8 @@ public class SessionMonitorDto
     public string Status { get; set; } = null!;
     public int MaxCapacity { get; set; }
     public int CurrentEnrollment { get; set; }
+    public List<SessionExamSummaryDto> Exams { get; set; } = new();
+    public List<ExamSessionSlotDto> Slots { get; set; } = new();
     public List<StudentProgressDto> Students { get; set; } = new();
 }
 
@@ -25,6 +27,13 @@ public class StudentProgressDto
     public DateTime? EnrolledAt { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? LastActivityAt { get; set; }
+    public int? AssignedExamId { get; set; }
+    public string? AssignedExamCode { get; set; }
+    public string? AssignedExamTitle { get; set; }
+    public int? AssignedSlotId { get; set; }
+    public string? AssignedSlotName { get; set; }
+    public DateTime? SlotStartTime { get; set; }
+    public DateTime? SlotEndTime { get; set; }
     public int CurrentQuestionIndex { get; set; }
     public int TotalQuestions { get; set; }
     public int AnsweredQuestions { get; set; }

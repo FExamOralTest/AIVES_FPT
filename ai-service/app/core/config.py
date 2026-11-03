@@ -32,8 +32,15 @@ class Settings(BaseSettings):
 
     # --- AI Provider ---
     ai_provider: str = Field(default="mock", alias="AI_PROVIDER")
+    ai_max_retries: int = Field(default=3, ge=0, le=10, alias="AI_MAX_RETRIES")
+    ai_timeout_seconds: float = Field(default=60.0, gt=0, le=300, alias="AI_TIMEOUT_SECONDS")
+    ai_retry_delay_seconds: float = Field(default=2.0, gt=0, le=30, alias="AI_RETRY_DELAY_SECONDS")
+    question_generation_timeout_seconds: float = Field(
+        default=240, gt=0, le=3600, alias="QUESTION_GENERATION_TIMEOUT_SECONDS"
+    )
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-3.1-flash-lite", alias="GEMINI_MODEL")
+    gemini_stt_model: str = Field(default="", alias="GEMINI_STT_MODEL")
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
 
@@ -41,6 +48,17 @@ class Settings(BaseSettings):
     stt_provider: str = Field(default="mock", alias="STT_PROVIDER")
     google_stt_api_key: str = Field(default="", alias="GOOGLE_STT_API_KEY")
     faster_whisper_model: str = Field(default="base", alias="FASTER_WHISPER_MODEL")
+    faster_whisper_device: str = Field(default="cpu", alias="FASTER_WHISPER_DEVICE")
+    faster_whisper_compute_type: str = Field(default="int8", alias="FASTER_WHISPER_COMPUTE_TYPE")
+    stt_max_audio_bytes: int = Field(default=50 * 1024 * 1024, gt=0, alias="STT_MAX_AUDIO_BYTES")
+    stt_timeout_seconds: float = Field(default=110, gt=0, le=3600, alias="STT_TIMEOUT_SECONDS")
+
+    # --- R2 ---
+    r2_account_id: str = Field(default="", alias="R2_ACCOUNT_ID")
+    r2_endpoint_url: str = Field(default="", alias="R2_ENDPOINT_URL")
+    r2_access_key_id: str = Field(default="", alias="R2_ACCESS_KEY_ID")
+    r2_secret_access_key: str = Field(default="", alias="R2_SECRET_ACCESS_KEY")
+    r2_bucket_name: str = Field(default="aives-exam-audios", alias="R2_BUCKET_NAME")
 
     # --- TTS ---
     tts_provider: str = Field(default="mock", alias="TTS_PROVIDER")

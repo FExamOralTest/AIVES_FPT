@@ -3,4 +3,5 @@
   <Project Path="Aives.Application/Aives.Application.csproj" />
   <Project Path="Aives.Domain/Aives.Domain.csproj" />
   <Project Path="Aives.Infrastructure/Aives.Infrastructure.csproj" />
+  <Project Path="Aives.Tests/Aives.Tests.csproj" />
 </Solution>

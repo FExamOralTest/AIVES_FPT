@@ -21,8 +21,8 @@ _service = EvaluationService()
     summary="Evaluate Single Answer",
     description=(
         "Score a single question-answer pair using AI. "
-        "Returns score, feedback, strengths, weaknesses, and missing content. "
-        "Called after each question in the session (optional, can also batch at end)."
+        "When an approved rubric is included, also judge correctness, errors, and omissions "
+        "for each transcript sentence and each criterion, citing only the transcript. "
     ),
     responses={
         200: {"description": "Answer evaluated successfully"},
@@ -63,6 +63,7 @@ async def evaluate_answer(request: EvaluateAnswerRequest) -> EvaluateAnswerRespo
     description=(
         "Evaluate all Q&A pairs in an exam session at once. "
         "Returns total score, percentage, per-question breakdown, and overall feedback. "
+        "With an approved rubric, overall feedback is assembled from the per-answer analysis. "
         "Result status is always 'PendingReview' until Teacher approves (BR-09, BR-10)."
     ),
     responses={

@@ -4,7 +4,7 @@ using Aives.Domain.Enums;
 namespace Aives.Application.Auth.DTOs;
 
 /// <summary>
-/// Chỉ ADMIN mới được dùng — tạo user với role tuỳ chọn (ADMIN, TEACHER, STUDENT).
+/// Chỉ ADMIN mới được dùng — tạo user với role tuỳ chọn (ADMIN, STAFF, EXAMINER, STUDENT).
 /// </summary>
 public class CreateUserWithRoleRequest
 {

@@ -35,13 +35,13 @@ ai-service/
     ├── prompts/
     │   ├── question_prompt.txt   # Prompt tạo câu hỏi vấn đáp
     │   ├── followup_prompt.txt   # Prompt tạo câu hỏi đào sâu
-    │   └── scoring_prompt.txt    # Prompt chấm điểm câu trả lời
+    │   └── feedback_analysis_prompt.txt # Phân tích câu trả lời theo rubric
     ├── services/
     │   ├── question_service.py   # Logic tạo câu hỏi
     │   ├── followup_service.py   # Logic tạo câu hỏi follow-up
     │   ├── interview_service.py  # Orchestrator phỏng vấn
-    │   ├── scoring_service.py    # Logic chấm điểm (single + session)
-    │   ├── evaluation_service.py # Wrapper evaluation cho API layer
+    │   ├── feedback_analysis_service.py # Phân tích theo rubric + evidence
+    │   ├── evaluation_service.py # Tính điểm từ awarded_score
     │   ├── speech_service.py     # STT (Mock/Google/Whisper)
     │   └── tts_service.py        # TTS (Mock/Google/OpenAI)
     └── api/
@@ -89,7 +89,6 @@ python main.py
 
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
-- Health check: http://localhost:8000/health
 
 ## 🔧 Cấu hình AI Provider
 
@@ -102,6 +101,18 @@ Chỉnh `AI_PROVIDER` trong `.env`:
 | `openai` | OpenAI Chat API | `OPENAI_API_KEY` |
 
 Tương tự cho STT (`STT_PROVIDER`) và TTS (`TTS_PROVIDER`).
+
+Để nhận dạng giọng nói bằng key Gemini hiện có, đặt `STT_PROVIDER=gemini`.
+Provider này nhận WAV, WebM, Ogg, MP3 và MP4, tối đa 14 MB mỗi lần gửi;
+`GEMINI_STT_MODEL` mặc định dùng model của `GEMINI_MODEL`.
+Đọc câu hỏi tiếng Việt không cần key riêng: đặt `TTS_PROVIDER=edge_tts`.
+
+Khi backend có API mới, cần build và khởi động lại backend; chạy trực tiếp DLL cũ
+có thể trả HTTP 404 dù controller đã có trong mã nguồn. Từ repo root trên PowerShell,
+dùng `./scripts/run-backend.ps1` sau khi cấu hình `ConnectionStrings__DefaultConnection`,
+`ASPNETCORE_ENVIRONMENT`, `Jwt__Key` và `ASPNETCORE_URLS` cho môi trường cần chạy.
+Script tự build mã nguồn hiện tại và giữ cấu hình từ terminal; dùng database development
+cho kiểm tra thông thường. Đặt `AI__BaseUrl=http://localhost:8000` để kết nối AI service.
 
 ## 🐳 Docker
 
@@ -132,9 +143,3 @@ docker run -p 8000:8000 --env-file .env aives-ai-service
 |--------|------|-------|
 | POST | `/ai/evaluate/answer` | Chấm điểm 1 câu Q&A |
 | POST | `/ai/evaluate/session` | Chấm điểm toàn bộ session |
-
-### Health
-
-| Method | Path | Mô tả |
-|--------|------|-------|
-| GET | `/health` | Kiểm tra trạng thái service |

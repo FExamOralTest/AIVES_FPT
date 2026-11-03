@@ -14,14 +14,18 @@ Frontend KHÔNG gọi trực tiếp AI Service (BR-14). Mọi request đi qua Ba
 
 | Method | Path | Mô tả |
 |--------|------|-------|
+| POST | `/ai/questions/generate` | Sinh bộ đề + rubric |
 | POST | `/ai/interview/question` | Tạo câu hỏi vấn đáp |
 | POST | `/ai/interview/follow-up` | Tạo câu hỏi follow-up |
+| POST | `/ai/interview/generate-questions` | Sinh nhanh câu hỏi từ markdown |
 | POST | `/ai/speech/transcribe` | Speech-to-Text |
+| POST | `/ai/speech/transcribe-object` | Speech-to-Text từ object R2 (cần `X-Internal-Token`) |
 | POST | `/ai/speech/synthesize` | Text-to-Speech |
 | POST | `/ai/evaluate/answer` | Chấm điểm 1 câu |
 | POST | `/ai/evaluate/session` | Chấm điểm cả buổi thi |
+| POST | `/ai/markdown/process` | Chuẩn hoá markdown |
 
-Xem chi tiết request/response tại [api-contract.md](api-contract.md).
+Xem chi tiết request/response từng endpoint tại [../api/api-contract.md](../api/api-contract.md).
 
 ## Cấu hình Provider
 
@@ -68,12 +72,12 @@ ai-service/
 │   ├── prompts/
 │   │   ├── question_prompt.txt
 │   │   ├── followup_prompt.txt
-│   │   └── scoring_prompt.txt
+│   │   └── feedback_analysis_prompt.txt
 │   ├── services/
 │   │   ├── question_service.py
 │   │   ├── followup_service.py
 │   │   ├── interview_service.py
-│   │   ├── scoring_service.py
+│   │   ├── feedback_analysis_service.py
 │   │   ├── evaluation_service.py
 │   │   ├── speech_service.py
 │   │   └── tts_service.py

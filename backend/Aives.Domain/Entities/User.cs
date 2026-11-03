@@ -31,11 +31,17 @@ public partial class User
 
     public virtual ICollection<Exam> Exams { get; set; } = new List<Exam>();
 
+    public virtual ICollection<ExamPeriod> ExamPeriods { get; set; } = new List<ExamPeriod>();
+
     public virtual ICollection<MarkdownDocument> MarkdownDocuments { get; set; } = new List<MarkdownDocument>();
 
     public virtual ICollection<Result> ResultReviewedByNavigations { get; set; } = new List<Result>();
 
+    public virtual ICollection<Result> ResultPublishedByNavigations { get; set; } = new List<Result>();
+
     public virtual ICollection<Result> ResultStudents { get; set; } = new List<Result>();
 
     public virtual ICollection<SessionEnrollment> SessionEnrollments { get; set; } = new List<SessionEnrollment>();
+
+    public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
 }

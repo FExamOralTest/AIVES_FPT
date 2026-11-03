@@ -7,6 +7,7 @@ Called by ASP.NET Core Backend (not directly by Frontend - see BR-14).
 import httpx
 from fastapi import APIRouter, HTTPException, status
 from loguru import logger
+from pydantic import BaseModel
 
 from app.models.request import GenerateQuestionRequest, GenerateFollowUpRequest
 from app.models.response import GenerateQuestionResponse, GenerateFollowUpResponse, ErrorResponse

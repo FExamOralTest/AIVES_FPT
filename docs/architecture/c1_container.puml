@@ -1,0 +1,30 @@
+@startuml C1_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title C1 - Container Diagram for AIVES (Async Audio & Worker Pipeline)
+
+Person(user, "Users", "Student / Staff / Examiner / Admin")
+
+System_Boundary(aives_core, "AIVES Examination System") {
+    Container(web, "Web Application", "React SPA", "User interface for taking viva exams, management & audit review")
+    Container(backend, "Backend Web API", "ASP.NET Core 8", "Authentication, RBAC, session orchestration & S3 signed URL dispatch")
+    ContainerDb(queue, "Message Queue / Job Storage", "Hangfire / PostgreSQL", "Buffers asynchronous speech-to-text & evaluation tasks")
+    Container(ai_worker, "AI Worker & Inference Service", "Python FastAPI", "Processes Faster-Whisper STT & LLM rubric scoring")
+    ContainerDb(database, "Relational Database", "Neon PostgreSQL", "Stores users, RBAC, exams, answers (status, audio_url) & scores")
+}
+
+System_Ext(r2, "Cloudflare R2 Storage", "Object Storage (S3 API)", "Secure private bucket storing student audio answers")
+System_Ext(cloud_ai, "Cloud AI Provider", "Gemini / OpenAI API", "Generates rubric scoring & constructive feedback")
+
+Rel(user, web, "Interacts via HTTPS")
+Rel(web, backend, "Dispatches REST API & WebSockets")
+Rel(backend, database, "Reads & Writes domain entities")
+Rel(backend, r2, "Uploads audio recordings & issues presigned URLs")
+Rel(backend, queue, "Enqueues scoring & STT jobs")
+Rel(queue, ai_worker, "Delivers processing jobs")
+Rel(ai_worker, r2, "Fetches student audio files for transcription")
+Rel(ai_worker, cloud_ai, "Invokes LLM for rubric evaluation")
+Rel(ai_worker, database, "Updates transcripts, scores & review status")
+Rel(web, r2, "Examiner streams audio via Presigned GET URLs")
+
+@enduml

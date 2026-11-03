@@ -7,7 +7,7 @@ export type ApiState<T> =
   | { status: 'ready'; data: T }
 
 /**
- * Loads data on mount and whenever `key` changes; `reload()` refetches (e.g. a "Thử lại" button),
+ * Loads data on mount and whenever `key` changes; `reload()` refetches (e.g. a "Try again" button),
  * `update()` patches the loaded data after a create/edit so the list doesn't need a refetch.
  * `load` is read on each run but not tracked; pass whatever it depends on through `key`.
  */
