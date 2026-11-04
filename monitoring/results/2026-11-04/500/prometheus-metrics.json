@@ -1,0 +1,70 @@
+{
+  "network_transmit": {
+    "ai-service": {
+      "average": 0.0,
+      "samples": 14,
+      "peak": 0.0
+    },
+    "backend": {
+      "average": 257731.891089,
+      "samples": 14,
+      "peak": 513284.198608
+    },
+    "frontend": {
+      "average": 0.0,
+      "samples": 14,
+      "peak": 0.0
+    }
+  },
+  "network_receive": {
+    "ai-service": {
+      "average": 2.919783,
+      "samples": 14,
+      "peak": 5.779551
+    },
+    "backend": {
+      "average": 252519.483434,
+      "samples": 14,
+      "peak": 499728.620734
+    },
+    "frontend": {
+      "average": 2.980058,
+      "samples": 14,
+      "peak": 5.753326
+    }
+  },
+  "cpu": {
+    "ai-service": {
+      "average": 0.033164,
+      "samples": 14,
+      "peak": 0.044993
+    },
+    "backend": {
+      "average": 1.778357,
+      "samples": 14,
+      "peak": 3.798719
+    },
+    "frontend": {
+      "average": 0.006864,
+      "samples": 14,
+      "peak": 0.009695
+    }
+  },
+  "memory": {
+    "ai-service": {
+      "average": 47171876.571429,
+      "samples": 14,
+      "peak": 47661056.0
+    },
+    "backend": {
+      "average": 445405184.0,
+      "samples": 14,
+      "peak": 554868736.0
+    },
+    "frontend": {
+      "average": 14279241.142857,
+      "samples": 14,
+      "peak": 14282752.0
+    }
+  }
+}

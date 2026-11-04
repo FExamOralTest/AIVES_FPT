@@ -50,7 +50,9 @@ var dataSource = dataSourceBuilder.Build();
 if (builder.Configuration.GetValue<bool>("Docker:InitializeDatabase"))
 {
     var database = new NpgsqlConnectionStringBuilder(connectionString);
-    if (!builder.Environment.IsDevelopment() || database.Host != "postgres" || database.Database != "aives_dev")
+    if (!builder.Environment.IsDevelopment()
+        || database.Host != "postgres"
+        || database.Database is not ("aives_dev" or "aives_loadtest"))
         throw new InvalidOperationException("Docker database initialization is restricted to the local development database.");
 
     // Existing migrations require a pre-existing schema; bootstrap only the isolated Docker database.
@@ -120,6 +122,10 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+var loginPermitLimit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 100);
+if (loginPermitLimit < 1)
+    throw new InvalidOperationException("RateLimiting:LoginPermitLimit must be greater than zero.");
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -128,7 +134,7 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 100,
+                PermitLimit = loginPermitLimit,
                 Window = TimeSpan.FromMinutes(15),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
@@ -326,4 +332,3 @@ app.MapGet("/api/health/db", async (AivesDbContext db) =>
 });
 
 app.Run();
-

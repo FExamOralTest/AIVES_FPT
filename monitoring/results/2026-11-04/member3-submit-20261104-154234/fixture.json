@@ -1,0 +1,39 @@
+{
+  "createdAt": "2026-11-04T15:43:08.1188186+07:00",
+  "baseUrl": "http://localhost:5000",
+  "database": "local PostgreSQL / aives_loadtest",
+  "courseId": 1,
+  "examId": 1,
+  "userPrefix": "loadtest-20261104-154234-",
+  "userCount": 850,
+  "sessions": [
+    {
+      "vus": 50,
+      "userOffset": 0,
+      "sessionId": 9,
+      "startTime": "2026-11-04T08:41:41.49084Z",
+      "endTime": "2026-11-04T10:42:41.494199Z"
+    },
+    {
+      "vus": 100,
+      "userOffset": 50,
+      "sessionId": 10,
+      "startTime": "2026-11-04T08:41:48.440047Z",
+      "endTime": "2026-11-04T10:42:48.440077Z"
+    },
+    {
+      "vus": 200,
+      "userOffset": 150,
+      "sessionId": 11,
+      "startTime": "2026-11-04T08:41:54.748921Z",
+      "endTime": "2026-11-04T10:42:54.74897Z"
+    },
+    {
+      "vus": 500,
+      "userOffset": 350,
+      "sessionId": 12,
+      "startTime": "2026-11-04T08:42:01.268969Z",
+      "endTime": "2026-11-04T10:43:01.269014Z"
+    }
+  ]
+}

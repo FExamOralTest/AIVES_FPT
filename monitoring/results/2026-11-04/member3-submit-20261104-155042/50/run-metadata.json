@@ -1,0 +1,15 @@
+{
+  "vus": 50,
+  "sessionId": 13,
+  "database": "local PostgreSQL / aives_loadtest",
+  "postgresMaxConnections": 250,
+  "backendMaxPoolSize": 200,
+  "submissionStart": "2026-11-04T08:53:01.2029274+00:00",
+  "submissionEnd": "2026-11-04T08:53:01.4218229+00:00",
+  "telemetryWindowStart": "2026-11-04T08:52:56.2029274+00:00",
+  "telemetryWindowEnd": "2026-11-04T08:53:06.4218229+00:00",
+  "prometheusScrapeIntervalSeconds": 5,
+  "submitSamples": 50,
+  "setupExcludedFromSubmitConcurrency": true,
+  "k6ExitCode": 0
+}
