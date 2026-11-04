@@ -1,0 +1,260 @@
+
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/
+
+
+     execution: local
+        script: /scripts/submit-answer.js
+        output: json (/results/k6-raw.jsonl)
+
+     scenarios: (100.00%) 1 scenario, 200 max VUs, 5m30s max duration (incl. graceful stop):
+              * submit_answers: 1 iterations for each of 200 VUs (maxDuration: 5m0s, gracefulStop: 30s)
+
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+running (1m06.9s), 198/200 VUs, 2 complete and 0 interrupted iterations
+submit_answers   [   1% ] 200 VUs  0m01.0s/5m0s  002/200 iters, 1 per VU
+
+running (1m07.9s), 190/200 VUs, 10 complete and 0 interrupted iterations
+submit_answers   [   5% ] 200 VUs  0m02.0s/5m0s  010/200 iters, 1 per VU
+
+running (1m08.9s), 156/200 VUs, 44 complete and 0 interrupted iterations
+submit_answers   [  22% ] 200 VUs  0m03.0s/5m0s  044/200 iters, 1 per VU
+
+running (1m09.9s), 050/200 VUs, 150 complete and 0 interrupted iterations
+submit_answers   [  75% ] 200 VUs  0m04.0s/5m0s  150/200 iters, 1 per VU
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 200     2.848603/s
+    checks_succeeded...: 100.00% 200 out of 200
+    checks_failed......: 0.00%   0 out of 200
+
+    ✓ answer is accepted
+
+    CUSTOM
+    submit_answer_duration.........: avg=3.35s min=501.96ms med=3.53s    max=4.23s p(90)=4.03s p(95)=4.12s
+    submit_answer_failures.........: 0.00%  0 out of 200
+
+    HTTP
+    http_req_duration..............: avg=1.22s min=54.85ms  med=250.14ms max=4.23s p(90)=3.73s p(95)=3.99s
+      { expected_response:true }...: avg=1.22s min=54.85ms  med=250.14ms max=4.23s p(90)=3.73s p(95)=3.99s
+    http_req_failed................: 0.00%  0 out of 600
+    http_reqs......................: 600    8.545809/s
+
+    EXECUTION
+    iteration_duration.............: avg=3.36s min=504.61ms med=3.54s    max=4.23s p(90)=4.04s p(95)=4.13s
+    iterations.....................: 200    2.848603/s
+    vus............................: 48     min=0        max=198
+    vus_max........................: 200    min=200      max=200
+
+    NETWORK
+    data_received..................: 408 kB 5.8 kB/s
+    data_sent......................: 382 kB 5.4 kB/s
+
+
+
+
+running (1m10.2s), 000/200 VUs, 200 complete and 0 interrupted iterations
+submit_answers ✓ [ 100% ] 200 VUs  0m04.3s/5m0s  200/200 iters, 1 per VU

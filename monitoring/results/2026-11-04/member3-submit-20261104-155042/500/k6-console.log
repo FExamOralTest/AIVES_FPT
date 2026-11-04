@@ -1,0 +1,656 @@
+
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/
+
+
+     execution: local
+        script: /scripts/submit-answer.js
+        output: json (/results/k6-raw.jsonl)
+
+     scenarios: (100.00%) 1 scenario, 500 max VUs, 5m30s max duration (incl. graceful stop):
+              * submit_answers: 1 iterations for each of 500 VUs (maxDuration: 5m0s, gracefulStop: 30s)
+
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+Run              [ 100% ] setup()
+submit_answers   [   0% ]
+
+running (2m57.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m00.4s/5m0s  000/500 iters, 1 per VU
+
+running (2m58.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m01.4s/5m0s  000/500 iters, 1 per VU
+
+running (2m59.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m02.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m00.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m03.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m01.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m04.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m02.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m05.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m03.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m06.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m04.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m07.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m05.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m08.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m06.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m09.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m07.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m10.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m08.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m11.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m09.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m12.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m10.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m13.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m11.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m14.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m12.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m15.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m13.9s), 500/500 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m16.4s/5m0s  000/500 iters, 1 per VU
+
+running (3m14.9s), 498/500 VUs, 2 complete and 0 interrupted iterations
+submit_answers   [   0% ] 500 VUs  0m17.4s/5m0s  002/500 iters, 1 per VU
+
+running (3m15.9s), 451/500 VUs, 49 complete and 0 interrupted iterations
+submit_answers   [  10% ] 500 VUs  0m18.4s/5m0s  049/500 iters, 1 per VU
+
+running (3m16.9s), 413/500 VUs, 87 complete and 0 interrupted iterations
+submit_answers   [  17% ] 500 VUs  0m19.4s/5m0s  087/500 iters, 1 per VU
+
+running (3m17.9s), 335/500 VUs, 165 complete and 0 interrupted iterations
+submit_answers   [  33% ] 500 VUs  0m20.4s/5m0s  165/500 iters, 1 per VU
+
+running (3m18.9s), 208/500 VUs, 292 complete and 0 interrupted iterations
+submit_answers   [  58% ] 500 VUs  0m21.4s/5m0s  292/500 iters, 1 per VU
+
+running (3m19.9s), 042/500 VUs, 458 complete and 0 interrupted iterations
+submit_answers   [  92% ] 500 VUs  0m22.4s/5m0s  458/500 iters, 1 per VU
+
+running (3m20.3s), 000/500 VUs, 500 complete and 0 interrupted iterations
+submit_answers ✓ [ 100% ] 500 VUs  0m22.8s/5m0s  500/500 iters, 1 per VU
+
+running (3m20.3s), 000/500 VUs, 500 complete and 0 interrupted iterations
+submit_answers ✓ [ 100% ] 500 VUs  0m22.8s/5m0s  500/500 iters, 1 per VU
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 500     2.496779/s
+    checks_succeeded...: 100.00% 500 out of 500
+    checks_failed......: 0.00%   0 out of 500
+
+    ✓ answer is accepted
+
+    CUSTOM
+    submit_answer_duration.........: avg=20.03s min=17.06s  med=20.19s   max=22.46s p(90)=21.57s p(95)=21.82s
+    submit_answer_failures.........: 0.00%  0 out of 500
+
+    HTTP
+    http_req_duration..............: avg=6.79s  min=82.19ms med=247.69ms max=22.46s p(90)=20.82s p(95)=21.32s
+      { expected_response:true }...: avg=6.79s  min=82.19ms med=247.69ms max=22.46s p(90)=20.82s p(95)=21.32s
+    http_req_failed................: 0.00%  0 out of 1500
+    http_reqs......................: 1500   7.490337/s
+
+    EXECUTION
+    iteration_duration.............: avg=20.11s min=17.06s  med=20.27s   max=22.61s p(90)=21.66s p(95)=21.96s
+    iterations.....................: 500    2.496779/s
+    vus............................: 42     min=0         max=500
+    vus_max........................: 500    min=500       max=500
+
+    NETWORK
+    data_received..................: 1.0 MB 5.1 kB/s
+    data_sent......................: 955 kB 4.8 kB/s
+
+
+
+
+running (3m20.3s), 000/500 VUs, 500 complete and 0 interrupted iterations
+submit_answers ✓ [ 100% ] 500 VUs  0m22.8s/5m0s  500/500 iters, 1 per VU

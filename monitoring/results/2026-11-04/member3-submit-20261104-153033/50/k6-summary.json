@@ -1,0 +1,164 @@
+{
+    "metrics": {
+        "http_req_duration": {
+            "avg": 2432.621412793333,
+            "min": 686.265685,
+            "med": 2378.3578525000003,
+            "max": 5114.005454,
+            "p(90)": 4424.3095521,
+            "p(95)": 4696.73564425
+        },
+        "start_session_failures": {
+            "passes": 0,
+            "fails": 50,
+            "value": 0
+        },
+        "login_failures": {
+            "passes": 0,
+            "fails": 50,
+            "value": 0
+        },
+        "data_sent": {
+            "count": 91895,
+            "rate": 12420.419181514957
+        },
+        "submit_answer_failures": {
+            "passes": 0,
+            "fails": 50,
+            "value": 0
+        },
+        "http_req_connecting": {
+            "min": 0,
+            "med": 0,
+            "max": 3.423316,
+            "p(90)": 0.7251511999999997,
+            "p(95)": 1.3442583499999998,
+            "avg": 0.24927718000000004
+        },
+        "iterations": {
+            "count": 50,
+            "rate": 6.757940683124739
+        },
+        "http_reqs": {
+            "count": 150,
+            "rate": 20.273822049374218
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 686.265685,
+            "med": 2378.3578525000003,
+            "max": 5114.005454,
+            "p(90)": 4424.3095521,
+            "p(95)": 4696.73564425,
+            "avg": 2432.621412793333
+        },
+        "http_req_failed": {
+            "fails": 150,
+            "passes": 0,
+            "value": 0
+        },
+        "iteration_duration": {
+            "avg": 7336.942441460002,
+            "min": 7286.542095,
+            "med": 7341.343766,
+            "max": 7393.019159,
+            "p(90)": 7367.624801,
+            "p(95)": 7377.21761885
+        },
+        "vus": {
+            "min": 50,
+            "max": 50,
+            "value": 50
+        },
+        "vus_max": {
+            "max": 50,
+            "value": 50,
+            "min": 50
+        },
+        "http_req_sending": {
+            "p(95)": 7.634756149999996,
+            "avg": 1.3827903266666663,
+            "min": 0.012154,
+            "med": 0.08416950000000001,
+            "max": 11.793353,
+            "p(90)": 5.4432965
+        },
+        "data_received": {
+            "count": 98916,
+            "rate": 13369.369212239333
+        },
+        "http_req_blocked": {
+            "p(95)": 25.253711,
+            "avg": 7.998862666666668,
+            "min": 0.003437,
+            "med": 0.016388,
+            "max": 29.248251,
+            "p(90)": 24.627067
+        },
+        "submit_answer_duration": {
+            "avg": 1147.0770849,
+            "min": 686.265685,
+            "med": 1191.850348,
+            "max": 1272.202919,
+            "p(90)": 1242.3598171,
+            "p(95)": 1260.89569955
+        },
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0
+        },
+        "http_req_receiving": {
+            "avg": 0.5892694066666668,
+            "min": 0.02482,
+            "med": 0.180213,
+            "max": 20.920945,
+            "p(90)": 0.7947506999999996,
+            "p(95)": 1.6299311499999947
+        },
+        "checks": {
+            "passes": 150,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_waiting": {
+            "min": 686.110021,
+            "med": 2378.2582119999997,
+            "max": 5113.733957,
+            "p(90)": 4423.689283000001,
+            "p(95)": 4695.2185433,
+            "avg": 2430.64935306
+        }
+    },
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "login succeeds": {
+                    "path": "::login succeeds",
+                    "id": "1dc3c00c7560ae4f3a759dbb4b68502c",
+                    "passes": 50,
+                    "fails": 0,
+                    "name": "login succeeds"
+                },
+                "exam session starts": {
+                    "fails": 0,
+                    "name": "exam session starts",
+                    "path": "::exam session starts",
+                    "id": "14b7a97623cdec4e45d3cccac1b255a7",
+                    "passes": 50
+                },
+                "answer is accepted": {
+                    "name": "answer is accepted",
+                    "path": "::answer is accepted",
+                    "id": "0097f75e8abff7b45c0b2152afef0f89",
+                    "passes": 50,
+                    "fails": 0
+                }
+            },
+        "name": ""
+    }
+}

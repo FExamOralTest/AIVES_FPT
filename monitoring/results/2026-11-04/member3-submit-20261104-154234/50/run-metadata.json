@@ -1,0 +1,8 @@
+{
+  "vus": 50,
+  "sessionId": 9,
+  "database": "local PostgreSQL / aives_loadtest",
+  "startedAt": "2026-11-04T08:43:35.6286786+00:00",
+  "endedAt": "2026-11-04T08:43:54.3825145+00:00",
+  "setupExcludedFromSubmitConcurrency": true
+}

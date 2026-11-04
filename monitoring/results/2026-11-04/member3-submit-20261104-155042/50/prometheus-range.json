@@ -1,0 +1,262 @@
+{
+  "memory": {
+    "status": "success",
+    "data": {
+      "resultType": "matrix",
+      "result": [
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "ai-service"
+          },
+          "values": [
+            [
+              1793782376,
+              "47624192"
+            ],
+            [
+              1793782381,
+              "47628288"
+            ],
+            [
+              1793782386,
+              "47628288"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "backend"
+          },
+          "values": [
+            [
+              1793782376,
+              "940343296"
+            ],
+            [
+              1793782381,
+              "947216384"
+            ],
+            [
+              1793782386,
+              "1098747904"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "frontend"
+          },
+          "values": [
+            [
+              1793782376,
+              "14282752"
+            ],
+            [
+              1793782381,
+              "14282752"
+            ],
+            [
+              1793782386,
+              "14282752"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "cpu": {
+    "status": "success",
+    "data": {
+      "resultType": "matrix",
+      "result": [
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "ai-service"
+          },
+          "values": [
+            [
+              1793782376,
+              "0.012533171315608002"
+            ],
+            [
+              1793782381,
+              "0.014545479679292175"
+            ],
+            [
+              1793782386,
+              "0.012527829916257567"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "backend"
+          },
+          "values": [
+            [
+              1793782376,
+              "0.34154226398210286"
+            ],
+            [
+              1793782381,
+              "0.4202238450402243"
+            ],
+            [
+              1793782386,
+              "0.648795185865672"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "frontend"
+          },
+          "values": [
+            [
+              1793782376,
+              "0.002374022557745656"
+            ],
+            [
+              1793782381,
+              "0.0021212675849843054"
+            ],
+            [
+              1793782386,
+              "0.0023588295966560048"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "networkReceive": {
+    "status": "success",
+    "data": {
+      "resultType": "matrix",
+      "result": [
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "ai-service"
+          },
+          "values": [
+            [
+              1793782376,
+              "3.80862563023686"
+            ],
+            [
+              1793782381,
+              "3.870611003594138"
+            ],
+            [
+              1793782386,
+              "4.548079699682356"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "backend"
+          },
+          "values": [
+            [
+              1793782376,
+              "48131.02460850112"
+            ],
+            [
+              1793782381,
+              "70089.95714660948"
+            ],
+            [
+              1793782386,
+              "162771.10032384982"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "frontend"
+          },
+          "values": [
+            [
+              1793782376,
+              "3.7836474361284274"
+            ],
+            [
+              1793782381,
+              "4.177681636000261"
+            ],
+            [
+              1793782386,
+              "4.560013028608653"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "networkTransmit": {
+    "status": "success",
+    "data": {
+      "resultType": "matrix",
+      "result": [
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "ai-service"
+          },
+          "values": [
+            [
+              1793782376,
+              "0"
+            ],
+            [
+              1793782381,
+              "0"
+            ],
+            [
+              1793782386,
+              "0"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "backend"
+          },
+          "values": [
+            [
+              1793782376,
+              "14494.979865771811"
+            ],
+            [
+              1793782381,
+              "19964.833513533325"
+            ],
+            [
+              1793782386,
+              "43430.878013473644"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "container_label_com_docker_compose_service": "frontend"
+          },
+          "values": [
+            [
+              1793782376,
+              "0"
+            ],
+            [
+              1793782381,
+              "0"
+            ],
+            [
+              1793782386,
+              "0"
+            ]
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,119 @@
+
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/
+
+
+     execution: local
+        script: /scripts/submit-answer.js
+        output: json (/results/k6-raw.json)
+
+     scenarios: (100.00%) 1 scenario, 100 max VUs, 5m30s max duration (incl. graceful stop):
+              * submit_answers: 1 iterations for each of 100 VUs (maxDuration: 5m0s, gracefulStop: 30s)
+
+
+running (0m01.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 100 VUs  0m01.0s/5m0s  000/100 iters, 1 per VU
+
+running (0m02.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 100 VUs  0m02.0s/5m0s  000/100 iters, 1 per VU
+
+running (0m03.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 100 VUs  0m03.0s/5m0s  000/100 iters, 1 per VU
+
+running (0m04.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 100 VUs  0m04.0s/5m0s  000/100 iters, 1 per VU
+
+running (0m05.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 100 VUs  0m05.0s/5m0s  000/100 iters, 1 per VU
+
+running (0m06.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 100 VUs  0m06.0s/5m0s  000/100 iters, 1 per VU
+
+running (0m07.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 100 VUs  0m07.0s/5m0s  000/100 iters, 1 per VU
+
+running (0m08.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+submit_answers   [   0% ] 100 VUs  0m08.0s/5m0s  000/100 iters, 1 per VU
+
+running (0m09.0s), 099/100 VUs, 1 complete and 0 interrupted iterations
+submit_answers   [   1% ] 100 VUs  0m09.0s/5m0s  001/100 iters, 1 per VU
+
+running (0m10.0s), 099/100 VUs, 1 complete and 0 interrupted iterations
+submit_answers   [   1% ] 100 VUs  0m10.0s/5m0s  001/100 iters, 1 per VU
+
+running (0m11.0s), 099/100 VUs, 1 complete and 0 interrupted iterations
+submit_answers   [   1% ] 100 VUs  0m11.0s/5m0s  001/100 iters, 1 per VU
+
+running (0m12.0s), 099/100 VUs, 1 complete and 0 interrupted iterations
+submit_answers   [   1% ] 100 VUs  0m12.0s/5m0s  001/100 iters, 1 per VU
+
+running (0m13.0s), 099/100 VUs, 1 complete and 0 interrupted iterations
+submit_answers   [   1% ] 100 VUs  0m13.0s/5m0s  001/100 iters, 1 per VU
+
+running (0m14.0s), 097/100 VUs, 3 complete and 0 interrupted iterations
+submit_answers   [   3% ] 100 VUs  0m14.0s/5m0s  003/100 iters, 1 per VU
+
+running (0m15.0s), 087/100 VUs, 13 complete and 0 interrupted iterations
+submit_answers   [  13% ] 100 VUs  0m15.0s/5m0s  013/100 iters, 1 per VU
+
+running (0m16.0s), 084/100 VUs, 16 complete and 0 interrupted iterations
+submit_answers   [  16% ] 100 VUs  0m16.0s/5m0s  016/100 iters, 1 per VU
+
+running (0m17.0s), 084/100 VUs, 16 complete and 0 interrupted iterations
+submit_answers   [  16% ] 100 VUs  0m17.0s/5m0s  016/100 iters, 1 per VU
+
+running (0m18.0s), 084/100 VUs, 16 complete and 0 interrupted iterations
+submit_answers   [  16% ] 100 VUs  0m18.0s/5m0s  016/100 iters, 1 per VU
+
+running (0m19.0s), 084/100 VUs, 16 complete and 0 interrupted iterations
+submit_answers   [  16% ] 100 VUs  0m19.0s/5m0s  016/100 iters, 1 per VU
+
+running (0m20.0s), 084/100 VUs, 16 complete and 0 interrupted iterations
+submit_answers   [  16% ] 100 VUs  0m20.0s/5m0s  016/100 iters, 1 per VU
+
+running (0m20.5s), 000/100 VUs, 100 complete and 0 interrupted iterations
+submit_answers ✓ [ 100% ] 100 VUs  0m20.5s/5m0s  100/100 iters, 1 per VU
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 283    13.810858/s
+    checks_succeeded...: 94.34% 267 out of 283
+    checks_failed......: 5.65%  16 out of 283
+
+    ✗ login succeeds
+      ↳  99% — ✓ 99 / ✗ 1
+    ✗ exam session starts
+      ↳  84% — ✓ 84 / ✗ 15
+    ✓ answer is accepted
+
+    CUSTOM
+    login_failures.................: 1.00%  1 out of 100
+    start_session_failures.........: 15.15% 15 out of 99
+    submit_answer_duration.........: avg=2.22s  min=1.07s med=2.28s  max=2.42s  p(90)=2.34s  p(95)=2.37s
+    submit_answer_failures.........: 0.00%  0 out of 84
+
+    HTTP
+    http_req_duration..............: avg=6.84s  min=1.07s med=6.88s  max=14.55s p(90)=12.07s p(95)=13.18s
+      { expected_response:true }...: avg=6.86s  min=1.07s med=6.88s  max=14.55s p(90)=12.11s p(95)=13.22s
+    http_req_failed................: 5.65%  16 out of 283
+    http_reqs......................: 283    13.810858/s
+
+    EXECUTION
+    iteration_duration.............: avg=19.39s min=8.52s med=20.38s max=20.48s p(90)=20.47s p(95)=20.47s
+    iterations.....................: 100    4.880162/s
+    vus............................: 84     min=84        max=100
+    vus_max........................: 100    min=100       max=100
+
+    NETWORK
+    data_received..................: 193 kB 9.4 kB/s
+    data_sent......................: 166 kB 8.1 kB/s
+
+
+
+
+running (0m20.5s), 000/100 VUs, 100 complete and 0 interrupted iterations
+submit_answers ✓ [ 100% ] 100 VUs  0m20.5s/5m0s  100/100 iters, 1 per VU

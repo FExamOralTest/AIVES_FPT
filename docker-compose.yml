@@ -11,6 +11,7 @@ services:
       POSTGRES_DB: aives_dev
       POSTGRES_USER: aives
       POSTGRES_PASSWORD: aives-local-development
+    command: ["postgres", "-c", "max_connections=${POSTGRES_MAX_CONNECTIONS:-100}"]
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -45,6 +46,7 @@ services:
       Jwt__Key: ${Jwt__Key:-aives-docker-local-development-key-32-characters}
       AI__BaseUrl: http://ai-service:8000
       AI__ApiKey: aives-dev-internal-key
+      RateLimiting__LoginPermitLimit: ${LOGIN_RATE_LIMIT:-100}
     volumes:
       - uploads:/app/wwwroot/uploads
     depends_on:
