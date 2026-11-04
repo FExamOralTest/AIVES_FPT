@@ -1,0 +1,48 @@
+
+name: aives-monitoring
+
+services:
+  cadvisor:
+    image: ghcr.io/google/cadvisor:0.55.1
+    privileged: true
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - aives
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - cadvisor
+    networks:
+      - aives
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - aives
+
+networks:
+  aives:
+    external: true
+    name: aives-dev_default
+
+volumes:
+  prometheus-data:
+  grafana-data:
