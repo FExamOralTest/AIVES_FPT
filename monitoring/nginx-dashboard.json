@@ -1,0 +1,283 @@
+{
+  "uid": "aives-nginx-lb",
+  "title": "AIVES – Nginx Load Balancing (Thịnh)",
+  "description": "Dashboard demo Nginx reverse proxy + load balancing của Thịnh. Nguồn: nginx-prometheus-exporter (stub_status) + cAdvisor.",
+  "tags": ["aives", "nginx", "load-balancing", "thinh"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Nginx Up",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "max(nginx_up)", "refId": "A", "instant": true }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "mappings": [
+          {
+            "type": "value",
+            "options": {
+              "0": { "text": "DOWN", "color": "red", "index": 1 },
+              "1": { "text": "UP", "color": "green", "index": 0 }
+            }
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Active Connections",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "targets": [
+        { "expr": "sum(nginx_connections_active)", "refId": "A", "instant": true }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Requests",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "targets": [
+        { "expr": "sum(nginx_http_requests_total)", "refId": "A", "instant": true }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Request Rate (req/s)",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(nginx_http_requests_total[1m]))", "refId": "A", "instant": true }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Backend Replicas",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "count(count by (container_label_com_docker_compose_service) (container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"aives-dev\",container_label_com_docker_compose_service=\"backend\"}))",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "green", "value": 3 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Postgres Active Connections",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "targets": [
+        { "expr": "sum(pg_stat_activity_count)", "refId": "A", "instant": true }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Request Rate qua Nginx",
+      "description": "Tổng request/s đi qua Nginx — tăng đột biến khi chạy k6.",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "targets": [
+        {
+          "expr": "sum(rate(nginx_http_requests_total[1m]))",
+          "legendFormat": "req/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Nginx Connections theo trạng thái",
+      "description": "active / reading / writing / waiting — cho thấy hàng đợi keep-alive tới upstream.",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "targets": [
+        { "expr": "sum(nginx_connections_active)", "legendFormat": "active", "refId": "A" },
+        { "expr": "sum(nginx_connections_reading)", "legendFormat": "reading", "refId": "B" },
+        { "expr": "sum(nginx_connections_writing)", "legendFormat": "writing", "refId": "C" },
+        { "expr": "sum(nginx_connections_waiting)", "legendFormat": "waiting", "refId": "D" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 0 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "CPU của từng backend replica",
+      "description": "Mỗi replica là 1 container riêng — đường graph tách biệt chứng minh request được chia tải.",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "targets": [
+        {
+          "expr": "sum by (container_label_com_docker_compose_container_number) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"aives-dev\",container_label_com_docker_compose_service=\"backend\"}[1m]))",
+          "legendFormat": "backend-{{container_label_com_docker_compose_container_number}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "stacking": { "mode": "none" } }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Memory của từng backend replica",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "targets": [
+        {
+          "expr": "sum by (container_label_com_docker_compose_container_number) (container_memory_working_set_bytes{container_label_com_docker_compose_project=\"aives-dev\",container_label_com_docker_compose_service=\"backend\"})",
+          "legendFormat": "backend-{{container_label_com_docker_compose_container_number}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "lineWidth": 2, "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Network I/O của Nginx",
+      "description": "Lưu lượng đi qua reverse proxy — tăng tuyến tính khi k6 chạy.",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "targets": [
+        {
+          "expr": "rate(container_network_receive_bytes_total{container_label_com_docker_compose_project=\"aives-dev\",container_label_com_docker_compose_service=\"nginx\"}[1m])",
+          "legendFormat": "RX",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(container_network_transmit_bytes_total{container_label_com_docker_compose_project=\"aives-dev\",container_label_com_docker_compose_service=\"nginx\"}[1m])",
+          "legendFormat": "TX",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "Bps", "custom": { "lineWidth": 2, "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Postgres — số kết nối đang hoạt động",
+      "description": "3 backend replica dùng chung 1 PostgreSQL → connection pool là nút thắt cần theo dõi.",
+      "datasource": { "type": "prometheus", "uid": "cg393kpfzb2f4b" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "targets": [
+        {
+          "expr": "sum by (datname) (pg_stat_activity_count{datname=\"aives_dev\"})",
+          "legendFormat": "{{datname}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    }
+  ]
+}

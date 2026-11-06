@@ -68,3 +68,17 @@ Thumbs.db
 
 # ===== Local temporary checks, previews, and generated artifacts =====
 /tmp/
+
+# ===== Monitoring / Load-test artifacts =====
+# Log k6 console rat lon (vai MB moi luot) -> khong commit.
+monitoring/results/**/k6-console-*.log
+monitoring/results/last-run.log
+# Bang tong hop CSV sinh tu dong -> regenerate bang summarize-nginx-results.py
+monitoring/results/nginx-summary.csv
+# Grafana / Prometheus data volume
+monitoring/grafana-data/
+monitoring/prometheus-data/
+
+# ===== Local runtime logs =====
+backend/Aives.Api/run.log
+backend/Aives.Api/run-https.log

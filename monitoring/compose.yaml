@@ -1,4 +1,3 @@
-
 name: aives-monitoring
 
 services:
@@ -35,6 +34,31 @@ services:
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
+    networks:
+      - aives
+
+  # ── Nginx metrics (Thịnh — Nginx & Load Balancing) ──────────────────
+  # nginx-prometheus-exporter đọc `stub_status` của Nginx rồi xuất ra
+  # Prometheus format.
+  #
+  # Lưu ý: service này nằm ở project `aives-monitoring`, còn Nginx chạy ở
+  # project `aives-dev` → không dùng `depends_on` được.  Hai project dùng
+  # chung external network `aives-dev_default` nên vẫn gọi được nhau.
+  nginx-prometheus-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.1
+    command:
+      - --nginx.scrape-uri=http://nginx:8088/nginx_status
+    restart: unless-stopped
+    networks:
+      - aives
+
+  # ── PostgreSQL metrics ──────────────────────────────────────────────
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    environment:
+      # Chỉ cần user đọc metric, không cần quyền ghi.
+      DATA_SOURCE_NAME: "postgresql://aives:aives-local-development@postgres:5432/aives_dev?sslmode=disable"
+    restart: unless-stopped
     networks:
       - aives
 
