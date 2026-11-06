@@ -45,6 +45,8 @@ export interface Exam {
   durationMinutes: number
   maxQuestions: number
   examStatus: ExamStatus | null
+  /** Statuses the backend allows next. Missing on older backends, which have no status endpoint. */
+  allowedNextStatuses?: ExamStatus[]
   createdAt: string | null
   questions: ExamQuestion[]
   slotTemplates?: ExamSlotTemplate[]

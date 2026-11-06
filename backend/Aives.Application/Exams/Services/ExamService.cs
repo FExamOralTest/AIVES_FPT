@@ -424,6 +424,32 @@ public class ExamService(
                 ?? throw new KeyNotFoundException("Exam not found."));
         });
 
+    public Task<ExamDto> UpdateExamStatusAsync(int examId, string status, int teacherId)
+        => unitOfWork.ExecuteAsync(async () =>
+        {
+            if (!Enum.TryParse<ExamStatus>(status?.Trim(), ignoreCase: true, out var target)
+                || !Enum.IsDefined(target))
+                throw new ArgumentException("Status must be DRAFT, SCHEDULED, OPEN, CLOSED or CANCELLED.");
+
+            var exam = await exams.GetByIdWithQuestionsAsync(examId)
+                ?? throw new KeyNotFoundException("Exam not found.");
+            if (exam.CreatedBy != teacherId)
+                throw new UnauthorizedAccessException("You do not have permission to change this exam.");
+            await EnsureAssignedAsync(exam.CourseId, teacherId);
+
+            var current = exam.ExamStatus ?? ExamStatus.DRAFT;
+            if (current == target)
+                return MapToExamDto(exam);
+            if (!ExamStatusTransitions.CanMove(current, target))
+                throw new QuestionBankConflictException($"An exam cannot move from {current} to {target}.");
+            if (ExamStatusTransitions.RequiresQuestions(target) && exam.ExamQuestions.Count == 0)
+                throw new QuestionBankConflictException("Add questions to the exam before scheduling or opening it.");
+
+            exam.ExamStatus = target;
+            await exams.SaveChangesAsync();
+            return MapToExamDto(exam);
+        });
+
     public async Task DeleteExamAsync(int examId, int teacherId)
         => await unitOfWork.ExecuteAsync(async () =>
         {
@@ -545,6 +571,7 @@ public class ExamService(
         DurationMinutes = exam.DurationMinutes,
         MaxQuestions = exam.MaxQuestions,
         ExamStatus = exam.ExamStatus?.ToString(),
+        AllowedNextStatuses = ExamStatusTransitions.NextFrom(exam.ExamStatus).Select(s => s.ToString()).ToList(),
         CreatedAt = exam.CreatedAt,
         Questions = exam.ExamQuestions.Select(eq => new ExamQuestionDto
         {
