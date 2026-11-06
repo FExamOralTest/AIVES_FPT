@@ -10,6 +10,7 @@ public interface IExamService
     Task<SuggestedQuestionsDto> GetSuggestedQuestionsAsync(SuggestQuestionsRequest request, int teacherId);
     Task<ExamDto> UpdateExamAsync(int examId, UpdateExamRequest request, int teacherId);
     Task DeleteExamAsync(int examId, int teacherId);
+    Task<ExamDto> UpdateExamStatusAsync(int examId, string status, int teacherId);
     Task<ExamDto> UpdateExamQuestionsAsync(int examId, List<ExamQuestionItem> questions, int teacherId);
     Task<AutoPartitionPreviewResponse> PreviewPartitionSlotPapersAsync(AutoPartitionSlotPapersRequest request, int teacherId);
 }
