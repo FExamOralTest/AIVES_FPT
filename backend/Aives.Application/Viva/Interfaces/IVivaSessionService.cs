@@ -24,6 +24,10 @@ public interface IVivaSessionService
 {
     Task<StartVivaSessionResponse> StartSessionAsync(int sessionId, int studentId);
     Task<VivaQuestionDto> GetCurrentQuestionAsync(int sessionId, int studentId);
+    /// <summary>
+    /// Reads the current question aloud. Returns null when TTS is unavailable, so the client can fall back.
+    /// </summary>
+    Task<QuestionAudioDto?> GetCurrentQuestionAudioAsync(int sessionId, int studentId, int questionId);
     Task<SubmitVivaAnswerResponse> SubmitAnswerAsync(
         int sessionId, int studentId, SubmitVivaAnswerRequest request,
         CancellationToken cancellationToken = default);

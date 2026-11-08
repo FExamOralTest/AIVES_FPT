@@ -99,6 +99,45 @@ public class VivaSessionController : ControllerBase
     }
 
     /// <summary>
+    /// [STUDENT] Đọc câu hỏi hiện tại bằng giọng nói (TTS). <paramref name="questionId"/> phải là câu hỏi hiện tại.
+    /// Trả 503 khi TTS không khả dụng để client tự dùng giọng đọc của trình duyệt.
+    /// </summary>
+    [HttpGet("{sessionId:int}/current-question/audio")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> GetCurrentQuestionAudio(int sessionId, [FromQuery] int questionId)
+    {
+        var studentId = GetCurrentUserId();
+        if (studentId is null)
+            return Unauthorized(new { message = "Invalid token." });
+
+        try
+        {
+            var audio = await _vivaService.GetCurrentQuestionAudioAsync(sessionId, studentId.Value, questionId);
+            if (audio is null)
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Text-to-speech is not available." });
+            Response.Headers.CacheControl = "private, no-store";
+            return File(audio.Audio, audio.ContentType);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// [STUDENT] Nộp câu trả lời (Audio wav/webm hoặc text) cho một câu hỏi.
     /// Backend tự động gửi file sang AI Service để STT và kiểm tra câu hỏi phụ (follow-up).
     /// </summary>

@@ -33,6 +33,13 @@ public class VivaQuestionDto
     public bool IsFollowUp { get; set; }
 }
 
+/// <summary>Spoken audio for the current question, produced by the AI service's TTS.</summary>
+public class QuestionAudioDto
+{
+    public byte[] Audio { get; set; } = [];
+    public string ContentType { get; set; } = "audio/mpeg";
+}
+
 public class SubmitVivaAnswerRequest
 {
     public int QuestionId { get; set; }
