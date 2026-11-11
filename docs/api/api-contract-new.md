@@ -1,7 +1,7 @@
 # AIVES API Contract Standardization
 
-**Version:** 1.0  
-**Last Updated:** 2026-10-16  
+**Version:** 1.1  
+**Last Updated:** 2026-11-11  
 **Owner:** Hưng (BE1)
 
 ---
@@ -16,7 +16,7 @@
 ### 1.2 Authentication
 
 - **Backend:** JWT Bearer Token
-- **FastAPI:** Internal secret key via header `X-AI-Service-Key`
+- **FastAPI:** Internal secret key via header `X-Internal-Token` (`AI:ApiKey`)
 
 ### 1.3 JSON Conventions
 

@@ -1,7 +1,7 @@
 # AIVES Queue Job Contract (1.4) & STT Response Contract (1.5)
 
-**Version:** 1.0
-**Last Updated:** 2026-10-25
+**Version:** 1.1
+**Last Updated:** 2026-11-11
 **Owner:** Thịnh (BE3)
 
 Tài liệu này chốt 2 hợp đồng giữa các thành phần trong pipeline AI:
@@ -34,6 +34,8 @@ Tài liệu này chốt 2 hợp đồng giữa các thành phần trong pipeline
 | `JobId` | `string` | ✅ (sau enqueue) | ≤ 128 ký tự | Hangfire JobId. Gán tự động sau khi enqueue; lưu thêm vào `answers.job_id` |
 | `AnswerId` | `int` | ✅ | > 0 | PK của `Answer` đang xử lý |
 | `ResultId` | `int?` | — | > 0 nếu có | PK của `Result`. `null` khi chưa tạo row result |
+| `StudentId` | `int?` | — (khuyến nghị ✅) | > 0 nếu có; phải đi **cùng cặp** với `SessionId` | Chủ sở hữu answer. Worker đối chiếu `Answer.Result.StudentId` trước khi chạy |
+| `SessionId` | `int?` | — (khuyến nghị ✅) | > 0 nếu có; phải đi **cùng cặp** với `StudentId` | Ca thi sở hữu answer. Worker đối chiếu `Answer.Result.SessionId` |
 | `ObjectKey` | `string` | — | ≤ 512 ký tự | Key audio trong R2. Rỗng nếu answer chỉ có text |
 | `Attempt` | `int` | ✅ | ≥ 1 (1-based) | Lần thử hiện tại — **chỉ để log/audit**, không phải nguồn sự thật |
 | `Status` | `QueueJobStatus` | ✅ | phải là giá trị hợp lệ | Trạng thái vòng đời job |
@@ -127,13 +129,77 @@ var attempt = await _answerRepository.IncrementAttemptAsync(answerId, jobId, ct)
 
 Metadata vi phạm = job vô nghĩa, chỉ đốt compute và gây nhiễu dashboard.
 
+Ngoài các field đơn lẻ, contract còn kiểm tra **cặp ownership**: `StudentId` và
+`SessionId` phải cùng có hoặc cùng `null`. Chỉ truyền một nửa là dấu hiệu call site
+quên truyền → reject ngay để worker không chạy với dữ liệu thiếu.
+
 ### 1.6. Dedup
 
 `IQueueService.HasPendingOrProcessingJob(answerId)` query Hangfire `ProcessingJobs` + `ScheduledJobs` + `EnqueuedJobs` (cả queue `default` và `answers`) và match theo `AnswerId` trong chuỗi args.
 
 > ⚠️ Match theo ranh giới số: `AnswerId = 77` **không** được khớp `AnswerId = 777`.
 
-### 1.7. Ràng buộc bắt buộc cho Hangfire
+**Đồng thời (100 bài nộp):** bước "check dedup + enqueue" được bọc trong **striped lock theo `AnswerId`** (64 stripe, `HangfireQueueService.EnqueueLocks`). Nhiều request đồng thời cho cùng một answer chỉ tạo đúng **một** job; request thua race nhận `jobId` rỗng và được coi là idempotent ("đã có job"). Lock theo stripe không chặn toàn bộ queue: các answer khác modulo vẫn enqueue song song.
+
+### 1.7. Ownership — chống nhầm sinh viên
+
+Metadata mang `StudentId` / `SessionId` của chủ sở hữu, được tạo tại call site qua
+`QueueJobContract.Create(..., studentId, sessionId)`. Trước khi tăng attempt counter
+hoặc chạy pipeline, `AnswerProcessingJob` đọc lại answer từ DB và đối chiếu:
+
+```
+Answer.Result.StudentId == metadata.StudentId
+Answer.Result.SessionId == metadata.SessionId
+Answer.ResultId        == metadata.ResultId   (khi metadata có ResultId)
+```
+
+| Kết quả | Hành vi |
+|---|---|
+| Khớp | Chạy pipeline; metadata được đồng bộ lại từ DB |
+| Lệch | `DeadLetter` + throw `NonRetryableJobException`; **không** chạy pipeline, **không** `MarkFailedAsync`, **không** tăng `attempt_count` |
+| Không resolve được owner (answer bị xoá) | `DeadLetter` + `NonRetryableJobException` |
+| Cả `StudentId` và `SessionId` đều `null` | Bỏ qua kiểm tra (tương thích job cũ) |
+| Chỉ có một trong hai | `TryValidate` reject ngay từ lúc enqueue |
+
+Điểm mấu chốt: khi metadata gán chéo, bài của sinh viên **đúng** trong DB vẫn nguyên
+vẹn — chỉ job sai bị dead-letter. Test: `AnswerQueueConcurrencyTests` (C2–C5, D2).
+
+Các call site bắt buộc truyền ownership:
+
+| Call site | Nguồn `StudentId` / `SessionId` |
+|---|---|
+| `AnswerAudioService.UploadAudioAsync` | `answer.Result.StudentId` / `SessionId` |
+| `RetryAnswerService.RetryAsync` | `answer.Result.StudentId` / `SessionId` |
+| `ChunkedAudioUploadService.CompleteAsync` | `media_uploads.StudentId` / `SessionId` (đã đối chiếu answer) |
+
+### 1.8. Queue layout
+
+| Queue | Job | Worker (Program.cs) |
+|---|---|---|
+| `default` | Các job phụ trợ | Worker pool chung |
+| `answers` | `AnswerProcessingJob` (`[Queue("answers")]`) | Worker pool chung với `default` |
+| `grading` | `SessionGradingJob` (`[Queue("grading")]`) | Một worker riêng, chấm tuần tự |
+
+Job answer chạy trên `answers` để bài đang chấm cả bài không chặn STT/evaluation của
+bài mới. Test `HangfireQueueRetryTests` cấu hình worker cho cả `default` + `answers`
+giống production.
+
+### 1.9. API tra cứu trạng thái
+
+Ba endpoint chỉ đọc, dùng để client poll thay vì suy đoán:
+
+| Endpoint | DTO | Nguồn dữ liệu |
+|---|---|---|
+| `GET /api/answers/{answerId}/processing-status` | `AnswerProcessingStatusDto` | `answers.*` + Hangfire `JobDetails` |
+| `GET /api/results/{resultId}/grading-status` | `ResultGradingStatusDto` | `results.*` + `answers` + job `grading` |
+| `GET /api/student/viva-sessions/{sessionId}/submission-status` | `SubmissionStatusDto` | Result của `(sessionId, studentId từ JWT)` |
+
+Quy tắc: job đang có trong Hangfire → lấy state thật (`QueueJobStateDto`); job đã hết
+hạn khỏi storage → suy ra từ DB (`answers.status`, `attempt_count`,
+`results.ai_evaluation_status`). Chi tiết giao thức nộp bài:
+[`student-submission-protocol.md`](student-submission-protocol.md).
+
+### 1.10. Ràng buộc bắt buộc cho Hangfire
 
 Job **phải** được enqueue qua **concrete class** `AnswerProcessingJob`, **không** qua interface `IAnswerProcessingJob`:
 
@@ -317,5 +383,6 @@ Khi AI1 thêm error code mới:
 | `QueueJobContractTests.cs` | Validate metadata, factory, mapping Hangfire state, retry decision, budget BR-17 |
 | `SttContractTests.cs` | Validate response, taxonomy mapping, HTTP mapping, retry decision, language helpers |
 | `ContractEnforcementTests.cs` | Contract được **thực thi** trên đường chạy thật (enqueue path, execution path, STT path) |
-| `HangfireQueueRetryTests.cs` | Retry pipeline thật qua Hangfire MemoryStorage |
+| `HangfireQueueRetryTests.cs` | Retry pipeline thật qua Hangfire MemoryStorage (worker cấu hình `default` + `answers`) |
+| `AnswerQueueConcurrencyTests.cs` | Ownership metadata, 100 job đồng thời, dedup đồng thời, queue `answers`, `GetJobState` |
 | `SttIntegrationTests.cs` | STT error taxonomy end-to-end |
