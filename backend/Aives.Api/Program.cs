@@ -242,6 +242,7 @@ builder.Services.AddScoped<IAnswerProcessingJob>(sp => sp.GetRequiredService<Ans
 builder.Services.AddScoped<SessionGradingJob>();
 builder.Services.AddScoped<ISessionGradingService, SessionGradingService>();
 builder.Services.AddSingleton<IQueueService, HangfireQueueService>();
+builder.Services.AddScoped<IProcessingStatusService, ProcessingStatusService>();
 builder.Services.AddScoped<IRetryAnswerService, RetryAnswerService>();
 builder.Services.AddScoped<IAudioPlaybackService, AudioPlaybackService>();
 builder.Services.AddScoped<IAnswerAudioService, AnswerAudioService>();

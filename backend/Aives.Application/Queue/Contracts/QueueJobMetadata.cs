@@ -22,6 +22,25 @@ public class QueueJobMetadata
     public int AnswerId { get; set; }
 
     /// <summary>
+    /// PK của sinh viên sở hữu answer. Được ghi vào metadata ngay tại call site
+    /// (upload audio / upload chunked / retry) để worker đối chiếu lại với DB
+    /// trước khi xử lý. Bảo vệ chống "nhầm sinh viên" khi 100 bài nộp đồng thời:
+    /// job chỉ được chạy nếu <c>Answer.Result.StudentId</c> khớp giá trị này.
+    /// </summary>
+    /// <remarks>
+    /// Nullable để job cũ (enqueue trước khi nâng cấp) vẫn deserialize được.
+    /// Job không có <see cref="StudentId"/> và <see cref="SessionId"/> sẽ bỏ qua
+    /// bước kiểm tra ownership (tương thích ngược).
+    /// </remarks>
+    public int? StudentId { get; set; }
+
+    /// <summary>
+    /// PK của ca thi sở hữu answer. Worker đối chiếu với <c>Answer.Result.SessionId</c>
+    /// để chắc chắn audio/job không bị gán chéo sang ca thi khác.
+    /// </summary>
+    public int? SessionId { get; set; }
+
+    /// <summary>
     /// PK của record <c>Result</c> liên kết. Có thể null ở attempt đầu (chưa tạo row result)
     /// hoặc khi result trước đó đã bị xoá.
     /// </summary>
@@ -62,5 +81,6 @@ public class QueueJobMetadata
     /// để match job theo AnswerId — nếu đổi format, cần cập nhật cả 2 nơi.
     /// </summary>
     public override string ToString() =>
-        $"QueueJobMetadata {{ JobId = {JobId}, AnswerId = {AnswerId}, Attempt = {Attempt}, Status = {Status} }}";
+        $"QueueJobMetadata {{ JobId = {JobId}, AnswerId = {AnswerId}, ResultId = {ResultId}, " +
+        $"StudentId = {StudentId}, SessionId = {SessionId}, Attempt = {Attempt}, Status = {Status} }}";
 }

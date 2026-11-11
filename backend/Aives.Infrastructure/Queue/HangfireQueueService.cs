@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Aives.Application.Queue.Contracts;
+using Aives.Application.Queue.DTOs;
 using Aives.Application.Queue.Interfaces;
 using Hangfire;
 using Hangfire.Storage;
@@ -16,6 +17,16 @@ public class HangfireQueueService : IQueueService
     private readonly IBackgroundJobClient _jobClient;
     private readonly ILogger<HangfireQueueService> _logger;
     private readonly IMonitoringApi? _injectedMonitoringApi;
+
+    /// <summary>
+    /// Số stripe khoá dùng cho bước "check dedup + enqueue". 100 bài nộp đồng thời
+    /// vẫn có thể rơi vào cùng stripe, nhưng mỗi stripe chỉ serialize các answer
+    /// cùng modulo — không chặn toàn bộ queue và không giữ lock vô hạn.
+    /// </summary>
+    private const int EnqueueLockStripes = 64;
+
+    private static readonly object[] EnqueueLocks =
+        Enumerable.Range(0, EnqueueLockStripes).Select(_ => new object()).ToArray();
 
     // IMonitoringApi is not registered in DI by Hangfire — resolve it on demand
     // via JobStorage.Current so the singleton can be constructed before the storage
@@ -53,36 +64,44 @@ public class HangfireQueueService : IQueueService
         }
 
         // Trước khi enqueue: kiểm tra trùng — tránh 2 job cùng xử lý 1 answer gây race.
-        if (HasPendingOrProcessingJob(metadata.AnswerId))
+        // 100 request submit đồng thời có thể cùng thấy "chưa có job" rồi enqueue 2 lần.
+        // Khoá theo answer (striped lock) bảo đảm check + enqueue là nguyên tử trong process.
+        var gate = EnqueueLocks[(int)((uint)metadata.AnswerId % EnqueueLockStripes)];
+        lock (gate)
         {
-            _logger.LogWarning(
-                "Skipping enqueue: AnswerId={AnswerId} already has a pending/processing job.",
-                metadata.AnswerId);
-            return string.Empty;
+            if (HasPendingOrProcessingJob(metadata.AnswerId))
+            {
+                _logger.LogWarning(
+                    "Skipping enqueue: AnswerId={AnswerId} already has a pending/processing job.",
+                    metadata.AnswerId);
+                return string.Empty;
+            }
+
+            metadata.Status = QueueJobStatus.Pending;
+            metadata.EnqueuedAt = DateTime.UtcNow;
+
+            // Hangfire sẽ serialize metadata vào storage. Dùng Expression thay vì method invoke
+            // để Hangfire có thể hiển thị method signature trên dashboard.
+            //
+            // QUAN TRỌNG: phải enqueue qua CONCRETE CLASS (AnswerProcessingJob), KHÔNG qua interface
+            // (IAnswerProcessingJob). Hangfire đọc job filter từ `Job.Method.DeclaringType`; khi
+            // khai báo expression trên interface, DeclaringType là interface nên các attribute
+            // job-level (ví dụ [AutomaticRetry]) trên class implementation sẽ KHÔNG được áp dụng —
+            // Hangfire fallback về policy mặc định (10 lần retry, mọi exception đều retry).
+            // Điều này làm hỏng BR-17: lỗi không retryable (audio hỏng, transcript rỗng) vẫn bị retry.
+            // Dùng Expression<Func<T, Task>> (không phải Action<T>) vì ExecuteAsync trả về Task —
+            // Action<T> sẽ bỏ qua Task và sinh cảnh báo CS4014 (fire-and-forget).
+            Expression<Func<AnswerProcessingJob, Task>> method = j => j.ExecuteAsync(metadata, default);
+            var jobId = _jobClient.Enqueue(method);
+
+            metadata.JobId = jobId;
+            _logger.LogInformation(
+                "Enqueued AnswerProcessingJob: JobId={JobId}, AnswerId={AnswerId}, StudentId={StudentId}, " +
+                "SessionId={SessionId}, Queue={Queue}, Attempt={Attempt}",
+                jobId, metadata.AnswerId, metadata.StudentId, metadata.SessionId,
+                AnswerProcessingJob.QueueName, metadata.Attempt);
+            return jobId;
         }
-
-        metadata.Status = QueueJobStatus.Pending;
-        metadata.EnqueuedAt = DateTime.UtcNow;
-
-        // Hangfire sẽ serialize metadata vào storage. Dùng Expression thay vì method invoke
-        // để Hangfire có thể hiển thị method signature trên dashboard.
-        //
-        // QUAN TRỌNG: phải enqueue qua CONCRETE CLASS (AnswerProcessingJob), KHÔNG qua interface
-        // (IAnswerProcessingJob). Hangfire đọc job filter từ `Job.Method.DeclaringType`; khi
-        // khai báo expression trên interface, DeclaringType là interface nên các attribute
-    // job-level (ví dụ [AutomaticRetry]) trên class implementation sẽ KHÔNG được áp dụng —
-    // Hangfire fallback về policy mặc định (10 lần retry, mọi exception đều retry).
-    // Điều này làm hỏng BR-17: lỗi không retryable (audio hỏng, transcript rỗng) vẫn bị retry.
-        // Dùng Expression<Func<T, Task>> (không phải Action<T>) vì ExecuteAsync trả về Task —
-        // Action<T> sẽ bỏ qua Task và sinh cảnh báo CS4014 (fire-and-forget).
-        Expression<Func<AnswerProcessingJob, Task>> method = j => j.ExecuteAsync(metadata, default);
-        var jobId = _jobClient.Enqueue(method);
-
-        metadata.JobId = jobId;
-        _logger.LogInformation(
-            "Enqueued AnswerProcessingJob: JobId={JobId}, AnswerId={AnswerId}, Attempt={Attempt}",
-            jobId, metadata.AnswerId, metadata.Attempt);
-        return jobId;
     }
 
     public bool HasPendingOrProcessingJob(int answerId)
@@ -186,12 +205,7 @@ public class HangfireQueueService : IQueueService
 
         try
         {
-            if (HasSessionJob(MonitoringApi.ProcessingJobs(0, 1000), j => j.Job, resultId))
-                return true;
-            if (HasSessionJob(MonitoringApi.ScheduledJobs(0, 1000), j => j.Job, resultId))
-                return true;
-            if (HasSessionJob(MonitoringApi.EnqueuedJobs(SessionGradingJob.QueueName, 0, 1000), j => j.Job, resultId))
-                return true;
+            return FindActiveSessionGradingJobId(resultId) != null;
         }
         catch (Exception ex)
         {
@@ -201,6 +215,93 @@ public class HangfireQueueService : IQueueService
         }
 
         return false;
+    }
+
+    public QueueJobStateDto? GetJobState(string jobId)
+    {
+        if (string.IsNullOrWhiteSpace(jobId))
+            return null;
+
+        try
+        {
+            var details = MonitoringApi.JobDetails(jobId);
+            if (details == null)
+                return null;
+
+            // History có thể chứa nhiều state; state mới nhất là state hiện tại.
+            var latest = details.History?
+                .Where(item => item != null)
+                .OrderByDescending(item => item.CreatedAt)
+                .FirstOrDefault();
+
+            var stateName = latest?.StateName ?? "Unknown";
+            var reason = latest?.Reason;
+            if (!string.IsNullOrWhiteSpace(reason) && reason.Length > QueueJobContract.MaxLastErrorLength)
+                reason = reason[..QueueJobContract.MaxLastErrorLength];
+
+            return new QueueJobStateDto
+            {
+                JobId = jobId,
+                State = stateName,
+                Status = QueueJobContract.MapHangfireState(stateName),
+                JobType = details.Job?.Type?.Name,
+                CreatedAt = details.CreatedAt,
+                StateChangedAt = latest?.CreatedAt,
+                Error = string.IsNullOrWhiteSpace(reason) ? null : reason
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read Hangfire job state for JobId={JobId}.", jobId);
+            return null;
+        }
+    }
+
+    public QueueJobStateDto? GetSessionGradingState(int resultId)
+    {
+        if (resultId <= 0)
+            return null;
+
+        try
+        {
+            var jobId = FindActiveSessionGradingJobId(resultId);
+            return jobId == null ? null : GetJobState(jobId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to read session grading state for ResultId={ResultId}.", resultId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Tìm JobId của job chấm bài đang chờ/đang chạy cho một Result.
+    /// Chỉ quét các state còn hoạt động; job đã xong được suy ra từ DB
+    /// (<c>results.ai_evaluation_status</c>) ở tầng status service.
+    /// </summary>
+    private string? FindActiveSessionGradingJobId(int resultId)
+    {
+        foreach (var (jobId, info) in MonitoringApi.ProcessingJobs(0, 1000))
+        {
+            if (MatchesSessionResult(info.Job, resultId))
+                return jobId;
+        }
+
+        // ScheduledJobs chứa job đang chờ retry sau khi fail.
+        foreach (var (jobId, info) in MonitoringApi.ScheduledJobs(0, 1000))
+        {
+            if (MatchesSessionResult(info.Job, resultId))
+                return jobId;
+        }
+
+        foreach (var (jobId, info) in MonitoringApi.EnqueuedJobs(SessionGradingJob.QueueName, 0, 1000))
+        {
+            if (MatchesSessionResult(info.Job, resultId))
+                return jobId;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -237,12 +338,6 @@ public class HangfireQueueService : IQueueService
         }
         return false;
     }
-
-    private static bool HasSessionJob<TJob>(
-        IEnumerable<KeyValuePair<string, TJob>> jobs,
-        Func<TJob, Hangfire.Common.Job> jobSelector,
-        int resultId) =>
-        jobs.Any(j => MatchesSessionResult(jobSelector(j.Value), resultId));
 
     /// <summary>
     /// Chỉ khớp job chấm cả bài, và chỉ khớp đúng ResultId ở argument đầu.
