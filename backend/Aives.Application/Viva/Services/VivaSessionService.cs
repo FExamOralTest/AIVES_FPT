@@ -208,6 +208,44 @@ public class VivaSessionService : IVivaSessionService
         };
     }
 
+    public async Task<QuestionAudioDto?> GetCurrentQuestionAudioAsync(int sessionId, int studentId, int questionId)
+    {
+        // Reuses the same checks as GetCurrentQuestionAsync, so a student can only hear the question they are on.
+        var current = await GetCurrentQuestionAsync(sessionId, studentId);
+        if (current.QuestionId != questionId)
+            throw new InvalidOperationException("This is not the current question.");
+        if (string.IsNullOrWhiteSpace(current.QuestionText))
+            return null;
+
+        var tts = await _aiServiceClient.SynthesizeSpeechAsync(
+            current.QuestionText, SpeechLanguage.Detect(current.QuestionText));
+        if (!tts.Success || string.IsNullOrWhiteSpace(tts.AudioBase64))
+        {
+            _logger.LogWarning("TTS unavailable for session {SessionId}, question {QuestionId}: {Message}",
+                sessionId, questionId, tts.Message);
+            return null;
+        }
+
+        byte[] audio;
+        try { audio = Convert.FromBase64String(tts.AudioBase64); }
+        catch (FormatException)
+        {
+            _logger.LogWarning("TTS returned invalid base64 for session {SessionId}, question {QuestionId}.", sessionId, questionId);
+            return null;
+        }
+
+        return new QuestionAudioDto
+        {
+            Audio = audio,
+            ContentType = tts.AudioFormat?.ToLowerInvariant() switch
+            {
+                "wav" => "audio/wav",
+                "ogg" => "audio/ogg",
+                _ => "audio/mpeg",
+            },
+        };
+    }
+
     public async Task<SubmitVivaAnswerResponse> SubmitAnswerAsync(
         int sessionId, int studentId, SubmitVivaAnswerRequest request,
         CancellationToken ct = default)

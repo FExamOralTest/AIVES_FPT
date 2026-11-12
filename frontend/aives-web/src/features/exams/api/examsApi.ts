@@ -4,6 +4,7 @@ import type {
   AutoPartitionSlotPapersRequest,
   CreateExamInput,
   Exam,
+  ExamStatus,
   UpdateExamInput,
 } from '../types'
 
@@ -25,6 +26,11 @@ export const examsApi = {
 
   async update(examId: number, input: UpdateExamInput): Promise<Exam> {
     const { data } = await http.put<Exam>(`/api/exams/${examId}`, input)
+    return data
+  },
+
+  async updateStatus(examId: number, status: ExamStatus): Promise<Exam> {
+    const { data } = await http.put<Exam>(`/api/exams/${examId}/status`, { status })
     return data
   },
 

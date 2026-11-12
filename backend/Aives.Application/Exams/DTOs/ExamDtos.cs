@@ -88,6 +88,13 @@ public class UpdateExamQuestionsRequest
     public List<ExamQuestionItem> Questions { get; set; } = [];
 }
 
+public class UpdateExamStatusRequest
+{
+    /// <summary>Target status: DRAFT, SCHEDULED, OPEN, CLOSED or CANCELLED.</summary>
+    [Required]
+    public string Status { get; set; } = string.Empty;
+}
+
 public class SuggestQuestionsRequest
 {
     [Range(1, int.MaxValue)]
@@ -113,6 +120,8 @@ public class ExamDto
     public int DurationMinutes { get; set; }
     public int MaxQuestions { get; set; }
     public string? ExamStatus { get; set; }
+    /// <summary>Statuses this exam can move to next, following <c>ExamStatusTransitions</c>.</summary>
+    public List<string> AllowedNextStatuses { get; set; } = new();
     public DateTime? CreatedAt { get; set; }
     public List<ExamQuestionDto> Questions { get; set; } = new();
     public List<ExamSlotTemplateDto> SlotTemplates { get; set; } = new();

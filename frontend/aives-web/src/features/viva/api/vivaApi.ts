@@ -33,6 +33,17 @@ export const vivaApi = {
     return data
   },
 
+  /** Spoken audio of the current question. Rejects with 503 when the server has no TTS. */
+  async getQuestionAudio(sessionId: number, questionId: number, signal?: AbortSignal): Promise<Blob> {
+    const { data } = await http.get<Blob>(`/api/student/viva-sessions/${sessionId}/current-question/audio`, {
+      params: { questionId },
+      responseType: 'blob',
+      timeout: 30000,
+      signal,
+    })
+    return data
+  },
+
   async finish(sessionId: number): Promise<FinishVivaSessionResponse> {
     const { data } = await http.post<FinishVivaSessionResponse>(`/api/student/viva-sessions/${sessionId}/finish`, undefined, { timeout: 310000 })
     return data

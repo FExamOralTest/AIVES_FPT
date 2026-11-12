@@ -1,11 +1,15 @@
-import { Sparkles, HelpCircle, Layers } from 'lucide-react'
+import { Sparkles, HelpCircle, Layers, Loader2, Square, Volume2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import type { SpeechStatus } from '../hooks/useQuestionSpeech'
 import type { VivaQuestionDto } from '../types'
 
 interface QuestionCardProps {
   question: VivaQuestionDto
   questionNumber: number
   totalQuestions: number
+  /** Read-aloud state. Omit to hide the listen button. */
+  speech?: { status: SpeechStatus; disabled: boolean; onPlay: () => void; onStop: () => void }
 }
 
 const LEVEL_CONFIG: Record<number, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -14,7 +18,7 @@ const LEVEL_CONFIG: Record<number, { label: string; variant: 'default' | 'second
   3: { label: 'Advanced', variant: 'destructive' },
 }
 
-export function QuestionCard({ question, questionNumber, totalQuestions }: QuestionCardProps) {
+export function QuestionCard({ question, questionNumber, totalQuestions, speech }: QuestionCardProps) {
   const levelInfo = LEVEL_CONFIG[question.level] ?? { label: `Level ${question.level}`, variant: 'outline' }
 
   return (
@@ -65,6 +69,34 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
           {question.questionText}
         </h2>
       </div>
+
+      {speech && (
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          {speech.status === 'playing' ? (
+            <Button type="button" variant="outline" size="sm" onClick={speech.onStop} className="gap-2">
+              <Square className="size-3.5" />
+              Stop reading
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={speech.onPlay}
+              disabled={speech.disabled || speech.status === 'loading'}
+              className="gap-2"
+            >
+              {speech.status === 'loading' ? <Loader2 className="size-3.5 animate-spin" /> : <Volume2 className="size-3.5" />}
+              {speech.status === 'loading' ? 'Preparing audio…' : 'Listen again'}
+            </Button>
+          )}
+          <span role="status" className="text-xs text-muted-foreground">
+            {speech.status === 'playing' && 'Reading the question aloud…'}
+            {speech.status === 'unavailable' && 'Audio is not available. Please read the question above.'}
+            {speech.disabled && speech.status !== 'unavailable' && 'Stop recording to listen again.'}
+          </span>
+        </div>
+      )}
 
       <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
         <HelpCircle className="size-4 shrink-0 text-brand" />

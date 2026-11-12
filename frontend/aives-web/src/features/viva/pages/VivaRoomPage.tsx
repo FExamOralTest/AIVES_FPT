@@ -26,6 +26,7 @@ import { VivaWaveform } from '../components/VivaWaveform'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
 import { useChunkedUpload } from '../hooks/useChunkedUpload'
 import { useCountdown } from '../hooks/useCountdown'
+import { useQuestionSpeech } from '../hooks/useQuestionSpeech'
 import type { StartVivaSessionResponse, VivaQuestionDto } from '../types'
 
 export default function VivaRoomPage() {
@@ -49,6 +50,7 @@ export default function VivaRoomPage() {
 
   const recorder = useAudioRecorder()
   const chunked = useChunkedUpload()
+  const speech = useQuestionSpeech(session?.sessionId ?? null, isCompleted ? null : currentQuestion, recorder.isRecording)
   const textInputId = useId()
   const autoStartedSession = useRef<string | null>(null)
   // Guards against finishing twice (Submit early racing the timer).
@@ -456,6 +458,12 @@ export default function VivaRoomPage() {
             question={currentQuestion}
             questionNumber={(currentQuestion.questionIndex ?? 0) + 1}
             totalQuestions={session.totalQuestions}
+            speech={{
+              status: speech.status,
+              disabled: recorder.isRecording || isSubmitting,
+              onPlay: () => void speech.play(),
+              onStop: speech.stop,
+            }}
           />
         </div>
       )}

@@ -63,6 +63,17 @@ public class ExamsController(IExamService service) : ControllerBase
     public Task<IActionResult> UpdateExam(int examId, [FromBody] UpdateExamRequest request)
         => ExecuteAsync(async teacherId => Ok(await service.UpdateExamAsync(examId, request, teacherId)));
 
+    /// <summary>
+    /// Moves an exam through DRAFT → SCHEDULED → OPEN → CLOSED, or to CANCELLED before it opens.
+    /// Only DRAFT exams can be edited, so any other status locks the questions.
+    /// </summary>
+    [HttpPut("{examId:int}/status")]
+    [ProducesResponseType(typeof(ExamDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> UpdateExamStatus(int examId, [FromBody] UpdateExamStatusRequest request)
+        => ExecuteAsync(async teacherId => Ok(await service.UpdateExamStatusAsync(examId, request.Status, teacherId)));
+
     [HttpDelete("{examId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

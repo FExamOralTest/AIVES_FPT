@@ -13,6 +13,11 @@ from app.models.response import TextToSpeechResponse
 settings = get_settings()
 
 
+def _is_english(language: str | None) -> bool:
+    """True for BCP-47 codes such as 'en' or 'en-US'."""
+    return (language or "").lower().startswith("en")
+
+
 class TextToSpeechService:
     """
     Service to convert text to speech audio.
@@ -66,12 +71,14 @@ class TextToSpeechService:
     async def _synthesize_edge_tts(self, request: TextToSpeechRequest) -> TextToSpeechResponse:
         """
         Microsoft Edge TTS (free, no API key).
-        Default voice: vi-VN-HoaiMyNeural.
+        Default voice: vi-VN-HoaiMyNeural, or en-US-AriaNeural when the language is English.
         Requires TTS_PROVIDER=edge_tts.
         """
         import edge_tts
 
-        voice = request.voice or "vi-VN-HoaiMyNeural"
+        voice = request.voice or (
+            "en-US-AriaNeural" if _is_english(request.language) else "vi-VN-HoaiMyNeural"
+        )
         communicate = edge_tts.Communicate(request.text, voice)
         audio_chunks = bytearray()
         async for chunk in communicate.stream():
@@ -96,8 +103,10 @@ class TextToSpeechService:
         if not settings.google_tts_api_key:
             raise ValueError("GOOGLE_TTS_API_KEY is not set.")
 
-        # Default Vietnamese female voice
-        voice_name = request.voice or "vi-VN-Standard-A"
+        # Default female voice for the requested language (Vietnamese unless English is asked for)
+        voice_name = request.voice or (
+            "en-US-Standard-C" if _is_english(request.language) else "vi-VN-Standard-A"
+        )
         url = (
             f"https://texttospeech.googleapis.com/v1/text:synthesize"
             f"?key={settings.google_tts_api_key}"
