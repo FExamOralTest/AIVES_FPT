@@ -1,12 +1,16 @@
 import {
   Award,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Headphones,
+  Loader2,
   Save,
   Sparkles,
   Volume2,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { toApiError } from '@/lib/http/apiError'
@@ -14,13 +18,31 @@ import { teacherResultsApi } from '../api/teacherResultsApi'
 import type { ResultForReviewDto } from '../types'
 import { RetakePanel } from './RetakePanel'
 
+/** Moving between the students in the list behind the dialog. */
+export interface ReviewNavigation {
+  position: number
+  total: number
+  hasPrevious: boolean
+  hasNext: boolean
+  /** True while the next or previous attempt is loading. */
+  loading: boolean
+  error: string | null
+  onPrevious: () => void
+  onNext: () => void
+}
+
 interface ResultReviewModalProps {
   result: ResultForReviewDto
   onClose: () => void
   onUpdated: (updated: ResultForReviewDto) => void
+  /** Called after a successful publish instead of closing, so the page can open the next student. */
+  onPublished?: (published: ResultForReviewDto) => void
+  navigation?: ReviewNavigation
 }
 
-export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewModalProps) {
+const roundScore = (value: number) => Math.round(value * 10000) / 10000
+
+export function ResultReviewModal({ result, onClose, onUpdated, onPublished, navigation }: ResultReviewModalProps) {
   const readOnly = result.status === 'CANCELLED' || result.status === 'PUBLISHED'
   const maxTotalScore = result.answers.reduce((total, answer) => total + (answer.maxScore ?? 0), 0)
     || result.aiAnalysis?.maxTotalScore
@@ -57,6 +79,34 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   // Per-answer outcome of "Retry scoring", shown under that answer instead of a blocking alert().
   const [retryNotes, setRetryNotes] = useState<Record<number, { ok: boolean; text: string }>>({})
+  // Answers whose recording the examiner has played in this dialog.
+  const [listened, setListened] = useState<Set<number>>(() => new Set())
+  // What was last saved, to know whether moving to another student would lose edits.
+  const [saved, setSaved] = useState(() => ({ scores: answerScores, comments: answerComments, feedback: overallFeedback }))
+
+  const isDirty = !readOnly && (
+    overallFeedback !== saved.feedback
+    || result.answers.some((a) => answerScores[a.answerId] !== saved.scores[a.answerId]
+      || (answerComments[a.answerId] ?? '') !== (saved.comments[a.answerId] ?? ''))
+  )
+  const withAudio = result.answers.filter((a) => a.audioUrl)
+  const notListened = withAudio.filter((a) => !listened.has(a.answerId)).length
+  const aiTotal = result.answers.every((a) => a.aiScore != null)
+    ? roundScore(result.answers.reduce((total, a) => total + (a.aiScore ?? 0), 0))
+    : null
+  const busy = isSaving || isPublishing || Boolean(navigation?.loading)
+
+  function applyAiScore(answerId: number, aiScore: number) {
+    setAnswerScores((prev) => ({ ...prev, [answerId]: aiScore }))
+  }
+
+  function applyAllAiScores() {
+    setAnswerScores((prev) => {
+      const next = { ...prev }
+      result.answers.forEach((a) => { if (a.aiScore != null) next[a.answerId] = a.aiScore })
+      return next
+    })
+  }
 
   function validateReviewScores() {
     if (!Number.isFinite(aggregatedScore) || aggregatedScore < 0 || aggregatedScore > maxTotalScore) {
@@ -106,6 +156,7 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
         })),
       }
       const updated = await teacherResultsApi.review(result.resultId, payload)
+      setSaved({ scores: answerScores, comments: answerComments, feedback: overallFeedback })
       onUpdated(updated)
       return updated
     } catch (err) {
@@ -126,7 +177,8 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
       if (!(await handleSaveReview())) return
       const published = await teacherResultsApi.publish(result.resultId)
       onUpdated(published)
-      onClose()
+      if (onPublished) onPublished(published)
+      else onClose()
     } catch (err) {
       const apiErr = toApiError(err)
       setErrorMessage(apiErr.message)
@@ -134,6 +186,34 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
       setIsPublishing(false)
     }
   }
+
+  /** Saves a draft first when there are unsaved edits, so moving on never loses them. */
+  async function move(direction: 'previous' | 'next') {
+    if (!navigation || busy) return
+    if (direction === 'previous' ? !navigation.hasPrevious : !navigation.hasNext) return
+    if (isDirty && !(await handleSaveReview())) return
+    if (direction === 'previous') navigation.onPrevious()
+    else navigation.onNext()
+  }
+
+  // Keyboard: Alt+←/→ moves between students, Ctrl/Cmd+S saves a draft.
+  // Plain arrows are left alone: they change number inputs and seek the audio players.
+  const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {})
+  useEffect(() => {
+    keyHandler.current = (event: KeyboardEvent) => {
+      if (event.altKey && event.key === 'ArrowLeft') { event.preventDefault(); void move('previous') }
+      else if (event.altKey && event.key === 'ArrowRight') { event.preventDefault(); void move('next') }
+      else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        if (!readOnly && !busy) void handleSaveReview()
+      }
+    }
+  })
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => keyHandler.current(event)
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm overflow-y-auto">
@@ -150,16 +230,45 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
             <p className="text-xs text-muted-foreground">{result.sessionName}</p>
           </div>
 
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full" aria-label="Close">
-            <X className="size-5" aria-hidden="true" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {navigation && (
+              <nav aria-label="Move between students" className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void move('previous')}
+                  disabled={!navigation.hasPrevious || busy}
+                  aria-label="Previous student (Alt+Left)"
+                  title="Previous student (Alt+←)"
+                >
+                  <ChevronLeft className="size-4" aria-hidden="true" />
+                </Button>
+                <span className="min-w-20 text-center text-xs text-muted-foreground" aria-live="polite">
+                  {navigation.loading ? <Loader2 className="mx-auto size-4 animate-spin" aria-label="Loading" /> : `Student ${navigation.position} / ${navigation.total}`}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void move('next')}
+                  disabled={!navigation.hasNext || busy}
+                  aria-label="Next student (Alt+Right)"
+                  title="Next student (Alt+→)"
+                >
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                </Button>
+              </nav>
+            )}
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full" aria-label="Close">
+              <X className="size-5" aria-hidden="true" />
+            </Button>
+          </div>
         </header>
 
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
-          {errorMessage && (
-            <div className="rounded-2xl bg-destructive/10 p-4 text-sm text-destructive font-medium">
-              {errorMessage}
+          {(errorMessage || navigation?.error) && (
+            <div role="alert" className="rounded-2xl bg-destructive/10 p-4 text-sm text-destructive font-medium">
+              {errorMessage ?? navigation?.error}
             </div>
           )}
 
@@ -195,6 +304,11 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     AI-suggested score: <span className="font-semibold">{result.aiScore.toFixed(1)}</span>
                   </p>
+                )}
+                {!readOnly && aiTotal != null && aiTotal !== aggregatedScore && (
+                  <Button type="button" variant="link" size="sm" onClick={applyAllAiScores} className="h-auto px-0 text-xs">
+                    <Sparkles className="size-3.5" /> Use all AI scores
+                  </Button>
                 )}
               </div>
 
@@ -298,7 +412,12 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
 
                   {answer.audioUrl && (
                     <div className="pt-2">
-                      <audio controls src={answer.audioUrl} className="h-9 w-full max-w-sm" />
+                      <audio
+                        controls
+                        src={answer.audioUrl}
+                        onPlay={() => setListened((prev) => (prev.has(answer.answerId) ? prev : new Set(prev).add(answer.answerId)))}
+                        className="h-9 w-full max-w-sm"
+                      />
                     </div>
                   )}
 
@@ -392,6 +511,15 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
                       }
                       className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 font-semibold text-sm outline-none focus:border-brand"
                     />
+                    {!readOnly && answer.aiScore != null && answerScores[answer.answerId] !== answer.aiScore && (
+                      <button
+                        type="button"
+                        onClick={() => applyAiScore(answer.answerId, answer.aiScore!)}
+                        className="mt-1 text-xs text-brand underline-offset-2 hover:underline"
+                      >
+                        Use AI score ({answer.aiScore.toFixed(1)})
+                      </button>
+                    )}
                   </div>
 
                   <div>
@@ -420,15 +548,24 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
 
         {/* Footer Actions */}
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-6 py-4 sm:px-8">
-          <Button variant="ghost" onClick={onClose}>
-            Close
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+            {withAudio.length > 0 && (
+              <span className={`flex items-center gap-1.5 text-xs ${notListened && !readOnly ? 'text-warning' : 'text-muted-foreground'}`}>
+                <Headphones className="size-3.5" aria-hidden="true" />
+                Listened {withAudio.length - notListened} / {withAudio.length}
+              </span>
+            )}
+            {isDirty && <span className="text-xs text-muted-foreground">Unsaved changes · Ctrl+S</span>}
+          </div>
 
           <div className="flex gap-3">
             <Button
               variant="outline"
               onClick={handleSaveReview}
-              disabled={readOnly || isSaving || isPublishing}
+              disabled={readOnly || busy}
               className="gap-2"
             >
               <Save className="size-4" />
@@ -437,11 +574,11 @@ export function ResultReviewModal({ result, onClose, onUpdated }: ResultReviewMo
 
             <Button
               onClick={handlePublish}
-              disabled={readOnly || isSaving || isPublishing}
+              disabled={readOnly || busy}
               className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <CheckCircle2 className="size-4" />
-              {isPublishing ? 'Publishing…' : 'Approve & publish result'}
+              {isPublishing ? 'Publishing…' : onPublished && navigation?.hasNext ? 'Publish & next' : 'Approve & publish result'}
             </Button>
           </div>
         </footer>
