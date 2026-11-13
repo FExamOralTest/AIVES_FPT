@@ -1,0 +1,90 @@
+@startuml SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT_EN
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2.5
+  FontSize 22
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 20
+  DiamondFontStyle bold
+  DiamondBorderThickness 2.5
+  ConditionFontSize 20
+  ConditionFontStyle bold
+  ArrowFontSize 22
+  ArrowFontStyle bold
+  ArrowThickness 3.0
+}
+skinparam ArrowFontSize 22
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 3.0
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #EAF1F7
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 22
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 28
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 22
+
+'==============================================================
+' AIVES - SWIMLANE 2B (PART 2 of 2): REVIEW, PUBLICATION & INCIDENT HANDLING (English)
+' Slide-sized slice: from the review loop to the retake.
+' Source: AIVES SRS 07/11/2026 + backend/Aives.Api
+'==============================================================
+title SWIMLANE 2B - REVIEW, PUBLICATION & INCIDENT HANDLING
+
+|Backend / DB / Storage|
+:The result sits in PENDING_REVIEW with AiScore recorded\n(not yet the official score);
+
+|EXAMINER|
+:Search results by period / session / student\n(GET /api/results?pending);
+:Open the review detail:\ntranscript, audio, AI score, criterion analysis;
+
+|EXAMINER|
+if (AI grading needs correction?) then (Yes)
+  :Enter the official score and comment\n(PUT /api/results/{id}/review);
+  |Backend / DB / Storage|
+  :Keep FinalScore and TeacherComment separate,\nnever overwrite AiScore (BR-09);\nResult.Status = REVIEWED + audit log;
+else (No)
+  |Backend / DB / Storage|
+  :Result.Status = REVIEWED;
+endif
+
+|EXAMINER|
+:Publish the result\n(POST /api/results/{id}/publish);
+|Backend / DB / Storage|
+if (Publication preconditions met?) then (Yes)
+  :Result.Status = PUBLISHED,\nrecord PublishedAt / PublishedBy;
+else (Not yet)
+  :Return 409 - not reviewed or official score missing;
+  |EXAMINER|
+  :Review again before publishing;
+  stop
+endif
+
+|STUDENT|
+:View the official result\n(GET /api/student/results/{sessionId});
+:Per-question detail (score, comment, transcript, audio)
+is available only once PUBLISHED (BR-18);
+
+'----------------- Incident handling: request a re-check -----------------
+|EXAMINER / ADMIN|
+:Encounter an error -> request a retry\n(POST /api/answers/{answerId}/retry);
+|Backend / DB / Storage|
+:Enqueue RetryAnswerJob (Hangfire) -> re-run STT + grading;
+
+'----------------- Retake branch -----------------
+|EXAMINER / ADMIN|
+:Grant a retake\n(POST /api/results/{resultId}/retake);
+|Backend / DB / Storage|
+:Old Result -> CANCELLED (history preserved),\ncreate a dedicated session, write the audit log;
+|STUDENT|
+:Take the retake within the new time window;
+stop
+
+@enduml

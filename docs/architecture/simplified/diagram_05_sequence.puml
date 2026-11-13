@@ -1,0 +1,125 @@
+@startuml DIAGRAM_05_SEQUENCE
+'==============================================================
+' AIVES - SIMPLIFIED SEQUENCE DIAGRAM (slide-ready, Vietnamese)
+'
+' Simple by design: 6 participants, 3 phases, 21 messages.
+' Không ghi endpoint thô - mỗi message nêu rõ ĐIỀU GÌ XẢY RA.
+'
+' COLOUR CODE (4 meanings only):
+'   BLUE   solid  = REQUEST  (gọi)
+'   GREEN  dashed = RESPONSE (trả về)
+'   PURPLE solid  = DATABASE access (truy cập CSDL)
+'   ORANGE solid  = INTERNAL / retry (nội bộ)
+'   GREY-BLUE      = life line (đường dẫn, không có mũi tên)
+'
+' Verified against: VivaSessionController/VivaSessionService,
+'   SessionGradingJob/SessionGradingService,
+'   ResultsController/ResultService, StudentResultController.
+'   After rendering, run: python ops/_sharpen_svg.py <this>.svg
+'==============================================================
+title DIAGRAM 5 - SEQUENCE DIAGRAM RÚT GỌN (AIVES)
+
+skinparam shadowing false
+
+skinparam sequenceArrowColor #1F5FBF
+skinparam sequenceArrowThickness 2.6
+
+skinparam sequenceLifeLineBorderColor #8FA6C4
+skinparam sequenceLifeLineBorderThickness 2.4
+skinparam sequenceLifeLineBackgroundColor #F7FAFF
+
+skinparam sequenceParticipantBorderColor #1F5FBF
+skinparam sequenceParticipantBorderThickness 2.4
+skinparam sequenceParticipantBackgroundColor #FFFFFF
+skinparam sequenceActorBorderColor #1F5FBF
+skinparam sequenceActorBorderThickness 2.4
+skinparam sequenceActorBackgroundColor #FFFFFF
+skinparam sequenceDatabaseBorderColor #7C3AED
+skinparam sequenceDatabaseBorderThickness 2.4
+skinparam sequenceDatabaseBackgroundColor #FFFFFF
+skinparam sequenceNoteBorderColor #1F5FBF
+skinparam sequenceNoteBackgroundColor #EAF2FE
+skinparam sequenceNoteBorderThickness 2
+skinparam sequenceGroupBorderColor #8FA6C4
+skinparam sequenceGroupBorderThickness 2
+skinparam sequenceGroupBackgroundColor #F4F7FB
+skinparam sequenceDividerBackgroundColor #1F5FBF
+skinparam sequenceDividerFontColor #FFFFFF
+
+skinparam ParticipantFontColor #14385C
+skinparam ActorFontColor #14385C
+skinparam DatabaseFontColor #5B21B6
+skinparam NoteFontColor #14385C
+skinparam GroupFontColor #14385C
+skinparam DividerFontColor #FFFFFF
+
+skinparam ParticipantFontSize 16
+skinparam ActorFontSize 16
+skinparam DatabaseFontSize 15
+skinparam NoteFontSize 14
+skinparam GroupFontSize 14
+skinparam DividerFontSize 14
+skinparam ParticipantFontStyle bold
+skinparam ActorFontStyle bold
+skinparam DatabaseFontStyle bold
+skinparam NoteFontStyle bold
+skinparam GroupFontStyle bold
+
+skinparam titleFontSize 21
+skinparam titleFontStyle bold
+skinparam titleFontColor #14385C
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 13
+skinparam defaultFontColor #14385C
+skinparam BoxPadding 6
+
+actor "Sinh viên" as Student
+participant "Backend API\nASP.NET Core" as BE
+participant "Hangfire Worker\nqueue: grading" as WJ
+participant "AI Service\nFastAPI" as AI
+database "PostgreSQL" as DB
+actor "Khảo thí" as Ex
+
+== 1. LÀM BÀI ==
+
+Student -[#1F5FBF]-> BE: Nộp câu trả lời (audio)
+BE -[#1F5FBF]-> AI: Chuyển giọng nói + sinh câu hỏi tiếp theo
+AI -[#0E9F6E,dashed]-> BE: Transcript + câu hỏi tiếp theo
+BE -[#7C3AED]-> DB: Lưu câu trả lời (PROCESSING)
+BE -[#0E9F6E,dashed]-> Student: Feedback + câu hỏi tiếp theo
+
+Student -[#1F5FBF]-> BE: Kết thúc bài thi
+BE -[#7C3AED]-> DB: Result = PENDING_REVIEW + xếp hàng job chấm điểm
+BE -[#0E9F6E,dashed]-> Student: Đã nộp bài
+
+== 2. AI CHẤM ĐIỂM (async) ==
+
+WJ -[#7C3AED]-> DB: Lấy result + câu trả lời + rubric
+WJ -[#1F5FBF]-> AI: Chấm điểm theo rubric
+AI -[#0E9F6E,dashed]-> WJ: Điểm + feedback từng câu
+WJ -[#7C3AED]-> DB: Lưu điểm AI + feedback (EVALUATED)
+
+== 3. REVIEW, CÔNG BỐ, XEM ==
+
+Ex -[#1F5FBF]-> BE: Mở kết quả (audio + điểm AI)
+BE -[#0E9F6E,dashed]-> Ex: Câu trả lời + điểm AI + rubric
+Ex -[#1F5FBF]-> BE: Chấm điểm chính thức
+BE -[#7C3AED]-> DB: Status = REVIEWED (giữ điểm AI)
+Ex -[#1F5FBF]-> BE: Công bố kết quả
+BE -[#7C3AED]-> DB: Status = PUBLISHED
+BE -[#0E9F6E,dashed]-> Ex: Đã công bố
+
+Student -[#1F5FBF]-> BE: Xem kết quả của mình
+BE -[#0E9F6E,dashed]-> Student: Điểm + nhận xét khảo thí
+
+note over WJ, AI
+  Lỗi retryable: thử lại 30s / 120s / 300s (tối đa 3 lḀn).
+  Còn lại: AI evaluation = FAILED, câu trả lời = ERROR.
+end note
+
+legend
+  | <#1F5FBF> | <#0E9F6E> | <#7C3AED> | <#C2410C> |
+  | Request | Response | Database | Nội bộ |
+endlegend
+
+@enduml

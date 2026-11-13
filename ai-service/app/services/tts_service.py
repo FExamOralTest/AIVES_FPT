@@ -73,23 +73,57 @@ class TextToSpeechService:
         Microsoft Edge TTS (free, no API key).
         Default voice: vi-VN-HoaiMyNeural, or en-US-AriaNeural when the language is English.
         Requires TTS_PROVIDER=edge_tts.
+
+        The upstream websocket occasionally closes without sending any audio
+        ("NoAudioReceived"). Retrying a couple of times makes the endpoint
+        reliable enough for a live exam.
         """
+        import asyncio
+
         import edge_tts
+        from edge_tts.exceptions import NoAudioReceived
 
         voice = request.voice or (
             "en-US-AriaNeural" if _is_english(request.language) else "vi-VN-HoaiMyNeural"
         )
-        communicate = edge_tts.Communicate(request.text, voice)
-        audio_chunks = bytearray()
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_chunks.extend(chunk["data"])
+        last_error: Exception | None = None
 
-        audio_b64 = base64.b64encode(bytes(audio_chunks)).decode("utf-8")
-        return TextToSpeechResponse(
-            success=True,
-            audio_base64=audio_b64,
-            audio_format="mp3",
+        for attempt in range(1, settings.tts_max_retries + 1):
+            try:
+                communicate = edge_tts.Communicate(request.text, voice)
+                audio_chunks = bytearray()
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_chunks.extend(chunk["data"])
+            except NoAudioReceived as exc:
+                last_error = exc
+                logger.warning(
+                    f"[TTSService] Edge TTS returned no audio "
+                    f"(attempt {attempt}/{settings.tts_max_retries})."
+                )
+                if attempt < settings.tts_max_retries:
+                    await asyncio.sleep(settings.tts_retry_delay_seconds)
+                continue
+
+            if not audio_chunks:
+                last_error = RuntimeError("Edge TTS returned an empty audio stream.")
+                logger.warning(
+                    f"[TTSService] Edge TTS returned an empty stream "
+                    f"(attempt {attempt}/{settings.tts_max_retries})."
+                )
+                if attempt < settings.tts_max_retries:
+                    await asyncio.sleep(settings.tts_retry_delay_seconds)
+                continue
+
+            audio_b64 = base64.b64encode(bytes(audio_chunks)).decode("utf-8")
+            return TextToSpeechResponse(
+                success=True,
+                audio_base64=audio_b64,
+                audio_format="mp3",
+            )
+
+        raise RuntimeError(
+            f"Edge TTS failed after {settings.tts_max_retries} attempts: {last_error}"
         )
 
     # ── Google TTS ─────────────────────────────────────────

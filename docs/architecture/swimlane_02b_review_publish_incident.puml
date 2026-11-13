@@ -1,0 +1,90 @@
+@startuml SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2.5
+  FontSize 22
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 20
+  DiamondFontStyle bold
+  DiamondBorderThickness 2.5
+  ConditionFontSize 20
+  ConditionFontStyle bold
+  ArrowFontSize 22
+  ArrowFontStyle bold
+  ArrowThickness 3.0
+}
+skinparam ArrowFontSize 22
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 3.0
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #EAF1F7
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 22
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 28
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 22
+
+'==============================================================
+' AIVES - SWIMLANE 2B (PART 2 of 2): REVIEW, CONG BO & XU LY SU CO
+' Vung nhanh cho slide: tu vong review den cap lai thi.
+' Nguon: AIVES SRS 07/11/2026 + backend/Aives.Api
+'==============================================================
+title SWIMLANE 2B - REVIEW, CÔNG BỐ & XỬ LÝ SỰ CỐ (Review, Publish & Incident Handling)
+
+|Backend / DB / Storage|
+:Kết quả ở trạng thái PENDING_REVIEW,\nAiScore đã được ghi (chưa phải điểm chính thức);
+
+|EXAMINER|
+:Tìm kết quả theo kỳ thi / session / sinh viên\n(GET /api/results?pending);
+:Mở chi tiết để review:\ntranscript, audio, điểm AI, criterion analysis;
+
+|EXAMINER|
+if (AI chấm sai / cần chỉnh?) then (Có)
+  :Ghi điểm chính thức + nhận xét\n(PUT /api/results/{id}/review);
+  |Backend / DB / Storage|
+  :Giữ riêng FinalScore và TeacherComment,\nKHÔNG ghi đè AiScore (BR-09);\nResult.Status = REVIEWED + audit log;
+else (Không)
+  |Backend / DB / Storage|
+  :Result.Status = REVIEWED;
+endif
+
+|EXAMINER|
+:Công bố kết quả\n(POST /api/results/{id}/publish);
+|Backend / DB / Storage|
+if (Đủ điều kiện publish?) then (Đúng)
+  :Result.Status = PUBLISHED,\nghi PublishedAt / PublishedBy;
+else (Chưa đủ)
+  :Trả 409 - chưa review hoặc thiếu điểm chính thức;
+  |EXAMINER|
+  :Review lại trước khi publish;
+  stop
+endif
+
+|STUDENT|
+:Xem kết quả chính thức\n(GET /api/student/results/{sessionId});
+:Chi tiết theo câu (điểm, nhận xét, transcript, audio)
+chỉ khi đã PUBLISHED (BR-18);
+
+'----------------- Nhánh xử lý sự cố: yêu cầu xem lại -----------------
+|EXAMINER / ADMIN|
+:Bất gặp lỗi -> yêu cầu chạy lại (retry)\n(POST /api/answers/{answerId}/retry);
+|Backend / DB / Storage|
+:Enqueue RetryAnswerJob (Hangfire) -> chạy lại STT + chấm;
+
+'----------------- Nhánh cấp lại thi -----------------
+|EXAMINER / ADMIN|
+:Cấp lại thi (retake)\n(POST /api/results/{resultId}/retake);
+|Backend / DB / Storage|
+:Result cũ -> CANCELLED (giữ lịch sử),\ntạo ca thi riêng cho SV, ghi audit log;
+|STUDENT|
+:Làm bài thi bù với khung giờ mới;
+stop
+
+@enduml

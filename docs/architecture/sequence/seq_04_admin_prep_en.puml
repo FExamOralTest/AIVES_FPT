@@ -1,0 +1,152 @@
+@startuml SEQ_04_ADMIN_PREP_EN
+'==============================================================
+' AIVES - SEQUENCE DIAGRAM 4: PREPARATION & EXAM SCHEDULING (English)
+' Source: backend/Aives.Api/Controllers/AuthController.cs
+'         backend/Aives.Api/Controllers/AdminCourseController.cs
+'         backend/Aives.Api/Controllers/DocumentsController.cs
+'         backend/Aives.Api/Controllers/QuestionBankController.cs
+'         backend/Aives.Api/Controllers/ExamSessionsController.cs
+'==============================================================
+title SEQUENCE 4 - PREPARATION & EXAM SCHEDULING
+
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #1F3B52
+  ArrowThickness 2.5
+  LifeLineBorderColor #1F3B52
+  LifeLineBackgroundColor #F7FAFC
+  LifeLineThickness 2
+  ParticipantBackgroundColor #EAF1F7
+  ParticipantBorderColor #1F3B52
+  ParticipantBorderThickness 2
+  ParticipantFontSize 20
+  ParticipantFontStyle bold
+  ParticipantPadding 14
+  ActorBackgroundColor #EAF1F7
+  ActorBorderColor #1F3B52
+  ActorBorderThickness 2
+  ActorFontSize 20
+  ActorFontStyle bold
+  DatabaseBackgroundColor #E8F1E9
+  DatabaseBorderColor #1F3B52
+  DatabaseFontSize 19
+  DatabaseFontStyle bold
+  GroupBackgroundColor #EAF1F7
+  GroupBorderColor #1F3B52
+  GroupFontSize 20
+  GroupFontStyle bold
+  NoteBackgroundColor #FFF3CD
+  NoteBorderColor #B8860B
+  NoteFontSize 18
+  NoteFontStyle bold
+  NoteBorderThickness 2
+  BoxPadding 10
+  DividerBackgroundColor #1F3B52
+  DividerFontSize 18
+}
+skinparam titleFontSize 26
+skinparam titleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 18
+
+autonumber
+
+actor "Admin" as Admin
+actor "Staff" as Staff
+participant "AuthController" as AuthCtrl
+participant "AdminCourseController" as CourseCtrl
+participant "DocumentsController" as DocCtrl
+participant "QuestionBankController" as QbCtrl
+participant "ExamSessionsController" as SessCtrl
+participant "AI Service\n(FastAPI)" as AI
+database "PostgreSQL\n(Neon)" as DB
+
+== Phase 1: The admin creates an account ==
+
+Admin -> AuthCtrl: POST /api/auth/admin/create-user\n(email, username, password, role)
+activate AuthCtrl
+AuthCtrl -> DB: Check the email / username is free
+alt The email or username already exists
+  AuthCtrl --> Admin: 400 Bad Request (duplicate)
+else Valid
+  AuthCtrl -> DB: INSERT User + UserRole (password hashed)
+  AuthCtrl --> Admin: 201 Created (UserDto)
+end
+deactivate AuthCtrl
+
+== Phase 2: Create the course & assign the teacher ==
+
+Admin -> CourseCtrl: POST /api/admin/courses\n(name, code, description)
+activate CourseCtrl
+CourseCtrl -> DB: INSERT Course
+CourseCtrl --> Admin: 201 Created
+deactivate CourseCtrl
+
+Admin -> CourseCtrl: PUT /api/admin/courses/{id}/assign-teacher\n(teacherId)
+CourseCtrl -> DB: UPDATE Course.AssignedTeacherId
+CourseCtrl --> Admin: 200 OK
+
+== Phase 3: The staff uploads the material ==
+
+Staff -> DocCtrl: POST /api/courses/{courseId}/documents\n(multipart: .md file, docType)
+activate DocCtrl
+DocCtrl -> DB: Validate the .md (valid, not empty, right size)
+alt The document is invalid
+  DocCtrl --> Staff: 400 Bad Request
+else Valid
+  DocCtrl -> DB: INSERT MarkdownDocuments\n(content, docType=CONTENT|LEARNING_OUTCOMES)
+  DocCtrl --> Staff: 200 OK (DocumentDto)
+end
+deactivate DocCtrl
+
+== Phase 4: AI generates questions from the material ==
+
+Staff -> DocCtrl: POST /api/courses/{courseId}/documents/generate-questions\n(count, level, focus)
+activate DocCtrl
+DocCtrl -> AI: POST /ai/questions/generate\n(documents + learningOutcomes + count + level)
+activate AI
+AI -> AI: LLM produces the question set\n(rubric, keywords, sampleAnswer, level)
+AI --> DocCtrl: BatchGenerateQuestionsResponse
+deactivate AI
+DocCtrl -> DB: INSERT QuestionBanks\n(Status=PENDING_REVIEW, AiGenerated=true)
+DocCtrl --> Staff: 200 OK (new question list)
+deactivate DocCtrl
+
+== Phase 5: The staff reviews the questions ==
+
+Staff -> QbCtrl: POST /api/courses/{courseId}/questions/{questionId}/approve
+activate QbCtrl
+QbCtrl -> DB: UPDATE QuestionBanks (Status=APPROVED)
+QbCtrl --> Staff: 200 OK
+deactivate QbCtrl
+
+== Phase 6: Schedule the exam session ==
+
+Staff -> SessCtrl: POST /api/exam-sessions\n(examId, periodId, slotId, startTime, endTime)
+activate SessCtrl
+SessCtrl -> DB: Validate the slot (no overlap, inside the exam period)
+alt The time window is invalid
+  SessCtrl --> Staff: 400 Bad Request
+else Valid
+  SessCtrl -> DB: INSERT ExamSessions\n(Status=NOT_STARTED, SessionCode=ESS-XXXXXXXX)
+  SessCtrl --> Staff: 201 Created (SessionCode)
+end
+deactivate SessCtrl
+
+Staff -> SessCtrl: PUT /api/exam-sessions/{id}/status (IN_PROGRESS)
+SessCtrl -> DB: UPDATE ExamSessions (Status=IN_PROGRESS)
+SessCtrl --> Staff: 200 OK
+
+== Phase 7: Enrol the students ==
+
+Staff -> SessCtrl: GET /api/exam-sessions/{id}/monitor
+SessCtrl -> DB: SELECT Enrollment + status
+SessCtrl --> Staff: 200 OK (progress)
+
+note over Staff, DB
+  Enrolment: POST /api/student/enrollments (SessionCode)
+  - validates the schedule and the maximum headcount
+  - allocates the paper and the invigilation slot
+end note
+
+@enduml

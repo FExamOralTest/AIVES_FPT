@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERD 1 &ndash; Conceptual ERD</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  ul { font-size:14px; line-height:1.7; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ERD 1 &ndash; Conceptual ERD</h1>
+  <p>Member 5 · ERD · English version</p>
+</header>
+<nav>
+  <a href="erd-index-en.html">&larr; Index</a>
+  <a href="erd-02-logical_en.html">ERD 2 &rarr;</a>
+  <a href="./erd-index-en.html">Index</a>
+  <a href="./erd-index-en.md">Markdown</a>
+  <a href="./all-erd-en.html">&#128202; All ERDs on one page</a>
+  <a href="../sequence/sequence-index-en.html">&#128260; Sequence set</a>
+</nav>
+<main>
+  <div class="card">
+    <h2>Conceptual ERD</h2>
+    <img class="diag" src="./ERD_01_CONCEPTUAL_EN.svg" alt="Conceptual ERD">
+    <p><a href="./ERD_01_CONCEPTUAL_EN.png" download>Download PNG</a> &middot; <a href="./ERD_01_CONCEPTUAL_EN.svg" download>Download SVG</a> &middot; <a href="./erd_01_conceptual_en.puml" target="_blank">PlantUML source</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>What the conceptual level captures</h2>
+    <ul>
+      <li>Describes only <b>business entities</b> and their <b>relationships</b> &ndash; no attributes, no keys, no data types.</li>
+      <li>Meant for business stakeholders (lecturers, department head) to agree on system scope.</li>
+      <li>Four business areas: <b>Catalog &amp; Content</b>, <b>Exam Organisation</b>, <b>Taking &amp; Grading</b>, <b>Enrolment &amp; Audit</b>.</li>
+      <li><b>20 business entities</b>. The three many-to-many junction tables (<code>session_exams</code>, <code>exam_slot_template_exams</code>, <code>session_slot_exams</code>) are folded into a single conceptual entity, <b>Exam Assignment</b>, to keep the diagram readable.</li>
+    </ul>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Main business entities</h2>
+    <table>
+      <thead><tr><th>Entity</th><th>Business meaning</th><th>Area</th></tr></thead>
+      <tbody>
+        <tr><td><b>User</b></td><td>Account with role ADMIN / STAFF / EXAMINER / STUDENT</td><td>Catalog &amp; Content</td></tr>
+        <tr><td><b>Course</b></td><td>Course owned by a teacher, created by staff</td><td>Catalog &amp; Content</td></tr>
+        <tr><td><b>Document</b></td><td>Uploaded Markdown content (lesson or learning outcome)</td><td>Catalog &amp; Content</td></tr>
+        <tr><td><b>Question</b></td><td>Question in the question bank, with approval status</td><td>Catalog &amp; Content</td></tr>
+        <tr><td><b>Rubric</b></td><td>Scoring criterion of a question</td><td>Catalog &amp; Content</td></tr>
+        <tr><td><b>Exam Paper</b></td><td>Exam paper assembled from the question bank</td><td>Catalog &amp; Content</td></tr>
+        <tr><td><b>Exam Question</b></td><td>Question selected into an exam paper, with its score</td><td>Catalog &amp; Content</td></tr>
+        <tr><td><b>Period</b></td><td>Exam period belonging to a course</td><td>Exam Organisation</td></tr>
+        <tr><td><b>Session</b></td><td>Session inside a period, with join code and capacity</td><td>Exam Organisation</td></tr>
+        <tr><td><b>Slot Template</b></td><td>Template splitting a paper into timed, capacity-limited slots</td><td>Exam Organisation</td></tr>
+        <tr><td><b>Session Slot</b></td><td>Concrete time slot instantiated inside a session</td><td>Exam Organisation</td></tr>
+        <tr><td><b>Exam Assignment</b></td><td>Assignment of an exam paper to a session / slot (folds the three junction tables)</td><td>Exam Organisation</td></tr>
+        <tr><td><b>Registration</b></td><td>Student registers for a session and gets a slot / paper</td><td>Exam Organisation</td></tr>
+        <tr><td><b>Result</b></td><td>Candidate submission within a session</td><td>Taking &amp; Grading</td></tr>
+        <tr><td><b>Answer</b></td><td>Answer (text or speech) to one question</td><td>Taking &amp; Grading</td></tr>
+        <tr><td><b>AI Evaluation</b></td><td>AI suggested score, feedback and analysis</td><td>Taking &amp; Grading</td></tr>
+        <tr><td><b>Audio Upload</b></td><td>Audio file of the submission, stored on Cloudflare R2</td><td>Taking &amp; Grading</td></tr>
+        <tr><td><b>Retake</b></td><td>Request for a new attempt after an incident</td><td>Taking &amp; Grading</td></tr>
+        <tr><td><b>Course Enrollment</b></td><td>Student enrols in a course</td><td>Enrolment &amp; Audit</td></tr>
+        <tr><td><b>Audit Log</b></td><td>Audit trail of every sensitive action</td><td>Enrolment &amp; Audit</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<footer>AIVES &ndash; Member 5 deliverable &middot; ERD suite &middot; generated page</footer>
+</body>
+</html>

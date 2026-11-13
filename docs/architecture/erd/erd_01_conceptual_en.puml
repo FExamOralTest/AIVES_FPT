@@ -1,0 +1,111 @@
+﻿@startuml ERD_01_CONCEPTUAL_EN
+'==============================================================
+' AIVES - CONCEPTUAL ERD (Conceptual level - business view)
+' Style: linear art - white boxes, thin strokes, short labels
+' Purpose: business entities + relationships, no keys/attributes/types
+' Scope: 20 business entities
+'   (the three many-to-many junction tables are folded into one
+'    conceptual entity: Exam Assignment)
+' Source: SRS 07/11/2026 + backend/Aives.Domain/Entities
+'==============================================================
+title ERD 1 - CONCEPTUAL ERD (AIVES) - Conceptual level
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 14
+skinparam ArrowColor #2B2B2B
+skinparam ArrowThickness 1.3
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle normal
+skinparam TitleFontSize 22
+skinparam TitleFontStyle bold
+skinparam linetype ortho
+
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #2B2B2B
+  BorderThickness 1.3
+  FontSize 14
+  FontStyle bold
+  FontColor #2B2B2B
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #D8D8D8
+  BorderThickness 1
+  FontSize 13
+  FontStyle bold
+  FontColor #5A5A5A
+}
+
+package "1 · Catalog & Content" {
+  entity "User" as User
+  entity "Course" as Course
+  entity "Document" as Doc
+  entity "Question" as Question
+  entity "Rubric" as Rubric
+  entity "Exam Paper" as ExamPaper
+  entity "Exam Question" as ExamQuestion
+}
+
+package "2 · Exam Organisation" {
+  entity "Period" as Period
+  entity "Session" as Session
+  entity "Slot Template" as SlotTpl
+  entity "Session Slot" as Slot
+  entity "Exam Assignment" as Assign
+  entity "Registration" as SessionReg
+}
+
+package "3 · Taking & Grading" {
+  entity "Result" as Result
+  entity "Answer" as Answer
+  entity "AI Evaluation" as AiEval
+  entity "Audio Upload" as Audio
+  entity "Retake" as Retake
+}
+
+package "4 · Enrolment & Audit" {
+  entity "Course Enrollment" as Enrollment
+  entity "Audit Log" as Audit
+}
+
+' --- Catalog & content ---
+User ||--o{ Course : "creates"
+User ||--o{ Enrollment : "enrols"
+Course ||--o{ Enrollment : "has"
+Course ||--o{ Doc : "holds"
+Doc ||--o{ Question : "generates"
+Question ||--o{ Rubric : "graded by"
+Course ||--o{ ExamPaper : "owns"
+ExamPaper ||--o{ ExamQuestion : "selects"
+Question ||--o{ ExamQuestion : "is selected"
+
+' --- Exam organisation ---
+Course ||--o{ Period : "organises"
+Period ||--o{ Session : "contains"
+Session ||--o{ Slot : "splits"
+ExamPaper ||--o{ SlotTpl : "defines"
+SlotTpl ||--o{ Slot : "instantiates"
+Session ||--o{ Assign : "assigns"
+ExamPaper ||--o{ Assign : "is used in"
+Session ||--o{ SessionReg : "has"
+User ||--o{ SessionReg : "is the student"
+Assign ||--o{ SessionReg : "assigned"
+
+' --- Taking & grading ---
+Session ||--o{ Result : "produces"
+User ||--o{ Result : "is the candidate"
+Result ||--o{ Answer : "contains"
+Question ||--o{ Answer : "is answered"
+Answer ||--|| AiEval : "graded by AI"
+Answer ||--o| Audio : "carries"
+Session ||--o{ Audio : "is uploaded in"
+Result ||--o{ Retake : "granted"
+Session ||--o{ Retake : "retake session"
+
+' --- Audit ---
+User ||--o{ Audit : "performs"
+
+@enduml

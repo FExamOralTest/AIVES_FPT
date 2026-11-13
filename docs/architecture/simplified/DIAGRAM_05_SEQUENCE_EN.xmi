@@ -1,0 +1,86 @@
+<?xml version='1.0' encoding='utf-8'?>
+<xmi:XMI xmlns:uml="http://www.omg.org/spec/UML/20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmi:version="2.1">
+  <xmi:Documentation exporter="AIVES" exporterVersion="1.0" />
+  <uml:Model xmi:type="uml:Model" xmi:id="model001" name="AIVES">
+    <uml:packagedElement xmi:type="uml:Collaboration" xmi:id="collab002" name="VivaCollaboration">
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role003" name="Student" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role004" name="Backend API (ASP.NET Core)" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role005" name="Hangfire Worker (queue: grading)" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role006" name="AI Service (FastAPI)" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role007" name="PostgreSQL" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role008" name="Examiner" />
+    </uml:packagedElement>
+    <uml:ownedBehavior xmi:type="uml:Interaction" xmi:id="interaction009" name="DIAGRAM 5 - Simplified Sequence Diagram (AIVES)">
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline010" name="Student" represents="role003" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline011" name="Backend API (ASP.NET Core)" represents="role004" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline012" name="Hangfire Worker (queue: grading)" represents="role005" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline013" name="AI Service (FastAPI)" represents="role006" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline014" name="PostgreSQL" represents="role007" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline015" name="Examiner" represents="role008" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send016" name="send Submit answer (audio)" covered="lifeline010" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv017" name="recv Submit answer (audio)" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg018" name="1. Submit answer (audio)" messageSort="synchCall" sendEvent="send016" receiveEvent="recv017" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send019" name="send Transcribe speech + generate follow-up" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv020" name="recv Transcribe speech + generate follow-up" covered="lifeline013" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg021" name="2. Transcribe speech + generate follow-up" messageSort="synchCall" sendEvent="send019" receiveEvent="recv020" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send022" name="send Transcript + next question" covered="lifeline013" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv023" name="recv Transcript + next question" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg024" name="3. Transcript + next question" messageSort="reply" sendEvent="send022" receiveEvent="recv023" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send025" name="send Save answer (PROCESSING)" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv026" name="recv Save answer (PROCESSING)" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg027" name="4. Save answer (PROCESSING)" messageSort="synchCall" sendEvent="send025" receiveEvent="recv026" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send028" name="send Feedback + next question" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv029" name="recv Feedback + next question" covered="lifeline010" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg030" name="5. Feedback + next question" messageSort="reply" sendEvent="send028" receiveEvent="recv029" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send031" name="send Finish the viva" covered="lifeline010" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv032" name="recv Finish the viva" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg033" name="6. Finish the viva" messageSort="synchCall" sendEvent="send031" receiveEvent="recv032" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send034" name="send Result = PENDING_REVIEW + queue grading job" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv035" name="recv Result = PENDING_REVIEW + queue grading job" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg036" name="7. Result = PENDING_REVIEW + queue grading job" messageSort="synchCall" sendEvent="send034" receiveEvent="recv035" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send037" name="send Submitted" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv038" name="recv Submitted" covered="lifeline010" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg039" name="8. Submitted" messageSort="reply" sendEvent="send037" receiveEvent="recv038" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send040" name="send Load result + answers + rubric" covered="lifeline012" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv041" name="recv Load result + answers + rubric" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg042" name="9. Load result + answers + rubric" messageSort="synchCall" sendEvent="send040" receiveEvent="recv041" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send043" name="send Evaluate answers against rubric" covered="lifeline012" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv044" name="recv Evaluate answers against rubric" covered="lifeline013" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg045" name="10. Evaluate answers against rubric" messageSort="synchCall" sendEvent="send043" receiveEvent="recv044" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send046" name="send Score + feedback per answer" covered="lifeline013" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv047" name="recv Score + feedback per answer" covered="lifeline012" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg048" name="11. Score + feedback per answer" messageSort="reply" sendEvent="send046" receiveEvent="recv047" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send049" name="send Save AI score + feedback (EVALUATED)" covered="lifeline012" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv050" name="recv Save AI score + feedback (EVALUATED)" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg051" name="12. Save AI score + feedback (EVALUATED)" messageSort="synchCall" sendEvent="send049" receiveEvent="recv050" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send052" name="send Open result (audio + AI score)" covered="lifeline015" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv053" name="recv Open result (audio + AI score)" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg054" name="13. Open result (audio + AI score)" messageSort="synchCall" sendEvent="send052" receiveEvent="recv053" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send055" name="send Answers + AI score + rubric" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv056" name="recv Answers + AI score + rubric" covered="lifeline015" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg057" name="14. Answers + AI score + rubric" messageSort="reply" sendEvent="send055" receiveEvent="recv056" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send058" name="send Assign official score" covered="lifeline015" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv059" name="recv Assign official score" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg060" name="15. Assign official score" messageSort="synchCall" sendEvent="send058" receiveEvent="recv059" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send061" name="send Status = REVIEWED (AI score kept)" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv062" name="recv Status = REVIEWED (AI score kept)" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg063" name="16. Status = REVIEWED (AI score kept)" messageSort="synchCall" sendEvent="send061" receiveEvent="recv062" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send064" name="send Publish result" covered="lifeline015" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv065" name="recv Publish result" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg066" name="17. Publish result" messageSort="synchCall" sendEvent="send064" receiveEvent="recv065" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send067" name="send Status = PUBLISHED" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv068" name="recv Status = PUBLISHED" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg069" name="18. Status = PUBLISHED" messageSort="synchCall" sendEvent="send067" receiveEvent="recv068" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send070" name="send Published" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv071" name="recv Published" covered="lifeline015" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg072" name="19. Published" messageSort="reply" sendEvent="send070" receiveEvent="recv071" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send073" name="send View my result" covered="lifeline010" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv074" name="recv View my result" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg075" name="20. View my result" messageSort="synchCall" sendEvent="send073" receiveEvent="recv074" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send076" name="send Score + examiner comment" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv077" name="recv Score + examiner comment" covered="lifeline010" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg078" name="21. Score + examiner comment" messageSort="reply" sendEvent="send076" receiveEvent="recv077" />
+      <uml:ownedComment xmi:type="uml:Comment" xmi:id="note079" body="Retryable AI error: retry 30s / 120s / 300s (max 3 attempts). Otherwise AI evaluation = FAILED, answer = ERROR." />
+    </uml:ownedBehavior>
+  </uml:Model>
+</xmi:XMI>

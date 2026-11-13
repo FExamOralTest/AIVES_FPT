@@ -82,3 +82,14 @@ monitoring/prometheus-data/
 # ===== Local runtime logs =====
 backend/Aives.Api/run.log
 backend/Aives.Api/run-https.log
+
+# ===== Local diagram tooling (PlantUML jar, tu download) =====
+ops/tools/
+ops/_docx_text.txt
+ops/_extract_docx.py
+ops/_srs_text.txt
+ops/_apply_skin.py
+ops/_svg2png.py
+docs/architecture/simplified/_check_links.py
+docs/architecture/simplified/_build_simplified_html.py
+docs/architecture/_validate_html.py

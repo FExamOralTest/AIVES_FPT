@@ -2,6 +2,16 @@
 
 Tài liệu thiết kế kiến trúc chuẩn C4 (C0 System Context, C1 Container) và sơ đồ UML (Sequence, State Machine, Traceability Matrix) cho hệ thống **AIVES** (AI-powered Viva Examination System).
 
+> ### 📌 Các bộ sơ đồ
+>
+> | Bộ | Dùng để | Vào |
+> |---|---|---|
+> | **📄 Toàn bộ trong 1 trang** (từ ngắn gọn → đầy đủ) | Xem nhanh mọi sơ đồ | [`all-diagrams.md`](./all-diagrams.md) · [EN](./all-diagrams-en.md) · [HTML](./all-diagrams.html) |
+> | **Bộ rút gọn** (4 diagram: Use Case · Swimlane rút gọn · Context · Swimlane 10 Activity) | **Nhét vào slide thuyết trình** | [`simplified/simplified-index.md`](./simplified/simplified-index.md) · [EN](./simplified/simplified-index-en.md) |
+> | **Bộ chi tiết** (swimlane đầy đủ, 8 nhánh lỗi) | Tham khảo & trả lời câu hỏi sâu | [`swimlane-index.md`](./swimlane-index.md) · [EN](./swimlane-index-en.md) |
+> | **📊 ERD 3 mức** (Conceptual · Logical · Physical) | Mô tả cơ sở dữ liệu | [`erd/erd-index.md`](./erd/erd-index.md) · [EN](./erd/erd-index-en.md) |
+> | **🔄 Sequence Diagram** (4 luồng tương tác) | Thể hiện thứ tự gọi giữa các thành phần | [`sequence/sequence-index.md`](./sequence/sequence-index.md) · [EN](./sequence/sequence-index-en.md) |
+
 ---
 
 ## 1. C4 Model - C0: System Context Diagram
@@ -41,35 +51,63 @@ Sơ đồ Container thể hiện các thành phần phần mềm có thể deplo
 
 ```mermaid
 C4Container
-    title C1 - Container Diagram cho AIVES
+    title C1 - Container Diagram cho AIVES (Async Audio, Queue & Multi-container)
 
-    Person(user, "Người dùng (Admin/Teacher/Student)", "Truy cập hệ thống qua trình duyệt web")
+    Person(user, "Người dùng (Admin/Staff/Examiner/Student)", "Truy cập hệ thống qua trình duyệt web")
 
-    Container_Boundary(c1, "AIVES Core Architecture") {
-        Container(spa, "Single Page Application (SPA)", "React 19, TypeScript, Vite, Tailwind CSS", "Giao diện người dùng: quản trị, ngân hàng câu hỏi, phòng thi Viva với bộ thu âm & nhận diện giọng nói.")
-        
-        Container(backend_api, "Backend Web API", "ASP.NET Core 8 (.NET 8), C#, EF Core", "Cung cấp RESTful API, kiểm soát JWT & RBAC, thực thi nghiệp vụ ca thi, chấm điểm, quản lý đề thi và tài liệu.")
-        
-        Container(ai_service, "AI Microservice", "Python 3.11+, FastAPI, LangChain / Direct LLM SDK", "Microservice xử lý chuyên biệt cho AI: sinh câu hỏi từ Markdown, chấm điểm viva câu hỏi & rubric, tích hợp STT/TTS.")
-        
-        ContainerDb(database, "Relational Database", "PostgreSQL 16", "Lưu trữ thông tin người dùng, môn học, tài liệu, câu hỏi, đề thi, ca thi, câu trả lời và kết quả chấm.")
-        
-        Container(file_storage, "Local Storage / Volume", "File System (wwwroot/uploads)", "Lưu trữ bền vững các tệp âm thanh câu trả lời (.webm/.wav) và tài liệu giảng dạy (.md).")
+    System_Boundary(c1, "AIVES Examination System") {
+        Container(spa, "Web Application", "React 19 SPA + Nginx", "Giao diện người dùng: quản trị, ngân hàng câu hỏi, phòng thi Viva với bộ thu âm & nhận diện giọng nói. Nginx phục vụ SPA và proxy /api + /uploads về backend.")
+
+        Container(backend_api, "Backend Web API", "ASP.NET Core 8 (.NET 8), C#, EF Core", "Cung cấp RESTful API, kiểm soát JWT & RBAC, thực thi nghiệp vụ ca thi, chấm điểm, quản lý đề thi và tài liệu. Đồng thời chạy 2 Hangfire server: aives-api-* (5 worker, queue default + answers) và aives-grading-* (1 worker, queue grading).")
+
+        ContainerDb(queue, "Message Queue / Job Storage", "Hangfire / PostgreSQL (schema: hangfire)", "Đệm các tác vụ STT & chấm điểm ngầm. QueuePollInterval = 2s, InvisibilityTimeout = 10m, retry 30s → 120s → 300s tối đa 3 lần (BR-17).")
+
+        Container(ai_service, "AI Microservice", "Python 3.11+, FastAPI, LangChain / Direct LLM SDK", "Microservice xử lý chuyên biệt cho AI: sinh câu hỏi từ Markdown, chấm điểm viva câu hỏi & rubric, tích hợp STT/TTS. Chỉ truy cập nội bộ qua http://ai-service:8000, mọi request kèm header X-Internal-Token (= AI_SERVICE_SECRET_KEY), timeout 300s.")
+
+        ContainerDb(database, "Relational Database", "Neon PostgreSQL 16", "Lưu trữ thông tin người dùng, môn học, tài liệu, câu hỏi, đề thi, ca thi, câu trả lời và kết quả chấm.")
     }
 
+    System_Ext(r2, "Cloudflare R2 Storage", "S3-compatible Object Storage", "Bucket private lưu file âm thanh (.webm/.wav), backend ký presigned URL.")
     System_Ext(external_ai, "External AI Providers", "Google Gemini 1.5 Flash / OpenAI")
 
     Rel(user, spa, "Tương tác qua trình duyệt", "HTTPS")
     Rel(spa, backend_api, "Gọi API nghiệp vụ & xác thực", "JSON / Multipart HTTPS, JWT Bearer")
     Rel(backend_api, database, "Đọc / ghi dữ liệu", "EF Core / Npgsql TCP:5432")
-    Rel(backend_api, file_storage, "Lưu file âm thanh & đọc tài liệu", "File I/O")
-    Rel(backend_api, ai_service, "Yêu cầu sinh câu hỏi / chấm điểm", "HTTP / REST API TCP:8000")
+    Rel(backend_api, r2, "Đẩy file âm thanh & ký presigned URL", "S3 API / HTTPS")
+    Rel(backend_api, queue, "Xếp job chấm điểm & STT", "Hangfire API")
+    Rel(queue, ai_service, "Giao job xử lý", "Hangfire worker")
+    Rel(ai_service, r2, "Kéo file âm thanh để chạy STT", "S3 API / HTTPS")
     Rel(ai_service, external_ai, "Gọi inference", "HTTPS / REST API")
+    Rel(ai_service, database, "Cập nhật transcript, điểm AI & trạng thái", "Npgsql TCP:5432")
 ```
+
+> **Topology multi-container (Docker Compose):**
+>
+> | Service | Cổng trong container | Cổng host | Ghi chú |
+> |---|---|---|---|
+> | `frontend` | `:80` (Nginx) | `:5173` | Reverse proxy `/api` và `/uploads` → `http://backend:8080` |
+> | `backend` | `:8080` | `:5000` | ASP.NET Core 8 + Hangfire + Swagger |
+> | `ai-service` | `:8000` | `:8000` | FastAPI / uvicorn, chỉ nội bộ qua Docker DNS |
+> | `postgres` | `:5432` | — | PostgreSQL 16, profile `local-db`; mặc định dùng Neon PostgreSQL |
+>
+> Internal DNS: `backend` → `http://ai-service:8000`, `ai-service` → `http://backend:8080`.
+> Bản PlantUML đầy đủ (có note về queue & protocol): [`c1_container.puml`](./c1_container.puml) ·
+> [HTML](./c1-container.html) · [EN](./c1-container_en.html)
 
 ---
 
 ## 3. Sequence Diagram: Luồng Thi Vấn Đáp & Công Bố Điểm (Submit Answer -> Review -> Publish)
+
+> **Bộ Sequence Diagram đầy đủ (4 luồng, VI + EN):** [`sequence/sequence-index.md`](./sequence/sequence-index.md) · [EN](./sequence/sequence-index-en.md) · [HTML](./sequence/sequence-index.html)
+>
+> | Sơ đồ | Phạm vi |
+> |---|---|
+> | [SEQ 1](./sequence/seq-01-viva-flow.md) | Luồng thi Viva — bắt đầu ca → ghi âm & nộp bài (STT + follow-up) → kết thúc & xếp hàng chấm |
+> | [SEQ 2](./sequence/seq-02-grading.md) | Chấm điểm AI — Hangfire worker, khóa phân tán, gọi LLM chấm rubric, retry backoff |
+> | [SEQ 3](./sequence/seq-03-review-publish.md) | Review → Công bố → Sinh viên xem điểm, cùng xử lý sự cố (retry answer / retake) |
+> | [SEQ 4](./sequence/seq-04-admin-prep.md) | Chuẩn bị & Tổ chức thi — tài khoản → môn học → tài liệu .md → câu hỏi AI → lịch thi → ghi danh |
+
+Sơ đồ dưới đây là bản rút gọn (mermaid) của luồng trọng tâm — bản PlantUML đầy đủ nằm ở bộ Sequence ở trên.
 
 Quy trình khép kín từ lúc Sinh viên thi Viva, AI chấm điểm, Giảng viên phúc khảo/duyệt và công bố điểm cho Sinh viên.
 

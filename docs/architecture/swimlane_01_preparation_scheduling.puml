@@ -1,0 +1,99 @@
+@startuml SWIMLANE_01_PREPARATION
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2.5
+  FontSize 22
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 20
+  DiamondFontStyle bold
+  DiamondBorderThickness 2.5
+  ConditionFontSize 20
+  ConditionFontStyle bold
+  ArrowFontSize 22
+  ArrowFontStyle bold
+  ArrowThickness 3.0
+}
+skinparam ArrowFontSize 22
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 3.0
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #EAF1F7
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 22
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 28
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 22
+
+'==============================================================
+' AIVES - SWIMLANE 1: CHUẨN BỊ VÀ TỔ CHỨC THI
+' Lane chia theo "thông tin trách nhiệm" (ai giữ hành động gì).
+' Nguồn: AIVES SRS 07/11/2026 + mã nguồn backend/Aives.Api
+'==============================================================
+title SWIMLANE 1 - CHUẨN BỊ VÀ TỔ CHỨC THI (Preparation & Scheduling)
+
+|ADMIN|
+start
+:Tạo tài khoản người dùng và gán vai trò\n(ADMIN / STAFF / EXAMINER / STUDENT);
+if (Trùng email / username?) then (Lỗi)
+  :API trả 400 - trùng lặp;
+  :Admin sửa lại và tạo lại;
+  stop
+else (Hợp lệ)
+endif
+:Tạo Course và gán Staff phụ trách\n(POST /api/admin/courses + assign-teacher);
+
+|STAFF|
+:Xem các Course được giao phân\n(GET /api/teacher/courses);
+:Tải tài liệu Markdown\n(CONTENT / LEARNING_OUTCOMES);
+if (File .md hợp lệ, không rỗng,\nđúng kích thước?) then (Hợp lệ)
+else (Lỗi)
+  :API trả 400 - tài liệu không hợp lệ;
+  :STAFF sửa và tải lại;
+  stop
+endif
+:Sinh câu hỏi từ nội dung + Learning Outcome\n(POST /api/documents/generate-questions);
+
+|AI Service (FastAPI)|
+:LLM tạo bộ câu hỏi (rubric, keywords,\nsample answer, mức độ) => PENDING_REVIEW;
+if (Lỗi gọi LLM?) then (Lỗi)
+  :Trả error_code cho Backend;
+  |STAFF|
+  :Thông báo lỗi - STAFF tạo câu hỏi thủ công;
+else (Thành công)
+  |STAFF|
+endif
+:Duyệt câu hỏi\n(approve / reject);
+
+:Tạo đề thi chỉ từ câu APPROVED\n(POST /api/exams);
+if (Tổng trọng số = 100%?) then (Đạt)
+else (Lỗi)
+  :API trả 400 - tổng trọng số không đúng 100%;
+  :STAFF chỉnh lại trọng số từng câu;
+  stop
+endif
+:Tạo kỳ thi (ExamPeriod)\n-> Session -> Kíp thi (Slot);
+if (Slot trùng giờ / ngoài khung\nca thi?) then (Lỗi)
+  :API trả 400 - cấu hình thời gian không hợp lệ;
+  :STAFF sửa lại cấu hình;
+  stop
+endif
+:Ghi danh sinh viên và phân bổ đề + kíp\n(POST /api/exam-sessions/{id}/enroll);
+if (Trùng ghi danh / kíp đã đầy?) then (Lỗi)
+  :API trả 400 - xung đột nghiệp vụ;
+  :STAFF chỉnh sửa danh sách hoặc kíp;
+  stop
+endif
+:Mở ca thi (IN_PROGRESS) và theo dõi\ntiến độ sinh viên (monitor);
+
+|Backend / DB / Storage|
+:Lưu Course, tài liệu Markdown, câu hỏi, đề thi,\nkỳ thi, session, slot, ghi danh vào PostgreSQL;
+stop
+
+@enduml

@@ -1,0 +1,171 @@
+@startuml SEQ_01_VIVA_FLOW
+'==============================================================
+' AIVES - SEQUENCE DIAGRAM 1: VIVA EXAM FLOW (Sinh vien -> AI -> submit)
+' Nguon: backend/Aives.Api/Controllers/VivaSessionController.cs
+'       backend/Aives.Application/Viva/Services/VivaSessionService.cs
+'       backend/Aives.Infrastructure/AI/AiServiceClient.cs
+'       backend/Aives.Api/Controllers/ChunkedAudioController.cs
+'==============================================================
+title SEQUENCE 1 - LUONG THI VIVA (Viva Exam Flow)
+
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #1F3B52
+  ArrowThickness 2.5
+  LifeLineBorderColor #1F3B52
+  LifeLineBackgroundColor #F7FAFC
+  LifeLineThickness 2
+  ParticipantBackgroundColor #EAF1F7
+  ParticipantBorderColor #1F3B52
+  ParticipantBorderThickness 2
+  ParticipantFontSize 20
+  ParticipantFontStyle bold
+  ParticipantPadding 14
+  ActorBackgroundColor #EAF1F7
+  ActorBorderColor #1F3B52
+  ActorBorderThickness 2
+  ActorFontSize 20
+  ActorFontStyle bold
+  DatabaseBackgroundColor #E8F1E9
+  DatabaseBorderColor #1F3B52
+  DatabaseFontSize 19
+  DatabaseFontStyle bold
+  GroupBackgroundColor #EAF1F7
+  GroupBorderColor #1F3B52
+  GroupFontSize 20
+  GroupFontStyle bold
+  NoteBackgroundColor #FFF3CD
+  NoteBorderColor #B8860B
+  NoteFontSize 18
+  NoteFontStyle bold
+  NoteBorderThickness 2
+  BoxPadding 10
+  DividerBackgroundColor #1F3B52
+  DividerFontSize 18
+}
+skinparam titleFontSize 26
+skinparam titleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 18
+
+autonumber
+
+actor "Sinh vien\n(Student)" as Student
+participant "Web SPA\n(VivaRoomPage)" as SPA
+participant "VivaSessionController" as Ctrl
+participant "ChunkedAudioController" as Chunk
+participant "VivaSessionService" as Svc
+participant "Cloudflare R2\n(Object Storage)" as R2
+participant "AI Service\n(FastAPI)" as AI
+database "PostgreSQL\n(Neon)" as DB
+
+== Giai doan 1: Bat dau ca thi ==
+
+Student -> SPA: Mo phong van, bam "Vao thi"
+SPA -> Ctrl: POST /api/student/viva-sessions/{id}/start
+activate Ctrl
+Ctrl -> Svc: StartSessionAsync(sessionId, studentId)
+activate Svc
+Svc -> DB: Doc Session + Enrollment + ExamQuestions
+DB --> Svc: Session, CurrentQuestionIndex, danh sach cau hoi
+
+alt Chua ghi danh / ngoai khung gio thi
+  Svc --> Ctrl: InvalidOperationException
+  deactivate Svc
+  Ctrl --> SPA: 400 Bad Request
+  SPA --> Student: "Chua du dieu kien thi - thong bao loi"
+else Day du dieu kien
+  Svc -> DB: UPDATE Enrollment.LastActivityAt
+  Svc --> Ctrl: StartVivaSessionResponse
+  deactivate Svc
+  Ctrl --> SPA: 200 OK (cau hoi dau tien)
+  deactivate Ctrl
+  SPA --> Student: Hien thi cau hoi + thong bao mau
+end
+
+== Giai doan 2: Ghi am & nop cau tra loi ==
+
+Student -> SPA: Ghi am WAV/webm, tra loi
+SPA -> Chunk: POST /api/audio/chunked/init
+Chunk --> SPA: uploadId
+SPA -> Chunk: POST /api/audio/chunked/chunk (nhieu lan)
+Chunk -> R2: Upload tung phan
+Chunk --> SPA: 200 OK (da gop)
+note right of Chunk
+  Luong chunked: nen cho ban ghi
+  dai (>5 phut) hoac mang yeu
+end note
+
+SPA -> Ctrl: POST /api/student/viva-sessions/{id}/submit-answer\n(multipart: Audio + TextAnswer + QuestionId)
+activate Ctrl
+Ctrl -> Svc: SubmitAnswerAsync(sessionId, studentId, request)
+activate Svc
+
+alt Co file audio
+  Svc -> R2: UploadAudioAsync(objectKey)\nexams/{examId}/sessions/{sid}/students/{uid}/q_{qid}_{ticks}.ext
+  R2 --> Svc: audioUrl (presigned)
+else Audio da upload qua chunked
+  Svc -> DB: ResolveChunkedAudioKeyAsync(uploadId)
+  DB --> Svc: objectKey
+end
+
+Svc -> AI: POST /ai/speech/transcribe-object\n{answerId, objectKey} + X-Internal-Token
+activate AI
+note right of AI
+  Protocol noi bo Backend - AI:
+  - Base URL: http://ai-service:8000
+  - Header: X-Internal-Token =
+    AI_SERVICE_SECRET_KEY
+  - Timeout: 300s
+  - AI tu keo audio tu R2 bang
+    R2_ACCESS_KEY / R2_BUCKET_NAME
+end note
+alt STT thanh cong
+  AI --> Svc: transcript + duration
+else STT that bai
+  AI --> Svc: success=false\n(EMPTY_AUDIO / NO_SPEECH /\nAUDIO_CORRUPTED / TIMEOUT)
+  Svc -> Svc: Fallback sang TextAnswer
+end
+deactivate AI
+
+Svc -> AI: POST /ai/interview/follow-up\n(question + studentAnswer + questionIndex)\n+ X-Internal-Token
+activate AI
+alt AI can lam follow-up
+  AI --> Svc: shouldFollowUp=true, followUpQuestion
+else Khong can follow-up
+  AI --> Svc: shouldFollowUp=false
+end
+deactivate AI
+
+Svc -> DB: INSERT Answer (Status=PROCESSING,\nTranscript, AudioUrl, ObjectKey)
+Svc -> DB: UPDATE Enrollment.CurrentQuestionIndex / LastActivityAt
+Svc -> DB: INSERT AuditLog
+
+alt Co follow-up
+  Svc --> Ctrl: nextQuestion = follow-up (IsFollowUpAllowed=false)
+else Het cau hoi
+  Svc --> Ctrl: nextQuestion = null (hoan thanh)
+else Con cau hoi
+  Svc --> Ctrl: nextQuestion = cau tiep theo
+end
+deactivate Svc
+Ctrl --> SPA: 200 OK (score, feedback, nextQuestion)
+deactivate Ctrl
+SPA --> Student: Hien thi feedback + cau tiep theo
+
+== Giai doan 3: Ket thuc ca thi ==
+
+Student -> SPA: "Ket thuc phong van" / het gio
+SPA -> Ctrl: POST /api/student/viva-sessions/{id}/finish
+activate Ctrl
+Ctrl -> Svc: FinishSessionAsync(sessionId, studentId)
+activate Svc
+Svc -> DB: UPSERT Result (Status=PENDING_REVIEW,\nSubmittedAt = UTC)
+Svc -> Svc: Enqueue SessionGradingJob (Hangfire, queue "grading")
+Svc --> Ctrl: FinishVivaSessionResponse
+deactivate Svc
+Ctrl --> SPA: 200 OK
+deactivate Ctrl
+SPA --> Student: "Da nop bai - dang cho cham"
+
+@enduml

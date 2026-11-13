@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIVES – All Diagrams on One Page</title>
+<style>
+  :root { color-scheme: light; --ink:#1f2933; --brand:#0f3d5c; --line:#dfe5ea; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f4f6f8; color:var(--ink); font-size:15px; }
+  a { color:var(--brand); }
+
+  header { background:var(--brand); color:#fff; padding:30px 32px 26px; }
+  header h1 { margin:0 0 6px; font-size:27px; letter-spacing:.2px; }
+  header p { margin:0; opacity:.86; font-size:14px; }
+  header .badge { display:inline-block; margin-top:12px; padding:4px 11px; border-radius:99px;
+                   background:rgba(255,255,255,.16); font-size:12.5px; font-weight:600; }
+
+  .topbar { position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid var(--line);
+             padding:0 32px; display:flex; gap:4px; flex-wrap:wrap; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .topbar a { padding:11px 15px; font-size:13.5px; font-weight:600; color:#3c5b73; text-decoration:none;
+               border-bottom:3px solid transparent; }
+  .topbar a:hover { color:var(--brand); border-bottom-color:#b7c9d6; }
+  .topbar a.lang { margin-left:auto; color:var(--brand); }
+
+  main { padding:26px 32px 70px; max-width:1500px; margin:0 auto; }
+
+  .banner { background:#fff8e1; border-left:5px solid #B8860B; padding:13px 18px; border-radius:0 8px 8px 0;
+            font-size:13.5px; margin-bottom:24px; }
+  .banner strong { color:#7a5c00; }
+
+  section { margin-bottom:38px; }
+  .sec-head { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+               border-bottom:2px solid #dbe3ea; padding-bottom:9px; margin-bottom:16px; }
+  .sec-head h2 { margin:0; font-size:20px; color:var(--brand); }
+  .sec-head .tag { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+                    padding:3px 9px; border-radius:5px; background:var(--brand); color:#fff; }
+  .sec-head .tag.warn { background:#B8860B; }
+  .sec-head .note { font-size:13px; color:#5b6b7a; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(430px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden;
+           display:flex; flex-direction:column; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .card .head { padding:13px 16px; border-bottom:1px solid var(--line); }
+  .card .head h3 { margin:0 0 3px; font-size:16px; color:var(--brand); }
+  .card .head .meta { font-size:12px; color:#5b6b7a; }
+  .card .head .desc { font-size:13px; color:#3c5b73; margin-top:7px; }
+  .card .thumb { background:#fbfcfd; border-bottom:1px solid var(--line); padding:8px; height:280px;
+                  display:flex; align-items:center; justify-content:center; cursor:zoom-in; }
+  .card .thumb img { max-width:100%; max-height:100%; object-fit:contain; }
+  .card .links { padding:10px 16px 13px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; }
+  .card .links a { padding:4px 11px; border:1px solid #c8d6e0; border-radius:6px; text-decoration:none;
+                    font-weight:600; color:var(--brand); background:#f7fafc; }
+  .card .links a:hover { background:#e9f1f6; }
+  .card .links a.pri { background:var(--brand); color:#fff; border-color:var(--brand); }
+
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; border:1px solid var(--line); }
+  th,td { border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:var(--brand); font-size:13px; }
+  td code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.3px; }
+
+  .steps { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+  .step { background:#fff; border:1px solid var(--line); border-left:4px solid var(--brand);
+           border-radius:0 8px 8px 0; padding:12px 14px; }
+  .step .n { font-size:11.5px; font-weight:800; color:var(--brand); letter-spacing:.6px; }
+  .step .t { font-size:14px; margin:3px 0 4px; }
+  .step .d { font-size:12.5px; color:#5b6b7a; }
+
+  .legend { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:#3c5b73;
+             margin-top:12px; }
+  .legend span::before { content:"●"; color:var(--brand); margin-right:6px; }
+  .legend span.b::before { color:#B8860B; }
+
+  /* lightbox */
+  .lb { position:fixed; inset:0; background:rgba(10,20,30,.92); display:none; z-index:99;
+         align-items:center; justify-content:center; padding:24px; }
+  .lb.on { display:flex; }
+  .lb img { max-width:100%; max-height:100%; background:#fff; border-radius:6px; }
+  .lb .close { position:absolute; top:16px; right:22px; color:#fff; font-size:32px; cursor:pointer; line-height:1; }
+
+  footer { padding:22px 32px; font-size:12.5px; color:#5b6b7a; border-top:1px solid var(--line); }
+  @media (max-width:700px) { main { padding:18px 16px 50px; } .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>AIVES – All Diagrams on One Page</h1>
+  <p>Member 5 · A single page: from the simplified (presentation) set down to the full detailed swimlanes</p>
+  <span class="badge">5 simplified diagrams · 4 detailed swimlanes · 2 languages</span>
+</header>
+
+<div class="topbar">
+  <a href="#sim">⚡ Simplified</a>
+  <a href="#full">Detailed</a>
+  <a href="#seq">Sequence</a>
+  <a href="#err">Error branches</a>
+  <a href="#order">Presentation order</a>
+  <a href="#files">Files</a>
+  <a href="./erd/all-erd-en.html">&#128202; Separate ERD suite</a>
+  <a class="lang" href="./all-diagrams.html">← Tiếng Việt</a>
+</div>
+
+<main>
+  <div class="banner"><strong>One single page.</strong> The top section is the <strong>simplified</strong> set (fits one slide, use it for presenting). Below is the <strong>detailed</strong> set (6 lanes, ~40 boxes, 8 error branches — for reference & deep questions). <strong>Click any image</strong> to view it at full size.</div>
+
+  <section id="sim">
+    <div class="sec-head">
+      <span class="tag">For presenting</span>
+      <h2>Simplified set — drop into slides</h2>
+      <span class="note">5 diagrams · fits one slide</span>
+    </div>
+    <div class="grid">
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 1 · Use Case Diagram</h3>
+        <div class="meta">4 actors · 13 use cases · 5 groups</div>
+        <div class="desc">Functional overview: who uses what, and how the capabilities relate.</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_01_USECASE_EN.png"><img src="./simplified/DIAGRAM_01_USECASE_EN.svg?v13" alt="DIAGRAM 1 · Use Case Diagram"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-01-usecase_en.html">Open page</a>
+        <a href="./simplified/diagram-01-usecase_en.md">MD</a>
+        <a href="./simplified/DIAGRAM_01_USECASE_EN.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_01_USECASE_EN.svg" download>SVG</a>
+        <a href="./simplified/diagram_01_usecase_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 2 · Simplified Swimlane (one box = one flow)</h3>
+        <div class="meta">5 lanes · 13 boxes · 3 error branches</div>
+        <div class="desc">The flow across 5 roles with 3 error branches (submit error, grading error, re-check request).</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_02_SWIMLANE_EN.png"><img src="./simplified/DIAGRAM_02_SWIMLANE_EN.svg?v13" alt="DIAGRAM 2 · Simplified Swimlane (one box = one flow)"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-02-swimlane_en.html">Open page</a>
+        <a href="./simplified/diagram-02-swimlane_en.md">MD</a>
+        <a href="./simplified/DIAGRAM_02_SWIMLANE_EN.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_02_SWIMLANE_EN.svg" download>SVG</a>
+        <a href="./simplified/diagram_02_swimlane_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 3 · System Context Diagram</h3>
+        <div class="meta">4 actors · 4 capabilities · 3 external systems</div>
+        <div class="desc">The AIVES boundary, 4 roles and 3 external services (R2, LLM, Whisper STT).</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_03_CONTEXT_EN.png"><img src="./simplified/DIAGRAM_03_CONTEXT_EN.svg?v13" alt="DIAGRAM 3 · System Context Diagram"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-03-context_en.html">Open page</a>
+        <a href="./simplified/diagram-03-context_en.md">MD</a>
+        <a href="./simplified/DIAGRAM_03_CONTEXT_EN.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_03_CONTEXT_EN.svg" download>SVG</a>
+        <a href="./simplified/diagram_03_context_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 4 · Swimlane 10 Activity</h3>
+        <div class="meta">5 lanes · **10 activities** · 3 error branches</div>
+        <div class="desc">The most compact swimlane: **exactly 10 activities** (UC-01…UC-10) + 3 error branches (submit, grading, publish).</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_04_SWIMLANE_10_EN.png"><img src="./simplified/DIAGRAM_04_SWIMLANE_10_EN.svg?v13" alt="DIAGRAM 4 · Swimlane 10 Activity"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-04-swimlane-10_en.html">Open page</a>
+        <a href="./simplified/diagram-04-swimlane-10_en.md">MD</a>
+        <a href="./simplified/DIAGRAM_04_SWIMLANE_10_EN.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_04_SWIMLANE_10_EN.svg" download>SVG</a>
+        <a href="./simplified/diagram_04_swimlane_10_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 5A · Live Viva Exam</h3>
+        <div class="meta">6 lifelines (incl. DB) · **3 phases** · the live viva</div>
+        <div class="desc">Part 1: the student records in the Web App, the audio goes to Cloudflare R2, the AI Engine transcribes the speech + generates the next question.</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_05A_VIVA_EXAM_EN.png"><img src="./simplified/DIAGRAM_05A_VIVA_EXAM_EN.svg?v13" alt="DIAGRAM 5A · Live Viva Exam"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-05a-viva-exam_en.html">Open page</a>
+        
+        <a href="./simplified/DIAGRAM_05A_VIVA_EXAM_EN.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_05A_VIVA_EXAM_EN.svg" download>SVG</a>
+        <a href="./simplified/diagram_05a_viva_exam_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 5B · AI Scoring & Examiner Review</h3>
+        <div class="meta">8 lifelines · **18 messages** · scoring & publication</div>
+        <div class="desc">Part 2: the submission stays PENDING_REVIEW; only when the examiner authorizes the AI grading is the Hangfire job queued. The Back-end Service (Grading) calls the AI service to grade against the rubric and stores it in the Result store, then the examiner assigns the official score and publishes.</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_05B_GRADING_REVIEW_EN.png"><img src="./simplified/DIAGRAM_05B_GRADING_REVIEW_EN.svg?v13" alt="DIAGRAM 5B · AI Scoring & Examiner Review"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-05b-grading-review_en.html">Open page</a>
+        
+        <a href="./simplified/DIAGRAM_05B_GRADING_REVIEW_EN.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_05B_GRADING_REVIEW_EN.svg" download>SVG</a>
+        <a href="./simplified/diagram_05b_grading_review_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 5 · Simplified Sequence Diagram</h3>
+        <div class="meta">6 participants · **3 phases** · 3 error branches</div>
+        <div class="desc">The real call order: take the viva → AI grades → the examiner publishes → the student reads the score.</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_05_SEQUENCE_EN.png"><img src="./simplified/DIAGRAM_05_SEQUENCE_EN.svg?v13" alt="DIAGRAM 5 · Simplified Sequence Diagram"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-05-sequence_en.html">Open page</a>
+        <a href="./simplified/diagram-05-sequence_en.md">MD</a>
+        <a href="./simplified/DIAGRAM_05_SEQUENCE_EN.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_05_SEQUENCE_EN.svg" download>SVG</a>
+        <a href="./simplified/diagram_05_sequence_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>C1 · Container Diagram (multi-container)</h3>
+        <div class="meta">5 containers · **4 Docker containers** · 2 external systems</div>
+        <div class="desc">The container architecture: Web (React + Nginx) · Backend (ASP.NET Core, hosting Hangfire) · AI service (FastAPI) · Neon PostgreSQL · Cloudflare R2 — plus the internal `X-Internal-Token` protocol and the Docker Compose topology.</div>
+      </div>
+      <div class="thumb" data-full="./C1_Container.png"><img src="./C1_Container.svg?v13" alt="C1 · Container Diagram (multi-container)"></div>
+      <div class="links">
+        <a class="pri" href="./c1-container_en.html">Open page</a>
+        
+        <a href="./C1_Container.png" download>PNG</a>
+        <a href="./C1_Container.svg" download>SVG</a>
+        <a href="./c1_container.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section id="full">
+    <div class="sec-head">
+      <span class="tag warn">Reference</span>
+      <h2>Detailed set — full, kept unchanged</h2>
+      <span class="note">4 swimlanes · 6 lanes · 8 error branches</span>
+    </div>
+    <div class="grid">
+    <div class="card">
+      <div class="head">
+        <h3>SWL-1 · Preparation & Exam Scheduling</h3>
+        <div class="meta">4 lanes · 2334×3000</div>
+        <div class="desc">ADMIN, STAFF, AI Service, Backend — material → questions → paper → schedule.</div>
+      </div>
+      <div class="thumb" data-full="./SWIMLANE_01_PREPARATION_EN.png"><img src="./SWIMLANE_01_PREPARATION_EN.svg?v13" alt="SWL-1 · Preparation & Exam Scheduling"></div>
+      <div class="links">
+        <a class="pri" href="./swimlane-01-preparation-scheduling_en.html">Open page</a>
+        <a href="./swimlane-01-preparation-scheduling_en.md">MD</a>
+        <a href="./SWIMLANE_01_PREPARATION_EN.png" download>PNG</a>
+        <a href="./SWIMLANE_01_PREPARATION_EN.svg" download>SVG</a>
+        <a href="./swimlane_01_preparation_scheduling_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SWL-2 · Exam Delivery, Grading & Publication (full)</h3>
+        <div class="meta">6 lanes · 7042×4578</div>
+        <div class="desc">The complete 6-lane version: STUDENT, Client, Backend, AI, Hangfire, EXAMINER, 8 error branches.</div>
+      </div>
+      <div class="thumb" data-full="./SWIMLANE_02_EXAM_GRADING_PUBLISH_EN.png"><img src="./SWIMLANE_02_EXAM_GRADING_PUBLISH_EN.svg?v13" alt="SWL-2 · Exam Delivery, Grading & Publication (full)"></div>
+      <div class="links">
+        <a class="pri" href="./swimlane-02-exam-grading-publish_en.html">Open page</a>
+        <a href="./swimlane-02-exam-grading-publish_en.md">MD</a>
+        <a href="./SWIMLANE_02_EXAM_GRADING_PUBLISH_EN.png" download>PNG</a>
+        <a href="./SWIMLANE_02_EXAM_GRADING_PUBLISH_EN.svg" download>SVG</a>
+        <a href="./swimlane_02_exam_grading_publish_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SWL-2A · Exam Delivery & AI Grading</h3>
+        <div class="meta">5 lanes · 5788×3047</div>
+        <div class="desc">Part 1 of SWL-2, split out: exam delivery & AI grading (STT, backoff retry, PENDING_REVIEW).</div>
+      </div>
+      <div class="thumb" data-full="./SWIMLANE_02A_EXAM_DELIVERY_GRADING_EN.png"><img src="./SWIMLANE_02A_EXAM_DELIVERY_GRADING_EN.svg?v13" alt="SWL-2A · Exam Delivery & AI Grading"></div>
+      <div class="links">
+        <a class="pri" href="./swimlane-02a-exam-delivery-grading_en.html">Open page</a>
+        <a href="./swimlane-02a-exam-delivery-grading_en.md">MD</a>
+        <a href="./SWIMLANE_02A_EXAM_DELIVERY_GRADING_EN.png" download>PNG</a>
+        <a href="./SWIMLANE_02A_EXAM_DELIVERY_GRADING_EN.svg" download>SVG</a>
+        <a href="./swimlane_02a_exam_delivery_grading_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SWL-2B · Review, Publication & Incident Handling</h3>
+        <div class="meta">4 lanes · 2874×1737</div>
+        <div class="desc">Part 2 of SWL-2, split out: evidence review, publication, retry answer, retake.</div>
+      </div>
+      <div class="thumb" data-full="./SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT_EN.png"><img src="./SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT_EN.svg?v13" alt="SWL-2B · Review, Publication & Incident Handling"></div>
+      <div class="links">
+        <a class="pri" href="./swimlane-02b-review-publish-incident_en.html">Open page</a>
+        <a href="./swimlane-02b-review-publish-incident_en.md">MD</a>
+        <a href="./SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT_EN.png" download>PNG</a>
+        <a href="./SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT_EN.svg" download>SVG</a>
+        <a href="./swimlane_02b_review_publish_incident_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section id="seq">
+    <div class="sec-head">
+      <span class="tag">Interaction</span>
+      <h2>Sequence Diagram — 4 main flows</h2>
+      <span class="note">4 diagrams · 2 languages</span>
+    </div>
+    <div class="grid">
+    <div class="card">
+      <div class="head">
+        <h3>SEQ 1 · Viva Exam Flow</h3>
+        <div class="meta">3 phases · 8 participants · 2293×2837</div>
+        <div class="desc">Start the session → record & submit (STT + follow-up) → finish and queue for grading.</div>
+      </div>
+      <div class="thumb" data-full="./sequence/SEQ_01_VIVA_FLOW_EN.png"><img src="./sequence/SEQ_01_VIVA_FLOW_EN.svg?v13" alt="SEQ 1 · Viva Exam Flow"></div>
+      <div class="links">
+        <a class="pri" href="./sequence/seq-01-viva-flow_en.html">Open page</a>
+        <a href="./sequence/seq-01-viva-flow_en.md">MD</a>
+        <a href="./sequence/SEQ_01_VIVA_FLOW_EN.png" download>PNG</a>
+        <a href="./sequence/SEQ_01_VIVA_FLOW_EN.svg" download>SVG</a>
+        <a href="./sequence/seq_01_viva_flow_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SEQ 2 · AI Grading</h3>
+        <div class="meta">5 phases · 7 participants · 2320×2021</div>
+        <div class="desc">Hangfire worker + distributed lock → LLM rubric grading → persist AiScore, backoff retry.</div>
+      </div>
+      <div class="thumb" data-full="./sequence/SEQ_02_GRADING_EN.png"><img src="./sequence/SEQ_02_GRADING_EN.svg?v13" alt="SEQ 2 · AI Grading"></div>
+      <div class="links">
+        <a class="pri" href="./sequence/seq-02-grading_en.html">Open page</a>
+        <a href="./sequence/seq-02-grading_en.md">MD</a>
+        <a href="./sequence/SEQ_02_GRADING_EN.png" download>PNG</a>
+        <a href="./sequence/SEQ_02_GRADING_EN.svg" download>SVG</a>
+        <a href="./sequence/seq_02_grading_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SEQ 3 · Review, Publish & Result View</h3>
+        <div class="meta">6 phases · 7 participants · 2159×3285</div>
+        <div class="desc">PENDING_REVIEW → REVIEWED → PUBLISHED; the student only sees the score once PUBLISHED.</div>
+      </div>
+      <div class="thumb" data-full="./sequence/SEQ_03_REVIEW_PUBLISH_EN.png"><img src="./sequence/SEQ_03_REVIEW_PUBLISH_EN.svg?v13" alt="SEQ 3 · Review, Publish & Result View"></div>
+      <div class="links">
+        <a class="pri" href="./sequence/seq-03-review-publish_en.html">Open page</a>
+        <a href="./sequence/seq-03-review-publish_en.md">MD</a>
+        <a href="./sequence/SEQ_03_REVIEW_PUBLISH_EN.png" download>PNG</a>
+        <a href="./sequence/SEQ_03_REVIEW_PUBLISH_EN.svg" download>SVG</a>
+        <a href="./sequence/seq_03_review_publish_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SEQ 4 · Preparation & Exam Scheduling</h3>
+        <div class="meta">7 phases · 9 participants · 1959×2606</div>
+        <div class="desc">Account → course → upload .md → AI questions → approve → schedule → enrol.</div>
+      </div>
+      <div class="thumb" data-full="./sequence/SEQ_04_ADMIN_PREP_EN.png"><img src="./sequence/SEQ_04_ADMIN_PREP_EN.svg?v13" alt="SEQ 4 · Preparation & Exam Scheduling"></div>
+      <div class="links">
+        <a class="pri" href="./sequence/seq-04-admin-prep_en.html">Open page</a>
+        <a href="./sequence/seq-04-admin-prep_en.md">MD</a>
+        <a href="./sequence/SEQ_04_ADMIN_PREP_EN.png" download>PNG</a>
+        <a href="./sequence/SEQ_04_ADMIN_PREP_EN.svg" download>SVG</a>
+        <a href="./sequence/seq_04_admin_prep_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section id="err">
+    <div class="sec-head">
+      <h2>Error branches summary</h2>
+      <span class="note">7 branches · mapped to each diagram</span>
+    </div>
+    <table>
+      <thead><tr><th>Error branch</th><th>Condition / SRS</th><th>Handling</th><th>Responsible lane</th><th>Appears in</th></tr></thead>
+      <tbody>
+      <tr><td><strong>Start preconditions not met</strong></td><td><code>BR-11</code></td><td>400/403, message shown, retry</td><td>Client → STUDENT</td><td>DIAGRAM 2 · SWL-2</td></tr>
+      <tr><td><strong>STT failure (submit error)</strong></td><td><code>FR-AI-03</code></td><td>EMPTY_AUDIO / TIMEOUT / INTERNAL_ERROR, re-answer or text fallback</td><td>Client → STUDENT</td><td>DIAGRAM 2 · SWL-2A</td></tr>
+      <tr><td><strong>Grading error (retryable)</strong></td><td><code>BR-15</code></td><td>Hangfire retries up to 3 times, backoff 30s/120s/300s</td><td>Hangfire Worker</td><td>DIAGRAM 2 · SWL-2A</td></tr>
+      <tr><td><strong>Grading error (non-retryable) / attempts exhausted</strong></td><td><code>FR-AI-02</code></td><td>FAILED + Answer.Status = ERROR + audit log</td><td>Hangfire → Backend</td><td>DIAGRAM 2 · SWL-2A</td></tr>
+      <tr><td><strong>Publish before review / score missing</strong></td><td><code>BR-10</code></td><td>API 409, review again then publish</td><td>EXAMINER</td><td>DIAGRAM 2 · SWL-2B</td></tr>
+      <tr><td><strong>Request a re-check (retry answer)</strong></td><td><code>FR-EXA-05</code></td><td>POST /api/answers/{id}/retry → RetryAnswerJob</td><td>EXAMINER / ADMIN</td><td>SWL-2B</td></tr>
+      <tr><td><strong>Incident requiring a new attempt (retake)</strong></td><td><code>FR-EXA-06, BR-16/17</code></td><td>Old Result → CANCELLED, new session, history preserved, audit log</td><td>EXAMINER / ADMIN</td><td>SWL-2B</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="order">
+    <div class="sec-head">
+      <h2>Suggested presentation order</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">SLIDE 1</div><div class="t">Context – who uses the system, what the system uses</div><div class="d">DIAGRAM 3</div></div>
+      <div class="step"><div class="n">SLIDE 2</div><div class="t">What the system does – 13 capabilities & who uses them</div><div class="d">DIAGRAM 1</div></div>
+      <div class="step"><div class="n">SLIDE 3</div><div class="t">Who the flow passes through – 5 roles, 3 error branches</div><div class="d">DIAGRAM 2</div></div>
+      <div class="step"><div class="n">SLIDE 4</div><div class="t">Most compact – 10 activities, fits one slide</div><div class="d">DIAGRAM 4</div></div>
+      <div class="step"><div class="n">SLIDE 5</div><div class="t">The real call order between the components</div><div class="d">DIAGRAM 5</div></div>
+      <div class="step"><div class="n">SLIDE 6+</div><div class="t">Details (when asked deeper)</div><div class="d">SWL-1 / SWL-2A / SWL-2B · SEQ-1…SEQ-4</div></div>
+    </div>
+  </section>
+
+  <section id="files">
+    <div class="sec-head">
+      <h2>Source files & how to use them</h2>
+    </div>
+    <table>
+      <thead><tr><th>File</th><th>Content</th><th>Used for</th></tr></thead>
+      <tbody>
+      <tr><td><code>docs/architecture/simplified/diagram_0*.puml</code></td><td>PlantUML source (self-contained, renders offline)</td><td>Regenerating the simplified diagrams</td></tr>
+      <tr><td><code>docs/architecture/swimlane_0*.puml</code></td><td>PlantUML source of the detailed swimlanes</td><td>Regenerating the detailed diagrams</td></tr>
+      <tr><td><code>docs/architecture/*/DIAGRAM_*.svg</code></td><td>Vector image, infinitely scalable</td><td>Dropping into PowerPoint / slides</td></tr>
+      <tr><td><code>docs/architecture/*/SWIMLANE_*.svg</code></td><td>Vector image of the detailed swimlanes</td><td>Printing or zoomed viewing</td></tr>
+      <tr><td><code>docs/architecture/*/DIAGRAM_*.png</code></td><td>Full-resolution raster (rendered from the SVG)</td><td>Documents that need a raster image</td></tr>
+      <tr><td><code>docs/architecture/*.md, simplified/*.md</code></td><td>Markdown documentation for every diagram</td><td>Reading / printing the explanation</td></tr>
+      <tr><td><code>docs/architecture/architecture.md</code></td><td>C4 context + C1 container + sequence + state machine</td><td>The overall architecture document</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<div class="lb" id="lb">
+  <span class="close" id="lbClose">&times;</span>
+  <img id="lbImg" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+</div>
+
+<footer>AIVES – Member 5 deliverable · all diagrams on one page · English version</footer>
+
+<script>
+  const lb = document.getElementById('lb'), lbImg = document.getElementById('lbImg');
+  document.querySelectorAll('.thumb').forEach(t => t.addEventListener('click', () => {
+    lbImg.src = t.dataset.full; lb.classList.add('on');
+  }));
+  document.getElementById('lbClose').addEventListener('click', () => lb.classList.remove('on'));
+  lb.addEventListener('click', e => { if (e.target === lb) lb.classList.remove('on'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('on'); });
+</script>
+</body>
+</html>

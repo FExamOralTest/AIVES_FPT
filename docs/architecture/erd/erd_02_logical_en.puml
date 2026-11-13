@@ -1,0 +1,395 @@
+﻿@startuml ERD_02_LOGICAL_EN
+'==============================================================
+' AIVES - LOGICAL ERD (Logical level - logical data design)
+' Purpose: describe 3NF-normalised relations, attributes, primary keys
+'           (PK) and foreign keys (FK), business rules
+'           independent of any DBMS-specific data type
+' Source: backend/Aives.Domain/Entities + AivesDbContext.OnModelCreating
+'==============================================================
+title ERD 2 - LOGICAL ERD (AIVES) - Logical level
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 14
+skinparam ArrowColor #1F3B52
+skinparam ArrowThickness 1.8
+skinparam ArrowFontSize 12
+skinparam ArrowFontStyle bold
+skinparam TitleFontSize 26
+skinparam TitleFontStyle bold
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+skinparam entity {
+  BackgroundColor #EAF1F7
+  BorderColor #1F3B52
+  BorderThickness 2
+  FontSize 15
+  FontStyle bold
+  FontColor #10243A
+}
+skinparam package {
+  BackgroundColor #FCFDFE
+  BorderColor #7A8A99
+  BorderThickness 1.5
+  FontSize 15
+  FontStyle bold
+}
+
+package "Catalog & Content" {
+  entity "USERS" as User {
+    user_id : Integer <<PK>>
+    --
+    username : String <<UQ>>
+    full_name : String
+    email : String <<UQ>>
+    password_hash : String
+    role : UserRole
+    created_at : DateTime
+  }
+
+  entity "COURSES" as Course {
+    course_id : Integer <<PK>>
+    --
+    course_code : String <<UQ>>
+    course_name : String
+    teacher_id : Integer <<FK>>
+    created_by : Integer <<FK>>
+    created_at : DateTime
+  }
+
+  entity "ENROLLMENTS" as Enrollment {
+    enrollment_id : Integer <<PK>>
+    --
+    student_id : Integer <<FK, UQ>>
+    course_id : Integer <<FK, UQ>>
+    enrolled_at : DateTime
+  }
+
+  entity "MARKDOWN_DOCUMENTS" as Doc {
+    document_id : Integer <<PK>>
+    --
+    course_id : Integer <<FK>>
+    uploaded_by : Integer <<FK>>
+    file_name : String
+    doc_type : DocType
+    content : Text
+    uploaded_at : DateTime
+  }
+
+  entity "QUESTION_BANK" as Question {
+    question_id : Integer <<PK>>
+    --
+    course_id : Integer <<FK>>
+    document_id : Integer <<FK>>
+    question_text : Text
+    topic : Text
+    sample_answer : Text
+    learning_outcome : String
+    max_score : Number
+    level : Integer
+    is_follow_up_allowed : Boolean
+    expected_keywords : List<String>
+    approval_status : QuestionApprovalStatus
+    reviewed_by : Integer <<FK>>
+    reviewed_at : DateTime
+    rejection_reason : String
+    created_at : DateTime
+  }
+
+  entity "QUESTION_RUBRIC_CRITERIA" as Rubric {
+    criterion_id : Integer <<PK>>
+    --
+    question_id : Integer <<FK>>
+    position : Integer
+    description : String
+    max_score : Decimal
+  }
+
+  entity "EXAMS" as ExamPaper {
+    exam_id : Integer <<PK>>
+    --
+    course_id : Integer <<FK>>
+    created_by : Integer <<FK>>
+    title : String
+    exam_code : String <<UQ>>
+    duration_minutes : Integer
+    max_questions : Integer
+    exam_status : ExamStatus
+    is_active : Boolean
+    created_at : DateTime
+  }
+
+  entity "EXAM_QUESTIONS" as ExamQuestion {
+    exam_id : Integer <<PK, FK>>
+    --
+    question_id : Integer <<PK, FK>>
+    question_score : Number
+  }
+}
+
+package "Exam Organisation" {
+  entity "EXAM_PERIODS" as Period {
+    period_id : Integer <<PK>>
+    --
+    course_id : Integer <<FK>>
+    period_name : String
+    description : Text
+    start_date : DateTime
+    end_date : DateTime
+    status : ExamPeriodStatus
+    created_by : Integer <<FK>>
+    created_at : DateTime
+  }
+
+  entity "EXAM_SESSIONS" as Session {
+    session_id : Integer <<PK>>
+    --
+    exam_id : Integer <<FK>>
+    course_id : Integer <<FK>>
+    period_id : Integer <<FK>>
+    scheduled_by : Integer <<FK>>
+    session_name : String
+    session_code : String <<UQ>>
+    room : String
+    start_time : DateTime
+    end_time : DateTime
+    status : SessionStatus
+    max_capacity : Integer
+    current_enrollment : Integer
+    created_at : DateTime
+  }
+
+  entity "SESSION_EXAMS" as SessionExam {
+    session_id : Integer <<PK, FK>>
+    --
+    exam_id : Integer <<PK, FK>>
+    created_at : DateTime
+  }
+
+  entity "EXAM_SLOT_TEMPLATES" as SlotTpl {
+    slot_template_id : Integer <<PK>>
+    --
+    exam_id : Integer <<FK>>
+    slot_index : Integer
+    slot_name : String
+    duration_minutes : Integer
+    max_capacity : Integer
+    created_at : DateTime
+  }
+
+  entity "EXAM_SLOT_TEMPLATE_EXAMS" as SlotTplExam {
+    slot_template_id : Integer <<PK, FK>>
+    --
+    exam_paper_id : Integer <<PK, FK>>
+    created_at : DateTime
+  }
+
+  entity "SESSION_SLOTS" as Slot {
+    slot_id : Integer <<PK>>
+    --
+    session_id : Integer <<FK>>
+    slot_template_id : Integer <<FK>>
+    slot_index : Integer
+    slot_name : String
+    slot_code : String <<UQ>>
+    start_time : DateTime
+    end_time : DateTime
+    max_capacity : Integer
+    created_at : DateTime
+  }
+
+  entity "SESSION_SLOT_EXAMS" as SlotExam {
+    slot_id : Integer <<PK, FK>>
+    --
+    exam_id : Integer <<PK, FK>>
+    created_at : DateTime
+  }
+
+  entity "SESSION_ENROLLMENTS" as SessionReg {
+    session_enrollment_id : Integer <<PK>>
+    --
+    session_id : Integer <<FK, UQ>>
+    student_id : Integer <<FK, UQ>>
+    assigned_exam_id : Integer <<FK>>
+    assigned_slot_id : Integer <<FK>>
+    status : SessionStatus
+    current_question_index : Integer
+    enrolled_at : DateTime
+    started_at : DateTime
+    last_activity_at : DateTime
+  }
+}
+
+package "Taking & Grading" {
+  entity "RESULTS" as Result {
+    result_id : Integer <<PK>>
+    --
+    session_id : Integer <<FK, UQ>>
+    student_id : Integer <<FK, UQ>>
+    exam_id : Integer <<FK>>
+    ai_score : Number
+    ai_feedback : Text
+    ai_analysis : Json
+    ai_evaluation_status : AiEvaluationStatus
+    ai_evaluation_error : Text
+    final_score : Number
+    final_feedback : Text
+    status : SubmissionStatus
+    submitted_at : DateTime
+    reviewed_by : Integer <<FK>>
+    reviewed_at : DateTime
+    published_by : Integer <<FK>>
+    published_at : DateTime
+  }
+
+  entity "ANSWERS" as Answer {
+    answer_id : Integer <<PK>>
+    --
+    result_id : Integer <<FK, UQ>>
+    question_id : Integer <<FK, UQ>>
+    student_answer : Text
+    transcript : Text
+    object_key : String
+    audio_url : Text
+    is_follow_up : Boolean
+    ai_score : Number
+    ai_feedback : Text
+    ai_analysis : Json
+    final_score : Number
+    teacher_comment : Text
+    status : AnswerStatus
+    attempt_count : Integer
+    job_id : String
+    error_message : Text
+    duration_seconds : Number
+    detected_language : String
+    answered_at : DateTime
+  }
+
+  entity "MEDIA_UPLOADS" as Audio {
+    upload_id : String <<PK>>
+    --
+    session_id : Integer <<FK>>
+    student_id : Integer <<FK>>
+    question_id : Integer <<FK>>
+    answer_id : Integer <<FK>>
+    file_name : String
+    content_type : String
+    total_size : Long
+    chunk_size : Long
+    total_chunks : Integer
+    received_chunk_indexes : Json
+    upload_status : String
+    object_key : String
+    local_file_path : String
+    last_error : Text
+    created_at : DateTime
+    completed_at : DateTime
+  }
+
+  entity "EXAM_RETAKES" as Retake {
+    retake_id : Integer <<PK>>
+    --
+    original_result_id : Integer <<FK, UQ>>
+    retake_session_id : Integer <<FK, UQ>>
+    student_id : Integer <<FK>>
+    granted_by : Integer <<FK>>
+    reason : String
+    granted_at : DateTime
+    duration_minutes : Integer
+    consumed_at : DateTime
+    revision : Integer
+  }
+}
+
+package "Audit" {
+  entity "AUDIT_LOGS" as Audit {
+    log_id : Long <<PK>>
+    --
+    entity_name : String
+    entity_id : Integer
+    action : String
+    old_value : Json
+    new_value : Json
+    reason : Text
+    performed_by : Integer <<FK>>
+    performed_at : DateTime
+    ip_address : String
+  }
+}
+
+' --- Danh muc va noi dung ---
+User ||--o{ Course : "creates / teaches"
+User ||--o{ Enrollment : "enrols in"
+Course ||--o{ Enrollment : "has enrolments"
+User ||--o{ Doc : "uploads"
+Course ||--o{ Doc : "holds documents"
+Course ||--o{ Question : "so huu"
+User ||--o{ Question : "duyet"
+Doc ||--o{ Question : "generates questions from"
+Question ||--o{ Rubric : "has rubric criteria"
+Course ||--o{ ExamPaper : "owns exam papers"
+User ||--o{ ExamPaper : "creates the paper"
+ExamPaper ||--o{ ExamQuestion : "selects questions"
+Question ||--o{ ExamQuestion : "is selected in"
+
+' --- To chuc thi ---
+Course ||--o{ Period : "organises exam periods"
+User ||--o{ Period : "creates the period"
+Period ||--o{ Session : "contains sessions"
+User ||--o{ Session : "schedules"
+Course ||--o{ Session : "belongs to the course"
+Session ||--o{ SessionExam : "assigns papers"
+ExamPaper ||--o{ SessionExam : "is used in the session"
+ExamPaper ||--o{ SlotTpl : "defines the slot"
+SlotTpl ||--o{ SlotTplExam : "assigns papers"
+ExamPaper ||--o{ SlotTplExam : "duoc gan vao kip"
+Session ||--o{ Slot : "splits into time slots"
+SlotTpl ||--o{ Slot : "is instantiated from"
+Slot ||--o{ SlotExam : "assigns papers"
+ExamPaper ||--o{ SlotExam : "is used in the slot"
+Session ||--o{ SessionReg : "has registrations"
+User ||--o{ SessionReg : "is the student"
+Session ||--o{ SessionReg : "registers for the session"
+ExamPaper ||--o{ SessionReg : "is assigned"
+Slot ||--o{ SessionReg : "is assigned a slot"
+
+' --- Thi va cham diem ---
+Session ||--o{ Result : "produces results"
+User ||--o{ Result : "is the candidate"
+ExamPaper ||--o{ Result : "refers to"
+Result ||--o{ Answer : "contains answers"
+Question ||--o{ Answer : "is answered"
+Answer ||--o{ Audio : "has the recording"
+Session ||--o{ Audio : "uploaded in the session"
+User ||--o{ Audio : "uploads"
+Result ||--o| Retake : "may be granted a retake"
+Session ||--o{ Retake : "retake session"
+User ||--o{ Retake : "grants"
+
+' --- Kiem toan ---
+User ||--o{ Audit : "performs the operation"
+
+note right of Result
+  * (student_id, session_id) is UNIQUE:
+    one result per student per session
+  * status is a concurrency token
+    (prevents double publish)
+  * AI chi goi y - the official score
+    do the EXAMINER decides
+end note
+
+note bottom of Rubric
+  * 0 < max_score <= 100
+  * 0 <= position < 20
+end note
+
+note bottom of Retake
+  * 1 <= duration_minutes <= 240
+  * (original_result_id) UNIQUE
+  * (retake_session_id) UNIQUE
+end note
+
+@enduml

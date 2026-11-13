@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERD 3 &ndash; Physical ERD</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  ul { font-size:14px; line-height:1.7; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ERD 3 &ndash; Physical ERD</h1>
+  <p>Member 5 · ERD · English version</p>
+</header>
+<nav>
+  <a href="erd-02-logical_en.html">&larr; ERD 2</a>
+  <a href="erd-index-en.html">Index &rarr;</a>
+  <a href="./erd-index-en.html">Index</a>
+  <a href="./erd-index-en.md">Markdown</a>
+  <a href="./all-erd-en.html">&#128202; All ERDs on one page</a>
+  <a href="../sequence/sequence-index-en.html">&#128260; Sequence set</a>
+</nav>
+<main>
+  <div class="card">
+    <h2>Physical ERD &ndash; PostgreSQL / Neon</h2>
+    <img class="diag" src="./ERD_03_PHYSICAL_EN.svg" alt="Physical ERD &ndash; PostgreSQL / Neon">
+    <p><a href="./ERD_03_PHYSICAL_EN.png" download>Download PNG</a> &middot; <a href="./ERD_03_PHYSICAL_EN.svg" download>Download SVG</a> &middot; <a href="./erd_03_physical_en.puml" target="_blank">PlantUML source</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>What the physical level captures</h2>
+    <ul>
+      <li>Maps <b>1:1</b> to the live Neon schema: <b>21 tables</b> in schema <code>public</code>.</li>
+      <li>Shows <b>concrete PostgreSQL types</b>: <code>integer</code>, <code>bigint</code>, <code>varchar(n)</code>, <code>text</code>, <code>jsonb</code>, <code>text[]</code>, <code>real</code>, <code>numeric(8,4)</code>, <code>timestamptz</code> plus the application-defined enums.</li>
+      <li>Every <b>PK</b>, <b>UNIQUE</b> and <b>FK</b> carries its <b>ON DELETE</b> rule (CASCADE / SET NULL / RESTRICT) and the <b>CHECK constraints</b>.</li>
+      <li>Tables are grouped in packages named after the real tables (<code>public.users</code>, <code>public.results</code>, &hellip;).</li>
+    </ul>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Physical tables and technical characteristics</h2>
+    <table>
+      <thead><tr><th>Table</th><th>Columns</th><th>Primary key</th><th>Notable details</th></tr></thead>
+      <tbody>
+        <tr><td><code>users</code></td><td>7</td><td><code>user_id</code> serial</td><td>Enum <code>user_role</code> · UQ username/email</td></tr>
+        <tr><td><code>courses</code></td><td>6</td><td><code>course_id</code> serial</td><td>UQ <code>course_code</code> · FK SET NULL</td></tr>
+        <tr><td><code>enrollments</code></td><td>4</td><td><code>enrollment_id</code> serial</td><td>UQ <code>(student_id, course_id)</code></td></tr>
+        <tr><td><code>markdown_documents</code></td><td>7</td><td><code>document_id</code> serial</td><td>Enum <code>doc_type</code> · <code>text</code> content</td></tr>
+        <tr><td><code>question_bank</code></td><td>17</td><td><code>question_id</code> serial</td><td><code>expected_keywords text[]</code> · <code>approval_status</code></td></tr>
+        <tr><td><code>question_rubric_criteria</code></td><td>5</td><td><code>criterion_id</code> serial</td><td>2 CHECK constraints on score and position</td></tr>
+        <tr><td><code>exams</code> / <code>exam_questions</code></td><td>9 / 3</td><td><code>exam_id</code> · composite PK</td><td>Enum <code>exam_status</code> · soft delete <code>is_active</code></td></tr>
+        <tr><td><code>exam_periods</code></td><td>9</td><td><code>period_id</code> serial</td><td>Enum <code>exam_period_status</code></td></tr>
+        <tr><td><code>exam_sessions</code></td><td>14</td><td><code>session_id</code> serial</td><td>Enum <code>session_status</code> · UQ <code>session_code</code></td></tr>
+        <tr><td><code>session_exams</code> / <code>session_slot_exams</code></td><td>3 / 3</td><td>Composite 2-column PK</td><td>Many-to-many junction tables</td></tr>
+        <tr><td><code>exam_slot_templates</code> / <code>exam_slot_template_exams</code></td><td>7 / 3</td><td><code>slot_template_id</code> · composite PK</td><td>FK <code>exam_paper_id</code> RESTRICT</td></tr>
+        <tr><td><code>session_slots</code></td><td>11</td><td><code>slot_id</code> serial</td><td>UQ <code>(session_id, slot_index)</code>, <code>slot_code</code></td></tr>
+        <tr><td><code>session_enrollments</code></td><td>11</td><td><code>session_enrollment_id</code> serial</td><td>Concurrency tokens <code>status</code>, <code>started_at</code></td></tr>
+        <tr><td><code>results</code></td><td>19</td><td><code>result_id</code> serial</td><td><code>ai_analysis jsonb</code> · concurrency token <code>status</code></td></tr>
+        <tr><td><code>answers</code></td><td>21</td><td><code>answer_id</code> serial</td><td><code>ai_analysis jsonb</code> · <code>attempt_count</code> for retry</td></tr>
+        <tr><td><code>media_uploads</code></td><td>21</td><td><code>upload_id varchar(64)</code></td><td><code>received_chunk_indexes jsonb</code> · local-first + R2</td></tr>
+        <tr><td><code>exam_retakes</code></td><td>10</td><td><code>retake_id</code> serial</td><td>CHECK duration · UQ result/session · concurrency <code>revision</code></td></tr>
+        <tr><td><code>audit_logs</code></td><td>11</td><td><code>log_id bigint</code> identity</td><td><code>old_value/new_value jsonb</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<footer>AIVES &ndash; Member 5 deliverable &middot; ERD suite &middot; generated page</footer>
+</body>
+</html>

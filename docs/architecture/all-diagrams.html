@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIVES – Toàn bộ Sơ đồ</title>
+<style>
+  :root { color-scheme: light; --ink:#1f2933; --brand:#0f3d5c; --line:#dfe5ea; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f4f6f8; color:var(--ink); font-size:15px; }
+  a { color:var(--brand); }
+
+  header { background:var(--brand); color:#fff; padding:30px 32px 26px; }
+  header h1 { margin:0 0 6px; font-size:27px; letter-spacing:.2px; }
+  header p { margin:0; opacity:.86; font-size:14px; }
+  header .badge { display:inline-block; margin-top:12px; padding:4px 11px; border-radius:99px;
+                   background:rgba(255,255,255,.16); font-size:12.5px; font-weight:600; }
+
+  .topbar { position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid var(--line);
+             padding:0 32px; display:flex; gap:4px; flex-wrap:wrap; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .topbar a { padding:11px 15px; font-size:13.5px; font-weight:600; color:#3c5b73; text-decoration:none;
+               border-bottom:3px solid transparent; }
+  .topbar a:hover { color:var(--brand); border-bottom-color:#b7c9d6; }
+  .topbar a.lang { margin-left:auto; color:var(--brand); }
+
+  main { padding:26px 32px 70px; max-width:1500px; margin:0 auto; }
+
+  .banner { background:#fff8e1; border-left:5px solid #B8860B; padding:13px 18px; border-radius:0 8px 8px 0;
+            font-size:13.5px; margin-bottom:24px; }
+  .banner strong { color:#7a5c00; }
+
+  section { margin-bottom:38px; }
+  .sec-head { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+               border-bottom:2px solid #dbe3ea; padding-bottom:9px; margin-bottom:16px; }
+  .sec-head h2 { margin:0; font-size:20px; color:var(--brand); }
+  .sec-head .tag { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+                    padding:3px 9px; border-radius:5px; background:var(--brand); color:#fff; }
+  .sec-head .tag.warn { background:#B8860B; }
+  .sec-head .note { font-size:13px; color:#5b6b7a; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(430px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden;
+           display:flex; flex-direction:column; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .card .head { padding:13px 16px; border-bottom:1px solid var(--line); }
+  .card .head h3 { margin:0 0 3px; font-size:16px; color:var(--brand); }
+  .card .head .meta { font-size:12px; color:#5b6b7a; }
+  .card .head .desc { font-size:13px; color:#3c5b73; margin-top:7px; }
+  .card .thumb { background:#fbfcfd; border-bottom:1px solid var(--line); padding:8px; height:280px;
+                  display:flex; align-items:center; justify-content:center; cursor:zoom-in; }
+  .card .thumb img { max-width:100%; max-height:100%; object-fit:contain; }
+  .card .links { padding:10px 16px 13px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; }
+  .card .links a { padding:4px 11px; border:1px solid #c8d6e0; border-radius:6px; text-decoration:none;
+                    font-weight:600; color:var(--brand); background:#f7fafc; }
+  .card .links a:hover { background:#e9f1f6; }
+  .card .links a.pri { background:var(--brand); color:#fff; border-color:var(--brand); }
+
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; border:1px solid var(--line); }
+  th,td { border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:var(--brand); font-size:13px; }
+  td code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.3px; }
+
+  .steps { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+  .step { background:#fff; border:1px solid var(--line); border-left:4px solid var(--brand);
+           border-radius:0 8px 8px 0; padding:12px 14px; }
+  .step .n { font-size:11.5px; font-weight:800; color:var(--brand); letter-spacing:.6px; }
+  .step .t { font-size:14px; margin:3px 0 4px; }
+  .step .d { font-size:12.5px; color:#5b6b7a; }
+
+  .legend { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:#3c5b73;
+             margin-top:12px; }
+  .legend span::before { content:"●"; color:var(--brand); margin-right:6px; }
+  .legend span.b::before { color:#B8860B; }
+
+  /* lightbox */
+  .lb { position:fixed; inset:0; background:rgba(10,20,30,.92); display:none; z-index:99;
+         align-items:center; justify-content:center; padding:24px; }
+  .lb.on { display:flex; }
+  .lb img { max-width:100%; max-height:100%; background:#fff; border-radius:6px; }
+  .lb .close { position:absolute; top:16px; right:22px; color:#fff; font-size:32px; cursor:pointer; line-height:1; }
+
+  footer { padding:22px 32px; font-size:12.5px; color:#5b6b7a; border-top:1px solid var(--line); }
+  @media (max-width:700px) { main { padding:18px 16px 50px; } .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>AIVES – Toàn bộ Sơ đồ</h1>
+  <p>Thành viên 5 · Một trang duy nhất: từ bản ngắn gọn (để trình bày) đến bản đầy đủ (để tham khảo)</p>
+  <span class="badge">5 diagram rút gọn · 4 swimlane chi tiết · 2 ngôn ngữ</span>
+</header>
+
+<div class="topbar">
+  <a href="#sim">⚡ Ngắn gọn</a>
+  <a href="#full">Đầy đủ</a>
+  <a href="#seq">Sequence</a>
+  <a href="#err">Nhánh lỗi</a>
+  <a href="#order">Thứ tự trình bày</a>
+  <a href="#files">File</a>
+  <a href="./erd/all-erd.html">&#128202; Bộ ERD riêng</a>
+  <a class="lang" href="./all-diagrams-en.html">English →</a>
+</div>
+
+<main>
+  <div class="banner"><strong>Một trang duy nhất.</strong> Phần đầu là bộ <strong>rút gọn</strong> (vừa 1 slide, dùng để thuyết trình). Phần sau là bộ <strong>chi tiết</strong> (6 lane, ~40 hộp, 8 nhánh lỗi — dùng để tham khảo & trả lời câu hỏi sâu). <strong>Bấm vào ảnh</strong> để xem kích thước đầy đủ.</div>
+
+  <section id="sim">
+    <div class="sec-head">
+      <span class="tag">Dùng để thuyết trình</span>
+      <h2>Bộ rút gọn — nhét vào slide</h2>
+      <span class="note">5 diagram · vừa 1 slide</span>
+    </div>
+    <div class="grid">
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 1 · Use Case Diagram</h3>
+        <div class="meta">4 actor · 13 use case · 5 nhóm</div>
+        <div class="desc">Toàn cảnh chức năng: ai dùng, dùng để làm gì, quan hệ giữa các chức năng.</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_01_USECASE.png"><img src="./simplified/DIAGRAM_01_USECASE.svg?v13" alt="DIAGRAM 1 · Use Case Diagram"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-01-usecase.html">Mở trang</a>
+        <a href="./simplified/diagram-01-usecase.md">MD</a>
+        <a href="./simplified/DIAGRAM_01_USECASE.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_01_USECASE.svg" download>SVG</a>
+        <a href="./simplified/diagram_01_usecase.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 2 · Swimlane rút gọn (1 activity = 1 luồng)</h3>
+        <div class="meta">5 lane · 13 hộp · 3 nhánh lỗi</div>
+        <div class="desc">Luồng đi qua 5 vai trò, 3 nhánh lỗi (nộp bài lỗi · chấm lỗi · yêu cầu xem lại).</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_02_SWIMLANE.png"><img src="./simplified/DIAGRAM_02_SWIMLANE.svg?v13" alt="DIAGRAM 2 · Swimlane rút gọn (1 activity = 1 luồng)"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-02-swimlane.html">Mở trang</a>
+        <a href="./simplified/diagram-02-swimlane.md">MD</a>
+        <a href="./simplified/DIAGRAM_02_SWIMLANE.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_02_SWIMLANE.svg" download>SVG</a>
+        <a href="./simplified/diagram_02_swimlane.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 3 · System Context Diagram</h3>
+        <div class="meta">4 actor · 4 năng lực · 3 hệ thống ngoài</div>
+        <div class="desc">Ranh giới hệ thống AIVES, 4 vai trò và 3 dịch vụ bên ngoài (R2 · LLM · Whisper STT).</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_03_CONTEXT.png"><img src="./simplified/DIAGRAM_03_CONTEXT.svg?v13" alt="DIAGRAM 3 · System Context Diagram"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-03-context.html">Mở trang</a>
+        <a href="./simplified/diagram-03-context.md">MD</a>
+        <a href="./simplified/DIAGRAM_03_CONTEXT.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_03_CONTEXT.svg" download>SVG</a>
+        <a href="./simplified/diagram_03_context.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 4 · Swimlane 10 Activity</h3>
+        <div class="meta">5 lane · **10 activity** · 3 nhánh lỗi</div>
+        <div class="desc">Bản swimlane cô đọng nhất: **đúng 10 activity** (UC-01…UC-10) + 3 nhánh lỗi (nộp bài · chấm · công bố).</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_04_SWIMLANE_10.png"><img src="./simplified/DIAGRAM_04_SWIMLANE_10.svg?v13" alt="DIAGRAM 4 · Swimlane 10 Activity"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-04-swimlane-10.html">Mở trang</a>
+        <a href="./simplified/diagram-04-swimlane-10.md">MD</a>
+        <a href="./simplified/DIAGRAM_04_SWIMLANE_10.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_04_SWIMLANE_10.svg" download>SVG</a>
+        <a href="./simplified/diagram_04_swimlane_10.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 5A · Live Viva Exam</h3>
+        <div class="meta">6 lifeline (gồm DB) · **3 giai đoạn** · phần thi trực tiếp</div>
+        <div class="desc">Phần 1: sinh viên ghi âm trên Web App, audio upload lên Cloudflare R2, AI Engine chuyển giọng nói + sinh câu hỏi tiếp theo.</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_05A_VIVA_EXAM.png"><img src="./simplified/DIAGRAM_05A_VIVA_EXAM.svg?v13" alt="DIAGRAM 5A · Live Viva Exam"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-05a-viva-exam.html">Mở trang</a>
+        
+        <a href="./simplified/DIAGRAM_05A_VIVA_EXAM.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_05A_VIVA_EXAM.svg" download>SVG</a>
+        <a href="./simplified/diagram_05a_viva_exam.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 5B · AI chấm điểm & Khảo thí review</h3>
+        <div class="meta">8 lifeline · **18 message** · phần chấm & công bố</div>
+        <div class="desc">Phần 2: bài nộp lưu ở trạng thái PENDING_REVIEW, chỉ khi khảo thí cho phép chấm AI thì mới xếp hàng job Hangfire; Back-end Service (Grading) gọi AI service chấm rubric rồi lưu vào Result store, khảo thí chấm điểm chính thức và công bố.</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_05B_GRADING_REVIEW.png"><img src="./simplified/DIAGRAM_05B_GRADING_REVIEW.svg?v13" alt="DIAGRAM 5B · AI chấm điểm & Khảo thí review"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-05b-grading-review.html">Mở trang</a>
+        
+        <a href="./simplified/DIAGRAM_05B_GRADING_REVIEW.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_05B_GRADING_REVIEW.svg" download>SVG</a>
+        <a href="./simplified/diagram_05b_grading_review.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>DIAGRAM 5 · Sequence Diagram rút gọn</h3>
+        <div class="meta">6 participant · **3 giai đoạn** · 3 nhánh lỗi</div>
+        <div class="desc">Thứ tự gọi thực tế: làm bài → AI chấm → khảo thí công bố → sinh viên xem điểm.</div>
+      </div>
+      <div class="thumb" data-full="./simplified/DIAGRAM_05_SEQUENCE.png"><img src="./simplified/DIAGRAM_05_SEQUENCE.svg?v13" alt="DIAGRAM 5 · Sequence Diagram rút gọn"></div>
+      <div class="links">
+        <a class="pri" href="./simplified/diagram-05-sequence.html">Mở trang</a>
+        <a href="./simplified/diagram-05-sequence.md">MD</a>
+        <a href="./simplified/DIAGRAM_05_SEQUENCE.png" download>PNG</a>
+        <a href="./simplified/DIAGRAM_05_SEQUENCE.svg" download>SVG</a>
+        <a href="./simplified/diagram_05_sequence.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>C1 · Container Diagram (multi-container)</h3>
+        <div class="meta">5 container · **4 container Docker** · 2 hệ thống ngoài</div>
+        <div class="desc">Kiến trúc container: Web (React + Nginx) · Backend (ASP.NET Core, chạy Hangfire) · AI service (FastAPI) · Neon PostgreSQL · Cloudflare R2 — kèm giao thức nội bộ `X-Internal-Token` và topology Docker Compose.</div>
+      </div>
+      <div class="thumb" data-full="./C1_Container.png"><img src="./C1_Container.svg?v13" alt="C1 · Container Diagram (multi-container)"></div>
+      <div class="links">
+        <a class="pri" href="./c1-container.html">Mở trang</a>
+        
+        <a href="./C1_Container.png" download>PNG</a>
+        <a href="./C1_Container.svg" download>SVG</a>
+        <a href="./c1_container.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section id="full">
+    <div class="sec-head">
+      <span class="tag warn">Tham khảo</span>
+      <h2>Bộ chi tiết — đầy đủ, giữ nguyên</h2>
+      <span class="note">4 swimlane · 6 lane · 8 nhánh lỗi</span>
+    </div>
+    <div class="grid">
+    <div class="card">
+      <div class="head">
+        <h3>SWL-1 · Chuẩn bị & Tổ chức thi</h3>
+        <div class="meta">4 lane · 2084×3030</div>
+        <div class="desc">ADMIN · STAFF · AI Service · Backend — tài liệu → câu hỏi → đề thi → lịch thi.</div>
+      </div>
+      <div class="thumb" data-full="./SWIMLANE_01_PREPARATION.png"><img src="./SWIMLANE_01_PREPARATION.svg?v13" alt="SWL-1 · Chuẩn bị & Tổ chức thi"></div>
+      <div class="links">
+        <a class="pri" href="./swimlane-01-preparation-scheduling.html">Mở trang</a>
+        <a href="./swimlane-01-preparation-scheduling.md">MD</a>
+        <a href="./SWIMLANE_01_PREPARATION.png" download>PNG</a>
+        <a href="./SWIMLANE_01_PREPARATION.svg" download>SVG</a>
+        <a href="./swimlane_01_preparation_scheduling.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SWL-2 · Làm bài, Chấm & Công bố (đầy đủ)</h3>
+        <div class="meta">6 lane · 6411×4578</div>
+        <div class="desc">Bản đầy đủ 6 lane: STUDENT · Client · Backend · AI · Hangfire · EXAMINER, 8 nhánh lỗi.</div>
+      </div>
+      <div class="thumb" data-full="./SWIMLANE_02_EXAM_GRADING_PUBLISH.png"><img src="./SWIMLANE_02_EXAM_GRADING_PUBLISH.svg?v13" alt="SWL-2 · Làm bài, Chấm & Công bố (đầy đủ)"></div>
+      <div class="links">
+        <a class="pri" href="./swimlane-02-exam-grading-publish.html">Mở trang</a>
+        <a href="./swimlane-02-exam-grading-publish.md">MD</a>
+        <a href="./SWIMLANE_02_EXAM_GRADING_PUBLISH.png" download>PNG</a>
+        <a href="./SWIMLANE_02_EXAM_GRADING_PUBLISH.svg" download>SVG</a>
+        <a href="./swimlane_02_exam_grading_publish.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SWL-2A · Làm bài & Chấm AI</h3>
+        <div class="meta">5 lane · 5230×3047</div>
+        <div class="desc">Phần 1 của SWL-2 tách riêng: thi & chấm AI (STT, retry backoff, PENDING_REVIEW).</div>
+      </div>
+      <div class="thumb" data-full="./SWIMLANE_02A_EXAM_DELIVERY_GRADING.png"><img src="./SWIMLANE_02A_EXAM_DELIVERY_GRADING.svg?v13" alt="SWL-2A · Làm bài & Chấm AI"></div>
+      <div class="links">
+        <a class="pri" href="./swimlane-02a-exam-delivery-grading.html">Mở trang</a>
+        <a href="./swimlane-02a-exam-delivery-grading.md">MD</a>
+        <a href="./SWIMLANE_02A_EXAM_DELIVERY_GRADING.png" download>PNG</a>
+        <a href="./SWIMLANE_02A_EXAM_DELIVERY_GRADING.svg" download>SVG</a>
+        <a href="./swimlane_02a_exam_delivery_grading.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SWL-2B · Review, Công bố & Xử lý sự cố</h3>
+        <div class="meta">4 lane · 2699×1737</div>
+        <div class="desc">Phần 2 của SWL-2 tách riêng: review bằng chứng, publish, retry answer, retake.</div>
+      </div>
+      <div class="thumb" data-full="./SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT.png"><img src="./SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT.svg?v13" alt="SWL-2B · Review, Công bố & Xử lý sự cố"></div>
+      <div class="links">
+        <a class="pri" href="./swimlane-02b-review-publish-incident.html">Mở trang</a>
+        <a href="./swimlane-02b-review-publish-incident.md">MD</a>
+        <a href="./SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT.png" download>PNG</a>
+        <a href="./SWIMLANE_02B_REVIEW_PUBLISH_INCIDENT.svg" download>SVG</a>
+        <a href="./swimlane_02b_review_publish_incident.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section id="seq">
+    <div class="sec-head">
+      <span class="tag">Tương tác</span>
+      <h2>Sequence Diagram — 4 luồng chính</h2>
+      <span class="note">4 sơ đồ · 2 ngôn ngữ</span>
+    </div>
+    <div class="grid">
+    <div class="card">
+      <div class="head">
+        <h3>SEQ 1 · Luồng thi Viva</h3>
+        <div class="meta">3 giai đoạn · 8 participant · 2271×2858</div>
+        <div class="desc">Bắt đầu ca thi → ghi âm & nộp bài (STT + sinh follow-up) → kết thúc & xếp hàng chấm.</div>
+      </div>
+      <div class="thumb" data-full="./sequence/SEQ_01_VIVA_FLOW.png"><img src="./sequence/SEQ_01_VIVA_FLOW.svg?v13" alt="SEQ 1 · Luồng thi Viva"></div>
+      <div class="links">
+        <a class="pri" href="./sequence/seq-01-viva-flow.html">Mở trang</a>
+        <a href="./sequence/seq-01-viva-flow.md">MD</a>
+        <a href="./sequence/SEQ_01_VIVA_FLOW.png" download>PNG</a>
+        <a href="./sequence/SEQ_01_VIVA_FLOW.svg" download>SVG</a>
+        <a href="./sequence/seq_01_viva_flow.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SEQ 2 · Chấm điểm AI</h3>
+        <div class="meta">5 giai đoạn · 7 participant · 2263×2021</div>
+        <div class="desc">Hangfire worker + khóa phân tán → gọi LLM chấm rubric → lưu AiScore, retry backoff.</div>
+      </div>
+      <div class="thumb" data-full="./sequence/SEQ_02_GRADING.png"><img src="./sequence/SEQ_02_GRADING.svg?v13" alt="SEQ 2 · Chấm điểm AI"></div>
+      <div class="links">
+        <a class="pri" href="./sequence/seq-02-grading.html">Mở trang</a>
+        <a href="./sequence/seq-02-grading.md">MD</a>
+        <a href="./sequence/SEQ_02_GRADING.png" download>PNG</a>
+        <a href="./sequence/SEQ_02_GRADING.svg" download>SVG</a>
+        <a href="./sequence/seq_02_grading.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SEQ 3 · Review, Công bố & Xem kết quả</h3>
+        <div class="meta">6 giai đoạn · 7 participant · 2198×3287</div>
+        <div class="desc">PENDING_REVIEW → REVIEWED → PUBLISHED; sinh viên chỉ thấy điểm khi PUBLISHED.</div>
+      </div>
+      <div class="thumb" data-full="./sequence/SEQ_03_REVIEW_PUBLISH.png"><img src="./sequence/SEQ_03_REVIEW_PUBLISH.svg?v13" alt="SEQ 3 · Review, Công bố & Xem kết quả"></div>
+      <div class="links">
+        <a class="pri" href="./sequence/seq-03-review-publish.html">Mở trang</a>
+        <a href="./sequence/seq-03-review-publish.md">MD</a>
+        <a href="./sequence/SEQ_03_REVIEW_PUBLISH.png" download>PNG</a>
+        <a href="./sequence/SEQ_03_REVIEW_PUBLISH.svg" download>SVG</a>
+        <a href="./sequence/seq_03_review_publish.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head">
+        <h3>SEQ 4 · Chuẩn bị & Tổ chức thi</h3>
+        <div class="meta">7 giai đoạn · 9 participant · 1966×2627</div>
+        <div class="desc">Tạo tài khoản → môn học → upload .md → AI sinh câu hỏi → duyệt → lịch thi → ghi danh.</div>
+      </div>
+      <div class="thumb" data-full="./sequence/SEQ_04_ADMIN_PREP.png"><img src="./sequence/SEQ_04_ADMIN_PREP.svg?v13" alt="SEQ 4 · Chuẩn bị & Tổ chức thi"></div>
+      <div class="links">
+        <a class="pri" href="./sequence/seq-04-admin-prep.html">Mở trang</a>
+        <a href="./sequence/seq-04-admin-prep.md">MD</a>
+        <a href="./sequence/SEQ_04_ADMIN_PREP.png" download>PNG</a>
+        <a href="./sequence/SEQ_04_ADMIN_PREP.svg" download>SVG</a>
+        <a href="./sequence/seq_04_admin_prep.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section id="err">
+    <div class="sec-head">
+      <h2>Tổng hợp nhánh lỗi</h2>
+      <span class="note">7 nhánh · ánh xạ về từng sơ đồ</span>
+    </div>
+    <table>
+      <thead><tr><th>Nhánh lỗi</th><th>Điều kiện / SRS</th><th>Xử lý</th><th>Lane chịu trách nhiệm</th><th>Có trong sơ đồ</th></tr></thead>
+      <tbody>
+      <tr><td><strong>Chưa đủ điều kiện bắt đầu</strong></td><td><code>BR-11</code></td><td>400/403, hiển thị thông báo, thử lại</td><td>Client → STUDENT</td><td>DIAGRAM 2 · SWL-2</td></tr>
+      <tr><td><strong>STT thất bại (nộp bài lỗi)</strong></td><td><code>FR-AI-03</code></td><td>EMPTY_AUDIO / TIMEOUT / INTERNAL_ERROR, nhập lại hoặc text fallback</td><td>Client → STUDENT</td><td>DIAGRAM 2 · SWL-2A</td></tr>
+      <tr><td><strong>Chấm AI lỗi (retryable)</strong></td><td><code>BR-15</code></td><td>Hangfire retry tối đa 3 lḀn, backoff 30s/120s/300s</td><td>Hangfire Worker</td><td>DIAGRAM 2 · SWL-2A</td></tr>
+      <tr><td><strong>Chấm AI lỗi (không retry) / hết lượt</strong></td><td><code>FR-AI-02</code></td><td>FAILED + Answer.Status = ERROR + audit log</td><td>Hangfire → Backend</td><td>DIAGRAM 2 · SWL-2A</td></tr>
+      <tr><td><strong>Publish khi chưa review / thiếu điểm</strong></td><td><code>BR-10</code></td><td>API 409, review lại rồi publish</td><td>EXAMINER</td><td>DIAGRAM 2 · SWL-2B</td></tr>
+      <tr><td><strong>Yêu cầu xem lại (retry answer)</strong></td><td><code>FR-EXA-05</code></td><td>POST /api/answers/{id}/retry → RetryAnswerJob</td><td>EXAMINER / ADMIN</td><td>SWL-2B</td></tr>
+      <tr><td><strong>Sự cố cần thi lại (retake)</strong></td><td><code>FR-EXA-06, BR-16/17</code></td><td>Result cũ → CANCELLED, ca thi mới, giữ lịch sử, audit log</td><td>EXAMINER / ADMIN</td><td>SWL-2B</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="order">
+    <div class="sec-head">
+      <h2>Thứ tự trình bày đề xuất</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">SLIDE 1</div><div class="t">Bối cảnh – ai dùng hệ thống, hệ thống dùng gì</div><div class="d">DIAGRAM 3</div></div>
+      <div class="step"><div class="n">SLIDE 2</div><div class="t">Hệ thống làm gì – 13 chức năng & ai dùng</div><div class="d">DIAGRAM 1</div></div>
+      <div class="step"><div class="n">SLIDE 3</div><div class="t">Luồng đi qua ai – 5 vai trò, 3 nhánh lỗi</div><div class="d">DIAGRAM 2</div></div>
+      <div class="step"><div class="n">SLIDE 4</div><div class="t">Cô đọng nhất – 10 activity, vừa 1 slide</div><div class="d">DIAGRAM 4</div></div>
+      <div class="step"><div class="n">SLIDE 5</div><div class="t">Thứ tự gọi thực tế giữa các thành phần</div><div class="d">DIAGRAM 5</div></div>
+      <div class="step"><div class="n">SLIDE 6+</div><div class="t">Chi tiết (khi GV hỏi sâu)</div><div class="d">SWL-1 / SWL-2A / SWL-2B · SEQ-1…SEQ-4</div></div>
+    </div>
+  </section>
+
+  <section id="files">
+    <div class="sec-head">
+      <h2>File nguồn & cách dùng</h2>
+    </div>
+    <table>
+      <thead><tr><th>File</th><th>Nội dung</th><th>Dùng để</th></tr></thead>
+      <tbody>
+      <tr><td><code>docs/architecture/simplified/diagram_0*.puml</code></td><td>PlantUML source (self-contained, renders offline)</td><td>Regenerating the simplified diagrams</td></tr>
+      <tr><td><code>docs/architecture/swimlane_0*.puml</code></td><td>PlantUML source of the detailed swimlanes</td><td>Regenerating the detailed diagrams</td></tr>
+      <tr><td><code>docs/architecture/*/DIAGRAM_*.svg</code></td><td>Vector image, infinitely scalable</td><td>Dropping into PowerPoint / slides</td></tr>
+      <tr><td><code>docs/architecture/*/SWIMLANE_*.svg</code></td><td>Vector image of the detailed swimlanes</td><td>Printing or zoomed viewing</td></tr>
+      <tr><td><code>docs/architecture/*/DIAGRAM_*.png</code></td><td>Full-resolution raster (rendered from the SVG)</td><td>Documents that need a raster image</td></tr>
+      <tr><td><code>docs/architecture/*.md, simplified/*.md</code></td><td>Markdown documentation for every diagram</td><td>Reading / printing the explanation</td></tr>
+      <tr><td><code>docs/architecture/architecture.md</code></td><td>C4 context + C1 container + sequence + state machine</td><td>The overall architecture document</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<div class="lb" id="lb">
+  <span class="close" id="lbClose">&times;</span>
+  <img id="lbImg" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+</div>
+
+<footer>AIVES – Member 5 deliverable · all diagrams on one page · Bản tiếng Việt</footer>
+
+<script>
+  const lb = document.getElementById('lb'), lbImg = document.getElementById('lbImg');
+  document.querySelectorAll('.thumb').forEach(t => t.addEventListener('click', () => {
+    lbImg.src = t.dataset.full; lb.classList.add('on');
+  }));
+  document.getElementById('lbClose').addEventListener('click', () => lb.classList.remove('on'));
+  lb.addEventListener('click', e => { if (e.target === lb) lb.classList.remove('on'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('on'); });
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIAGRAM 1-EN – Use Case Diagram (simplified)</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  .hint { background:#fff8e1; border-left:4px solid #B8860B; padding:12px 16px; margin:0 0 18px;
+           border-radius:0 6px 6px 0; font-size:13.5px; }
+  .vp-box { background:#f7fbff; border:1px solid #cfe0f2; border-radius:6px; padding:14px; margin-top:8px; }
+  .vp-box textarea { width:100%; height:360px; font-family:Consolas,"Courier New",monospace; font-size:12.5px;
+                     line-height:1.5; border:1px solid #cfe0f2; border-radius:6px; padding:12px;
+                     background:#fff; color:#14385C; white-space:pre; overflow:auto; }
+  .vp-box button { margin-top:10px; background:#0f3d5c; color:#fff; border:0; border-radius:6px;
+                    padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; }
+  .vp-box button:hover { background:#155f86; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DIAGRAM 1-EN – Use Case Diagram (simplified)</h1>
+  <p>Member 5 · Simplified diagram set for presentation · English version</p>
+</header>
+<nav>
+  <a href="simplified-index-en.html">← Index</a>
+  <a href="diagram-02-swimlane_en.html">DIAGRAM 2 →</a>
+  <a href="./simplified-index-en.html">Index</a>
+  <a href="../all-diagrams-en.html">📄 All on one page</a>
+</nav>
+<main>
+  <div class="hint">Simplified: <strong>13 use cases, 4 actors</strong>. For the detailed handovers and 8 error branches → open the <strong>detailed swimlane set</strong>.</div>
+  <div class="card">
+    <h2>Use Case Diagram – AIVES</h2>
+    <img class="diag" src="./DIAGRAM_01_USECASE_EN.svg?v13" alt="Use Case Diagram – AIVES">
+    <p><a href="./DIAGRAM_01_USECASE_EN.png" download>Download PNG</a> &middot; <a href="./DIAGRAM_01_USECASE_EN.svg" download>Download SVG</a> &middot; <a href="./diagram_01_usecase_en.puml" target="_blank">PlantUML source</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>4 actors & 13 use cases</h2>
+    <table>
+      <thead><tr><th>Actor</th><th>Related use cases</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Student</strong></td><td>UC-07 Join &amp; answer the viva<br>UC-11 Student views published result<br>UC-12 Authentication &amp; RBAC</td></tr>
+        <tr><td><strong>Academic Staff</strong></td><td>UC-03 Upload learning material (.md)<br>UC-04 Generate &amp; approve AI questions<br>UC-05 Build exam paper (100% weight)<br>UC-06 Schedule sessions, enroll &amp; distribute</td></tr>
+        <tr><td><strong>Examiner</strong></td><td>UC-09 Review evidence &amp; assign official score<br>UC-10 Handle incidents (re-grade / retake)</td></tr>
+        <tr><td><strong>Admin</strong></td><td>UC-01 Manage accounts &amp; roles<br>UC-02 Manage courses &amp; assign staff</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+<footer>AIVES – Member 5 deliverable · simplified diagram set</footer>
+</body>
+</html>

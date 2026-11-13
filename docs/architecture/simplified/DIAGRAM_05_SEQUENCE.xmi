@@ -1,0 +1,86 @@
+<?xml version='1.0' encoding='utf-8'?>
+<xmi:XMI xmlns:uml="http://www.omg.org/spec/UML/20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmi:version="2.1">
+  <xmi:Documentation exporter="AIVES" exporterVersion="1.0" />
+  <uml:Model xmi:type="uml:Model" xmi:id="model001" name="AIVES">
+    <uml:packagedElement xmi:type="uml:Collaboration" xmi:id="collab002" name="VivaCollaboration">
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role003" name="Sinh viên" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role004" name="Backend API (ASP.NET Core)" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role005" name="Hangfire Worker (queue: grading)" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role006" name="AI Service (FastAPI)" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role007" name="PostgreSQL" />
+      <uml:ownedAttribute xmi:type="uml:Property" xmi:id="role008" name="Khảo thí" />
+    </uml:packagedElement>
+    <uml:ownedBehavior xmi:type="uml:Interaction" xmi:id="interaction009" name="DIAGRAM 5 - Sequence Diagram rut gon (AIVES)">
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline010" name="Sinh viên" represents="role003" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline011" name="Backend API (ASP.NET Core)" represents="role004" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline012" name="Hangfire Worker (queue: grading)" represents="role005" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline013" name="AI Service (FastAPI)" represents="role006" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline014" name="PostgreSQL" represents="role007" />
+      <uml:lifeline xmi:type="uml:Lifeline" xmi:id="lifeline015" name="Khảo thí" represents="role008" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send016" name="send Nộp câu trả lời (audio)" covered="lifeline010" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv017" name="recv Nộp câu trả lời (audio)" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg018" name="1. Nộp câu trả lời (audio)" messageSort="synchCall" sendEvent="send016" receiveEvent="recv017" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send019" name="send Chuyển giọng nói + sinh câu hỏi tiếp theo" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv020" name="recv Chuyển giọng nói + sinh câu hỏi tiếp theo" covered="lifeline013" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg021" name="2. Chuyển giọng nói + sinh câu hỏi tiếp theo" messageSort="synchCall" sendEvent="send019" receiveEvent="recv020" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send022" name="send Transcript + câu hỏi tiếp theo" covered="lifeline013" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv023" name="recv Transcript + câu hỏi tiếp theo" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg024" name="3. Transcript + câu hỏi tiếp theo" messageSort="reply" sendEvent="send022" receiveEvent="recv023" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send025" name="send Lưu câu trả lời (PROCESSING)" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv026" name="recv Lưu câu trả lời (PROCESSING)" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg027" name="4. Lưu câu trả lời (PROCESSING)" messageSort="synchCall" sendEvent="send025" receiveEvent="recv026" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send028" name="send Feedback + câu hỏi tiếp theo" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv029" name="recv Feedback + câu hỏi tiếp theo" covered="lifeline010" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg030" name="5. Feedback + câu hỏi tiếp theo" messageSort="reply" sendEvent="send028" receiveEvent="recv029" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send031" name="send Kết thúc bài thi" covered="lifeline010" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv032" name="recv Kết thúc bài thi" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg033" name="6. Kết thúc bài thi" messageSort="synchCall" sendEvent="send031" receiveEvent="recv032" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send034" name="send Result = PENDING_REVIEW + xếp hàng job chấm điểm" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv035" name="recv Result = PENDING_REVIEW + xếp hàng job chấm điểm" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg036" name="7. Result = PENDING_REVIEW + xếp hàng job chấm điểm" messageSort="synchCall" sendEvent="send034" receiveEvent="recv035" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send037" name="send Đã nộp bài" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv038" name="recv Đã nộp bài" covered="lifeline010" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg039" name="8. Đã nộp bài" messageSort="reply" sendEvent="send037" receiveEvent="recv038" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send040" name="send Lấy result + câu trả lời + rubric" covered="lifeline012" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv041" name="recv Lấy result + câu trả lời + rubric" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg042" name="9. Lấy result + câu trả lời + rubric" messageSort="synchCall" sendEvent="send040" receiveEvent="recv041" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send043" name="send Chấm điểm theo rubric" covered="lifeline012" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv044" name="recv Chấm điểm theo rubric" covered="lifeline013" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg045" name="10. Chấm điểm theo rubric" messageSort="synchCall" sendEvent="send043" receiveEvent="recv044" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send046" name="send Điểm + feedback từng câu" covered="lifeline013" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv047" name="recv Điểm + feedback từng câu" covered="lifeline012" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg048" name="11. Điểm + feedback từng câu" messageSort="reply" sendEvent="send046" receiveEvent="recv047" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send049" name="send Lưu điểm AI + feedback (EVALUATED)" covered="lifeline012" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv050" name="recv Lưu điểm AI + feedback (EVALUATED)" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg051" name="12. Lưu điểm AI + feedback (EVALUATED)" messageSort="synchCall" sendEvent="send049" receiveEvent="recv050" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send052" name="send Mở kết quả (audio + điểm AI)" covered="lifeline015" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv053" name="recv Mở kết quả (audio + điểm AI)" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg054" name="13. Mở kết quả (audio + điểm AI)" messageSort="synchCall" sendEvent="send052" receiveEvent="recv053" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send055" name="send Câu trả lời + điểm AI + rubric" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv056" name="recv Câu trả lời + điểm AI + rubric" covered="lifeline015" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg057" name="14. Câu trả lời + điểm AI + rubric" messageSort="reply" sendEvent="send055" receiveEvent="recv056" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send058" name="send Chấm điểm chính thức" covered="lifeline015" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv059" name="recv Chấm điểm chính thức" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg060" name="15. Chấm điểm chính thức" messageSort="synchCall" sendEvent="send058" receiveEvent="recv059" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send061" name="send Status = REVIEWED (giữ điểm AI)" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv062" name="recv Status = REVIEWED (giữ điểm AI)" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg063" name="16. Status = REVIEWED (giữ điểm AI)" messageSort="synchCall" sendEvent="send061" receiveEvent="recv062" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send064" name="send Công bố kết quả" covered="lifeline015" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv065" name="recv Công bố kết quả" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg066" name="17. Công bố kết quả" messageSort="synchCall" sendEvent="send064" receiveEvent="recv065" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send067" name="send Status = PUBLISHED" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv068" name="recv Status = PUBLISHED" covered="lifeline014" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg069" name="18. Status = PUBLISHED" messageSort="synchCall" sendEvent="send067" receiveEvent="recv068" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send070" name="send Đã công bố" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv071" name="recv Đã công bố" covered="lifeline015" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg072" name="19. Đã công bố" messageSort="reply" sendEvent="send070" receiveEvent="recv071" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send073" name="send Xem kết quả của mình" covered="lifeline010" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv074" name="recv Xem kết quả của mình" covered="lifeline011" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg075" name="20. Xem kết quả của mình" messageSort="synchCall" sendEvent="send073" receiveEvent="recv074" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send076" name="send Điểm + nhận xét khảo thí" covered="lifeline011" />
+      <uml:fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv077" name="recv Điểm + nhận xét khảo thí" covered="lifeline010" />
+      <uml:message xmi:type="uml:Message" xmi:id="msg078" name="21. Điểm + nhận xét khảo thí" messageSort="reply" sendEvent="send076" receiveEvent="recv077" />
+      <uml:ownedComment xmi:type="uml:Comment" xmi:id="note079" body="Loi AI retryable: thu lai 30s / 120s / 300s (toi da 3 lan). Con lai: AI evaluation = FAILED, cau tra loi = ERROR." />
+    </uml:ownedBehavior>
+  </uml:Model>
+</xmi:XMI>

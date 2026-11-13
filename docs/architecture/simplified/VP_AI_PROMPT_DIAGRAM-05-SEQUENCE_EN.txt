@@ -1,0 +1,51 @@
+Create a Sequence Diagram in Visual Paradigm that follows this exact specification.
+Title: "Simplified Sequence Diagram (AIVES)"
+
+LIFELINES (left to right, in exactly this order):
+1. Student  —  stick figure (actor)
+2. Backend API (ASP.NET Core)  —  participant box
+3. Hangfire Worker (queue: grading)  —  participant box
+4. AI Service (FastAPI)  —  participant box
+5. PostgreSQL  —  database cylinder
+6. Examiner  —  stick figure (actor)
+
+PHASES / DIVIDERS (use them as dividers, in this order):
+- 1. TAKE THE VIVA
+- 2. AI GRADES (async)
+- 3. REVIEW, PUBLISH, VIEW
+
+MESSAGES (number them exactly as below; -> = synchronous call, --> = reply/return):
+1. Student -> Backend API (ASP.NET Core) : Submit answer (audio)
+2. Backend API (ASP.NET Core) -> AI Service (FastAPI) : Transcribe speech + generate follow-up
+3. AI Service (FastAPI) --> Backend API (ASP.NET Core) : Transcript + next question
+4. Backend API (ASP.NET Core) -> DB : Save answer (PROCESSING)
+5. Backend API (ASP.NET Core) --> Student : Feedback + next question
+6. Student -> Backend API (ASP.NET Core) : Finish the viva
+7. Backend API (ASP.NET Core) -> DB : Result = PENDING_REVIEW + queue grading job
+8. Backend API (ASP.NET Core) --> Student : Submitted
+9. Hangfire Worker (queue: grading) -> DB : Load result + answers + rubric
+10. Hangfire Worker (queue: grading) -> AI Service (FastAPI) : Evaluate answers against rubric
+11. AI Service (FastAPI) --> Hangfire Worker (queue: grading) : Score + feedback per answer
+12. Hangfire Worker (queue: grading) -> DB : Save AI score + feedback (EVALUATED)
+13. Examiner -> Backend API (ASP.NET Core) : Open result (audio + AI score)
+14. Backend API (ASP.NET Core) --> Examiner : Answers + AI score + rubric
+15. Examiner -> Backend API (ASP.NET Core) : Assign official score
+16. Backend API (ASP.NET Core) -> DB : Status = REVIEWED (AI score kept)
+17. Examiner -> Backend API (ASP.NET Core) : Publish result
+18. Backend API (ASP.NET Core) -> DB : Status = PUBLISHED
+19. Backend API (ASP.NET Core) --> Examiner : Published
+20. Student -> Backend API (ASP.NET Core) : View my result
+21. Backend API (ASP.NET Core) --> Student : Score + examiner comment
+
+NOTE (attach it over the first and the last lifeline of the note):
+- Hangfire Worker (queue: grading) .. AI Service (FastAPI): Retryable error: retry 30s / 120s / 300s (max 3 attempts). Otherwise AI evaluation = FAILED, answer = ERROR.
+
+STYLING (match the Visual Paradigm look):
+- Participant boxes: light blue fill #DAE8FC, border #4A7EBB, 1.6 px, bold dark-blue text #1F3864, font size 15.
+- Life lines: thin DASHED vertical guide, color #6C8EBF, 1.4 px.
+- Message arrows: dark gray #333333, 1.6 px; solid for calls, dashed for replies.
+- Prefix every message with its number, e.g. '1: Open viva room'.
+- Title at the top, bold, 20 pt, color #1F3864.
+- Keep the layout compact so it fits one presentation slide.
+
+Do not add any extra lifeline or message. If you need to ask something, keep it short and keep the spec intact.

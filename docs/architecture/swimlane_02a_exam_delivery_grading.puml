@@ -1,0 +1,128 @@
+@startuml SWIMLANE_02A_EXAM_DELIVERY_GRADING
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2.5
+  FontSize 22
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 20
+  DiamondFontStyle bold
+  DiamondBorderThickness 2.5
+  ConditionFontSize 20
+  ConditionFontStyle bold
+  ArrowFontSize 22
+  ArrowFontStyle bold
+  ArrowThickness 3.0
+}
+skinparam ArrowFontSize 22
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 3.0
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #EAF1F7
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 22
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 28
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 22
+
+'==============================================================
+' AIVES - SWIMLANE 2A (PART 1 of 2): LAM BAI & CHAM AI
+' Vung nhanh cho slide: tu "Bat dau" den khi AI cham xong.
+' Nguon: AIVES SRS 07/11/2026 + backend/Aives.Api, ai-service
+'==============================================================
+title SWIMLANE 2A - LAM BAI & CHAM AI (Exam Delivery & AI Grading)
+
+|STUDENT|
+:Mở app Web / Flutter Windows, đăng nhập (JWT);
+:Chọn ca thi (Enrollment) và xem lịch thi;
+:Tham gia bằng Session Code;
+
+|Client (Web / Windows)|
+:Bấm "Bắt đầu" -> POST /api/student/viva-sessions/{id}/start;
+
+|Backend / DB / Storage|
+:Kiểm tra quyền tham gia, trạng thái ca IN_PROGRESS,\nkhung giờ thuộc kíp (BR-11);
+if (Đủ điều kiện bắt đầu?) then (Không)
+  :Trả 400/403 - "Ca thi chưa mở" / "Chưa đến giờ kíp";
+  |Client (Web / Windows)|
+  :Hiển thị thông báo cho SV, cho phép thử lại;
+  |STUDENT|
+  stop
+endif
+:Sinh Result (PENDING_REVIEW) và trả câu hỏi hiện tại;
+
+|Client (Web / Windows)|
+:Ghi âm (WAV 16kHz mono) hoặc gõ chữ;\nUpload audio theo luồng chunked (init/chunk/complete);
+:POST /api/student/viva-sessions/{id}/submit-answer;
+
+|Backend / DB / Storage|
+:Lưu Answer (Status = PROCESSING),\nghi audio vào R2 / local storage;
+
+|AI Service (FastAPI)|
+:STT - chuyển giọng nói thành transcript\n(/ai/speech/transcribe-object);
+if (STT thất bại?) then (Lỗi)
+  :Trả lỗi (EMPTY_AUDIO / TIMEOUT / INTERNAL_ERROR);
+  |Backend / DB / Storage|
+  :Giữ Answer, ghi lỗi vào Answer.ErrorMessage;
+  |Client (Web / Windows)|
+  :Cho phép SV nhập lại câu trả lời hoặc dùng text fallback;
+  |STUDENT|
+else (Thành công)
+  |AI Service (FastAPI)|
+  :Sinh câu hỏi phụ (follow-up) nếu đủ điều kiện;
+  |Backend / DB / Storage|
+  :Tiến chỉ index câu hỏi; trả câu hỏi tiếp theo hoặc follow-up;
+  |Client (Web / Windows)|
+  :Hiển thị câu hỏi tiếp theo để SV trả lời;
+  |STUDENT|
+endif
+
+|STUDENT|
+:Trả lời các câu hỏi còn lại theo thứ tự;
+:Bấm "Kết thúc" -> POST .../finish;
+
+|Backend / DB / Storage|
+:Persist trạng thái nộp bài trước\n(AiEvaluationStatus = PENDING);
+if (Có câu trả lời?) then (Có)
+  :Enqueue SessionGradingJob vào Hangfire\n(Queue "grading", khóa phân tán);
+  :Enrollment.Status = COMPLETED;
+  :Trả "Đã ghi nhận, chờ điểm sau";
+  |STUDENT|
+  :Xác nhận đã nộp bài;\nchờ đến khi có kết quả;
+else (Không có câu trả lời)
+  :AiEvaluationStatus = FAILED, trả lỗi cho SV;
+  |STUDENT|
+  :Nộp lại hoặc chờ GV chấm tay;
+endif
+
+|Hangfire Worker (Queue "grading")|
+:Chạy SessionGradingJob với khóa dùng chung\n(1 job chạy tại 1 lúc);
+
+|AI Service (FastAPI)|
+:POST /ai/evaluate/session - chấm theo rubric\n(câu hỏi, mẫu đáp, rubric, keywords, LO, nội dung);
+if (Kết quả hợp lệ contract?) then (Hợp lệ)
+  :Trả điểm từng câu + criterion analysis\n+ overall feedback + study suggestions;
+else (Sai contract / lỗi)
+  :Trả error_code (question_ids_mismatch, timeout...);
+  |Hangfire Worker (Queue "grading")|
+  :Lỗi có thể thử lại -> retry với delay 30s/120s/300s\n(tối đa 3-4 lần);
+  if (Hết lượt thử?) then (Hết)
+    :MarkFailedAsync -> AiEvaluationStatus = FAILED,\nAnswer.Status = ERROR;
+    |Backend / DB / Storage|
+    :Ghi AiEvaluationError và audit log;
+  else (Còn lượt)
+    |AI Service (FastAPI)|
+  endif
+endif
+
+|Backend / DB / Storage|
+:Cập nhật Answer.AiScore / AiFeedback / AiAnalysis\nvà Result.AiScore (vẫn là PENDING_REVIEW);
+stop
+
+@enduml

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIVES &ndash; Danh mục ERD (3 mức)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, Arial, sans-serif; background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:28px; }
+  header h1 { margin:0 0 8px; font-size:26px; }
+  header p { margin:0; opacity:.85; font-size:14px; }
+  .switch { padding:12px 28px; background:#e8eef3; font-size:14px; border-bottom:1px solid #d3dce3; }
+  .switch a { color:#0f3d5c; font-weight:600; text-decoration:none; margin-right:18px; }
+  main { padding:24px 28px 60px; max-width:1200px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:18px; display:flex; flex-direction:column; }
+  .card h2 { margin:0 0 6px; font-size:17px; color:#0f3d5c; }
+  .card .meta { font-size:12.5px; color:#5b6b7a; margin-bottom:12px; }
+  .card .thumb { width:100%; height:200px; overflow:hidden; border:1px solid #eceff2; border-radius:6px;
+                   background:#fbfcfd; display:flex; align-items:flex-start; justify-content:center; }
+  .card .thumb img { width:100%; height:200px; object-fit:contain; display:block; }
+  .card .links { margin-top:12px; font-size:13px; }
+  .card .links a { color:#0f3d5c; margin-right:12px; font-weight:600; text-decoration:none; }
+  .card .links a:hover { text-decoration:underline; }
+  h3.sec { margin:32px 0 14px; font-size:18px; color:#0f3d5c; border-bottom:2px solid #dbe3ea; padding-bottom:8px; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AIVES &ndash; Danh mục ERD (3 mức)</h1>
+  <p>Thành viên 5 · Bản tiếng Việt</p>
+</header>
+<div class="switch">
+  <a href="./erd-index.html">English version &rarr;</a>
+  <a href="./erd-index.md">Markdown index</a>
+  <a href="./all-erd.html">&#128202; All ERDs on one page</a>
+  <a href="../sequence/sequence-index.html">&#128260; Sequence set</a>
+</div>
+<main>
+  <h3 class="sec">Các sơ đồ</h3>
+  <div class="grid">
+    <div class="card">
+      <h2>ERD 1 &ndash; Sơ đồ ERD khái niệm</h2>
+      <div class="meta">Conceptual &middot; Thành viên 5 · ERD · Bản tiếng Việt</div>
+      <div class="thumb"><img src="./ERD_01_CONCEPTUAL.svg" alt="ERD Mức Khái Niệm (Conceptual ERD)"></div>
+      <div class="links">
+        <a href="./erd-01-conceptual.html">Open page</a>
+        <a href="./erd-01-conceptual.md">Markdown</a>
+        <a href="./ERD_01_CONCEPTUAL.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>ERD 2 &ndash; Sơ đồ ERD logic</h2>
+      <div class="meta">Logical &middot; Thành viên 5 · ERD · Bản tiếng Việt</div>
+      <div class="thumb"><img src="./ERD_02_LOGICAL.svg" alt="ERD Mức Logic (Logical ERD)"></div>
+      <div class="links">
+        <a href="./erd-02-logical.html">Open page</a>
+        <a href="./erd-02-logical.md">Markdown</a>
+        <a href="./ERD_02_LOGICAL.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>ERD 3 &ndash; Sơ đồ ERD vật lý</h2>
+      <div class="meta">Physical &middot; Thành viên 5 · ERD · Bản tiếng Việt</div>
+      <div class="thumb"><img src="./ERD_03_PHYSICAL.svg" alt="ERD Mức Vật Lý (Physical ERD) &ndash; PostgreSQL / Neon"></div>
+      <div class="links">
+        <a href="./erd-03-physical.html">Open page</a>
+        <a href="./erd-03-physical.md">Markdown</a>
+        <a href="./ERD_03_PHYSICAL.svg">SVG</a>
+      </div>
+    </div>
+  </div>
+  <h3 class="sec">Ba mức ERD và ý nghĩa</h3>
+  <table>
+    <thead><tr><th>Mức</th><th>Phạm vi</th><th>Câu hỏi trả lời</th></tr></thead>
+    <tbody>
+      <tr><td><b>Conceptual</b></td><td>Thực thể nghiệp vụ, quan hệ giữa chúng, cardinality</td><td><i>“Hệ thống lưu những gì nào và liên quan ra sao?”</i></td></tr>
+      <tr><td><b>Logical</b></td><td>Relation chuẩn hóa 3NF, thuộc tính, PK/FK, ràng buộc nghiệp vụ</td><td><i>“Cấu trúc lưu trữ được chuẩn hóa ra sao?”</i></td></tr>
+      <tr><td><b>Physical</b></td><td>Kiểu dữ liệu PostgreSQL, index, constraint, quy tắc ON DELETE</td><td><i>“Schema thật trên Neon trông như thế nào?”</i></td></tr>
+    </tbody>
+  </table>
+</main>
+<footer>AIVES &ndash; Member 5 deliverable &middot; ERD suite</footer>
+</body>
+</html>

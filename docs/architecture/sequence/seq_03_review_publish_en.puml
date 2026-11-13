@@ -1,0 +1,182 @@
+@startuml SEQ_03_REVIEW_PUBLISH_EN
+'==============================================================
+' AIVES - SEQUENCE DIAGRAM 3: REVIEW, PUBLISH & STUDENT VIEW (English)
+' Source: backend/Aives.Api/Controllers/ResultsController.cs
+'         backend/Aives.Api/Controllers/StudentResultController.cs
+'         backend/Aives.Api/Controllers/AnswerAudioController.cs
+'         backend/Aives.Api/Controllers/RetryAnswerController.cs
+'         backend/Aives.Api/Controllers/RetakesController.cs
+'==============================================================
+title SEQUENCE 3 - REVIEW, PUBLISH & RESULT VIEW
+
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #1F3B52
+  ArrowThickness 2.5
+  LifeLineBorderColor #1F3B52
+  LifeLineBackgroundColor #F7FAFC
+  LifeLineThickness 2
+  ParticipantBackgroundColor #EAF1F7
+  ParticipantBorderColor #1F3B52
+  ParticipantBorderThickness 2
+  ParticipantFontSize 20
+  ParticipantFontStyle bold
+  ParticipantPadding 14
+  ActorBackgroundColor #EAF1F7
+  ActorBorderColor #1F3B52
+  ActorBorderThickness 2
+  ActorFontSize 20
+  ActorFontStyle bold
+  DatabaseBackgroundColor #E8F1E9
+  DatabaseBorderColor #1F3B52
+  DatabaseFontSize 19
+  DatabaseFontStyle bold
+  GroupBackgroundColor #EAF1F7
+  GroupBorderColor #1F3B52
+  GroupFontSize 20
+  GroupFontStyle bold
+  NoteBackgroundColor #FFF3CD
+  NoteBorderColor #B8860B
+  NoteFontSize 18
+  NoteFontStyle bold
+  NoteBorderThickness 2
+  BoxPadding 10
+  DividerBackgroundColor #1F3B52
+  DividerFontSize 18
+}
+skinparam titleFontSize 26
+skinparam titleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 18
+
+autonumber
+
+actor "Examiner" as Examiner
+participant "Web SPA\n(TeacherResultsPage)" as SPA
+participant "ResultsController" as Ctrl
+participant "ResultService" as Svc
+participant "AnswerAudioController" as AudioCtrl
+participant "Cloudflare R2\n(Object Storage)" as R2
+database "PostgreSQL\n(Neon)" as DB
+actor "Student" as Student
+
+== Phase 1: The examiner opens the submission ==
+
+Examiner -> SPA: Open the review list
+SPA -> Ctrl: GET /api/results/pending
+activate Ctrl
+Ctrl -> Svc: GetAllPendingReviewResultsAsync()
+Svc -> DB: SELECT Result WHERE Status = PENDING_REVIEW
+DB --> Svc: Result list
+Svc --> Ctrl: PendingResultDto[]
+Ctrl --> SPA: 200 OK
+deactivate Ctrl
+SPA --> Examiner: Table of submissions to review
+
+Examiner -> SPA: Pick one submission
+SPA -> Ctrl: GET /api/results/{resultId}
+activate Ctrl
+Ctrl -> Svc: GetResultDetailForReviewAsync(resultId, teacherId)
+activate Svc
+Svc -> DB: SELECT Result + Answers + Questions\n+ Rubric + AiAnalysis
+DB --> Svc: Submission detail + AI score + rubric
+Svc --> Ctrl: ResultForReviewDto
+deactivate Svc
+Ctrl --> SPA: 200 OK
+deactivate Ctrl
+SPA --> Examiner: Render answers, AI score, feedback
+
+== Phase 2: Listen to the evidence ==
+
+Examiner -> SPA: Click "Play audio"
+SPA -> AudioCtrl: GET /api/answers/{answerId}/audio
+activate AudioCtrl
+AudioCtrl -> R2: Create presigned URL
+R2 --> AudioCtrl: url (presigned, expiring)
+AudioCtrl --> SPA: 200 OK (url)
+deactivate AudioCtrl
+SPA --> Examiner: Stream the original audio
+
+== Phase 3: Official grading ==
+
+Examiner -> SPA: Enter FinalScore + TeacherNotes, click "Approve"
+SPA -> Ctrl: PUT /api/results/{resultId}/review
+activate Ctrl
+Ctrl -> Svc: ReviewResultAsync(resultId, request, teacherId)
+activate Svc
+Svc -> DB: UPDATE Result (FinalScore, TeacherNotes,\nStatus=REVIEWED, ReviewedAt)
+note right of Svc
+  BR-15: only final_score + teacher_comment are
+  written; ai_score / ai_feedback are never overwritten
+end note
+Svc --> Ctrl: ResultForReviewDto
+deactivate Svc
+Ctrl --> SPA: 200 OK (Status = REVIEWED)
+deactivate Ctrl
+SPA --> Examiner: "Approved - ready to publish"
+
+== Phase 4: Publish the result ==
+
+Examiner -> SPA: Click "Publish result"
+SPA -> Ctrl: POST /api/results/{resultId}/publish
+activate Ctrl
+Ctrl -> Svc: PublishResultAsync(resultId, teacherId)
+activate Svc
+alt Not reviewed yet, or the score is missing
+  Svc --> Ctrl: InvalidOperationException
+  deactivate Svc
+  Ctrl --> SPA: 409 Conflict
+  SPA --> Examiner: "Review is required before publishing"
+else Already reviewed
+  Svc -> DB: UPDATE Result (Status=PUBLISHED,\nFinalScore, PublishedAt = UTC)
+  Svc -> DB: INSERT AuditLog (PUBLISH)
+  Svc --> Ctrl: ResultForReviewDto
+  deactivate Svc
+  Ctrl --> SPA: 200 OK (Status = PUBLISHED)
+  deactivate Ctrl
+  SPA --> Examiner: "Result published"
+end
+
+== Phase 5: The student views the result ==
+
+Student -> SPA: Open the results page
+SPA -> Ctrl: GET /api/student/results/{sessionId}
+activate Ctrl
+Ctrl -> DB: SELECT Result WHERE Status = PUBLISHED
+DB --> Ctrl: Official score + examiner comment
+Ctrl --> SPA: 200 OK
+deactivate Ctrl
+SPA --> Student: Official score table + examiner comment
+
+note over Student, DB
+  A student only sees the score once
+  Status = PUBLISHED. While the Result is still
+  PENDING_REVIEW / REVIEWED the API returns 404
+  so nothing leaks before publication.
+end note
+
+== Phase 6: Incident handling (optional) ==
+
+alt The examiner wants one answer re-graded
+  Examiner -> SPA: Click "Re-grade"
+  SPA -> Ctrl: POST /api/answers/{answerId}/retry
+  Ctrl -> Svc: Enqueue RetryAnswerJob
+  Svc -> DB: UPDATE Answer (Status=PROCESSING)
+  note right of Svc
+    Hangfire re-runs STT + rubric grading
+    for that Answer only, not the whole exam
+  end note
+else A new attempt is needed (retake)
+  Examiner -> SPA: Click "Grant retake"
+  SPA -> Ctrl: POST /api/results/{resultId}/retake
+  Ctrl -> Svc: GrantAsync(resultId, request, teacherId)
+  Svc -> DB: UPDATE old Result (Status=CANCELLED)
+  Svc -> DB: INSERT new Session + Enrollment\n(schedule kept, history preserved)
+  Svc -> DB: INSERT AuditLog (RETAKE)
+  note right of Svc
+    BR-16/17: the invalidated attempt is
+    kept for reconciliation
+  end note
+end
+
+@enduml

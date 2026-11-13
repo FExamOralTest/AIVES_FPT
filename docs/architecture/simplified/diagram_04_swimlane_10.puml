@@ -1,0 +1,91 @@
+@startuml DIAGRAM_04_SWIMLANE_10
+'==============================================================
+' AIVES - SWIMLANE 10 ACTIVITY (ban moi, dung cho slide)
+' 5 lane, DUNG 10 activity (UC-01..UC-10) + 3 nhanh loi (o ho phach)
+' KHONG sua doi bat ky file/ban nao cua bo cu.
+' Nguon: AIVES SRS 07/11/2026
+'==============================================================
+title DIAGRAM 4 - SWIMLANE 10 ACTIVITY (AIVES)
+
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #EAF1F7
+  BorderColor #1F3B52
+  BorderThickness 2.2
+  FontSize 19
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 17
+  DiamondFontStyle bold
+  DiamondBorderThickness 2
+  ConditionFontSize 17
+  ConditionFontStyle bold
+  ArrowFontSize 19
+  ArrowFontStyle bold
+  ArrowThickness 2.6
+}
+skinparam ArrowFontSize 19
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 2.6
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #D7E3EC
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 19
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 26
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 19
+
+|QUAN TRI (Admin)|
+start
+:UC-01 Quan tri tai khoan, phan quyen & mon hoc;
+
+|GIANG VIEN (Staff)|
+:UC-02 Tai lieu .md -> sinh & duyet cau hoi AI;
+:UC-03 Tao de thi & lap lich ca thi;
+:UC-04 Ghi danh & phan bo de thi;
+
+|SINH VIEN (Student)|
+:UC-05 Lam bai & ghi am cau tra loi;
+
+|HETHONG (Backend + AI + Hangfire)|
+if (Nop bai hop le?) then (Sai)
+  #FFE8CC:LOI NOP BAI - 400/403, SV thu lai;
+  detach
+else (Dung)
+endif
+:UC-06 AI chuyen giong noi thanh text\nva cham rubric (retry 30s/120s/300s);
+if (Cham AI that bai?) then (Co)
+  #FFE8CC:LOI CHAM - FAILED, GV cham tay hoac cham lai;
+  detach
+else (Khong)
+endif
+:UC-07 Luu ket qua PENDING_REVIEW + audit log;
+
+|KHAO THI (Examiner)|
+:UC-08 Review bang chung & cham diem chinh thuc;
+if (Du dieu kien cong bo?) then (Chua)
+  #FFE8CC:LOI CONG BO - 409, review lai roi publish;
+  detach
+else (Du)
+endif
+if (Co su co can xu ly?) then (Co)
+  :UC-09 Xu ly su co: cham lai 1 cau / cap lai thi;
+else (Khong)
+endif
+
+|SINH VIEN (Student)|
+:UC-10 Xem ket qua da cong bo (PUBLISHED);
+stop
+
+legend right
+  |= Mau |= Noi dung |
+  | <#EAF1F7> | **10 activity** (UC-01 ... UC-10) |
+  | <#FFE8CC> | **3 nhanh loi** (nop bai / cham / cong bo) |
+  | <#FFF3CD> | Dieu kien kiem tra |
+endlegend
+
+@enduml

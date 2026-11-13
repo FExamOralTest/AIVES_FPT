@@ -1,0 +1,140 @@
+@startuml DIAGRAM_05B_GRADING_REVIEW_EN
+'==============================================================
+' AIVES - AI SCORING & EXAMINER REVIEW (slide-ready, English, SIMPLE)
+' Same Visual Paradigm look as DIAGRAM 5A:
+'   - participant box: light blue fill, blue border, blue bold text
+'   - life line: THIN DASHED vertical guide
+'   - messages: numbered "1:", "2:", ... solid = call, dashed = return
+'
+' 8 lifelines kept, messages cut to a slide-friendly set.
+'
+' BUSINESS RULE (the point of this diagram):
+'   The AI does NOT grade on its own. The submission is stored as
+'   PENDING_REVIEW and stays ungraded until the EXAMINER authorizes
+'   the AI grading for that result. Only then is the job queued.
+'
+'   1. Student finishes the viva -> submission stored (PENDING_REVIEW).
+'   2. The EXAMINER opens the waiting submissions and authorizes AI grading.
+'   3. Only now a job is queued -> Back-end Service (Grading) -> AI service
+'      evaluates against the rubric and returns the score.
+'   4. The examiner reviews the evidence, assigns the official score
+'      (REVIEWED) and publishes (PUBLISHED).
+'   5. The student reads the final result.
+'
+' Components (8 lifelines, left to right):
+'   Finish handler . Hangfire . Back-end Service (Grading) . AI service
+'   Result store . Examiner . DB . Student
+'
+' Verified against:
+'   backend/Aives.Application/Viva/Services/VivaSessionService.cs   (FinishSessionAsync)
+'   backend/Aives.Infrastructure/Queue/SessionGradingJob.cs         (queue "grading")
+'   backend/Aives.Infrastructure/Queue/AnswerProcessingJob.cs        (answer job)
+'   backend/Aives.Application/Viva/Services/SessionGradingService.cs
+'   backend/Aives.Api/Controllers/ResultsController.cs              (review / publish)
+'   ai-service/app/api/evaluation.py
+'
+'   After rendering, run:
+'     python ops/_sharpen_svg.py DIAGRAM_05B_GRADING_REVIEW_EN.svg --dashed-lifelines
+'==============================================================
+title AI Scoring & Examiner Review (AIVES)
+
+skinparam shadowing false
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 13
+skinparam defaultFontColor #000000
+skinparam BoxPadding 8
+
+'--- participant / actor / database boxes: light blue like VP ---
+skinparam sequenceParticipantBackgroundColor #DAE8FC
+skinparam sequenceParticipantBorderColor #4A7EBB
+skinparam sequenceParticipantBorderThickness 1.6
+skinparam sequenceParticipantFontColor #1F3864
+skinparam sequenceParticipantFontStyle bold
+skinparam sequenceParticipantFontSize 15
+
+skinparam sequenceActorBackgroundColor #DAE8FC
+skinparam sequenceActorBorderColor #4A7EBB
+skinparam sequenceActorBorderThickness 1.6
+skinparam sequenceActorFontColor #1F3864
+skinparam sequenceActorFontStyle bold
+skinparam sequenceActorFontSize 15
+
+skinparam sequenceDatabaseBackgroundColor #DAE8FC
+skinparam sequenceDatabaseBorderColor #4A7EBB
+skinparam sequenceDatabaseBorderThickness 1.6
+skinparam sequenceDatabaseFontColor #1F3864
+skinparam sequenceDatabaseFontStyle bold
+skinparam sequenceDatabaseFontSize 14
+
+'--- life lines: thin dashed guide ---
+skinparam sequenceLifeLineBorderColor #6C8EBF
+skinparam sequenceLifeLineBorderThickness 1.4
+skinparam sequenceLifeLineBackgroundColor #FFFFFF
+
+'--- arrows: dark, call = solid, return = dashed ---
+skinparam sequenceArrowColor #333333
+skinparam sequenceArrowThickness 1.6
+
+'--- alt / group frame (light blue) ---
+skinparam sequenceGroupBorderColor #4A7EBB
+skinparam sequenceGroupBorderThickness 1.4
+skinparam sequenceGroupBackgroundColor #F4F8FD
+skinparam sequenceGroupFontColor #1F3864
+skinparam sequenceGroupFontSize 13
+
+skinparam titleFontSize 20
+skinparam titleFontStyle bold
+skinparam titleFontColor #1F3864
+
+participant "Finish handler" as FH
+participant "Hangfire\nqueue: grading" as HF
+participant "Back-end Service\n(Grading)" as GR
+participant "AI service" as AI
+participant "Result store" as RS
+actor "Examiner" as EX
+database "DB" as DB
+actor "Student" as ST
+
+ST -> FH: 1: Finish the viva
+FH -> RS: 2: Save submission
+RS -> DB: 3: Persist (PENDING_REVIEW)
+
+EX -> RS: 4: Open waiting submissions
+RS --> EX: 5: List of ungraded results
+EX -> RS: 6: Authorize AI grading
+RS -> HF: 7: Enqueue grading job
+HF -> GR: 8: Load grading context
+GR -> AI: 9: Evaluate answers / rubric
+AI --> GR: 10: Score + feedback
+GR -> RS: 11: Store AI score
+RS -> DB: 12: Persist (EVALUATED)
+
+EX -> RS: 13: Open evidence / AI result
+EX -> RS: 14: Save official score
+RS -> DB: 15: Status = REVIEWED
+EX -> RS: 16: Publish result
+RS -> DB: 17: Status = PUBLISHED
+ST -> RS: 18: View my result
+
+note over GR,AI
+  Internal Backend - AI protocol:
+  - POST /ai/evaluate/session
+  - Header X-Internal-Token
+    (= AI_SERVICE_SECRET_KEY)
+  - Base URL http://ai-service:8000
+  - Timeout 300s
+end note
+
+note over HF,DB
+  Hangfire queue:
+  - Storage: schema `hangfire` in PostgreSQL
+  - Server `aives-grading-*`: 1 worker,
+    queue `grading` (server `aives-api-*`
+    handles `default` / `answers`)
+  - Retry: 30s -> 120s -> 300s,
+    max 3 attempts (BR-17)
+end note
+
+note over EX,RS: The AI never grades on its own.\nGrading starts only after the examiner authorizes it.
+
+@enduml

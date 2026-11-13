@@ -23,9 +23,9 @@ public class CloudflareR2Options
     public string SecretAccessKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tên Bucket lưu trữ audio (mặc định: aives-exam-audios).
+    /// Tên Bucket lưu trữ audio (mặc định: aives-media-bucket).
     /// </summary>
-    public string BucketName { get; set; } = "aives-exam-audios";
+    public string BucketName { get; set; } = "aives-media-bucket";
 
     /// <summary>
     /// URL Endpoint tùy chỉnh nếu không dùng định dạng mặc định (https://{AccountId}.r2.cloudflarestorage.com).

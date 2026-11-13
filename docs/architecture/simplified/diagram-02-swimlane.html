@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIAGRAM 2 – Swimlane rút gọn (1 activity = 1 luồng)</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  .hint { background:#fff8e1; border-left:4px solid #B8860B; padding:12px 16px; margin:0 0 18px;
+           border-radius:0 6px 6px 0; font-size:13.5px; }
+  .vp-box { background:#f7fbff; border:1px solid #cfe0f2; border-radius:6px; padding:14px; margin-top:8px; }
+  .vp-box textarea { width:100%; height:360px; font-family:Consolas,"Courier New",monospace; font-size:12.5px;
+                     line-height:1.5; border:1px solid #cfe0f2; border-radius:6px; padding:12px;
+                     background:#fff; color:#14385C; white-space:pre; overflow:auto; }
+  .vp-box button { margin-top:10px; background:#0f3d5c; color:#fff; border:0; border-radius:6px;
+                    padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; }
+  .vp-box button:hover { background:#155f86; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DIAGRAM 2 – Swimlane rút gọn (1 activity = 1 luồng)</h1>
+  <p>Thành viên 5 · Bộ diagram rút gọn cho thuyết trình · Bản tiếng Việt</p>
+</header>
+<nav>
+  <a href="diagram-01-usecase.html">← DIAGRAM 1</a>
+  <a href="diagram-03-context.html">DIAGRAM 3 →</a>
+  <a href="./simplified-index.html">Index</a>
+  <a href="../all-diagrams.html">📄 All on one page</a>
+</nav>
+<main>
+  <div class="hint"><strong>5 lane, 13 hộp, 3 nhánh lỗi</strong> — mỗi hộp là 1 luồng nghiệp vụ. Bản chi tiết (6 lane, ~40 hộp, 8 nhánh lỗi) nằm trong bộ swimlane chi tiết.</div>
+  <div class="card">
+    <h2>Swimlane rút gọn – AIVES</h2>
+    <img class="diag" src="./DIAGRAM_02_SWIMLANE.svg?v13" alt="Swimlane rút gọn – AIVES">
+    <p><a href="./DIAGRAM_02_SWIMLANE.png" download>Download PNG</a> &middot; <a href="./DIAGRAM_02_SWIMLANE.svg" download>Download SVG</a> &middot; <a href="./diagram_02_swimlane.puml" target="_blank">PlantUML source</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>5 lane & 13 luồng</h2>
+    <table>
+      <thead><tr><th>Lane</th><th>Các luồng (UC)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Quản trị (Admin)</strong></td><td>UC-01 Quản lý tài khoản &amp; phân quyền<br>UC-02 Quản lý môn học &amp; phân công GV</td></tr>
+        <tr><td><strong>Giảng viên (Staff)</strong></td><td>UC-03 Tải lên tài liệu chuẩn (.md)<br>UC-04 Sinh câu hỏi AI → duyệt<br>UC-05 Tạo đề thi (tổng trọng số 100%)<br>UC-06 Lập lịch ca thi, ghi danh &amp; phân bổ</td></tr>
+        <tr><td><strong>Sinh viên (Student)</strong></td><td>UC-07 Ghi danh, ghi âm &amp; nộp bài</td></tr>
+        <tr><td><strong>Hệ thống<br>(Backend + AI + Hangfire)</strong></td><td>UC-08 AI chuyển giọng nói thành text &amp; chấm rubric<br>UC-13 Lưu kết quả PENDING_REVIEW + audit log</td></tr>
+        <tr><td><strong>Khảo thí (Examiner)</strong></td><td>UC-09 Review bằng chứng &amp; chấm điểm chính thức<br>UC-10 Xử lý sự cố: chấm lại 1 câu / cấp lại thi</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+<footer>AIVES – Member 5 deliverable · simplified diagram set</footer>
+</body>
+</html>

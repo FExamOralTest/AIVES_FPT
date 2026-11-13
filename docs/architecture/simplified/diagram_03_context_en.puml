@@ -1,0 +1,74 @@
+@startuml DIAGRAM_03_CONTEXT_EN
+'==============================================================
+' AIVES - SYSTEM CONTEXT DIAGRAM (simplified version)
+' Shows the system boundary + 4 actors + 3 external systems
+' Source: AIVES SRS 07/11/2026 + backend/Aives.Api
+'==============================================================
+title DIAGRAM 3 - SYSTEM CONTEXT DIAGRAM (AIVES)
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 17
+skinparam ArrowColor #1F3B52
+skinparam ArrowThickness 2.5
+skinparam ArrowFontSize 17
+skinparam ArrowFontStyle bold
+skinparam componentStyle rectangle
+skinparam node {
+  BackgroundColor #EAF1F7
+  BorderColor #1F3B52
+  BorderThickness 2
+  FontSize 17
+  FontStyle bold
+}
+skinparam rectangle {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2.5
+  FontSize 19
+  FontStyle bold
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #7A8A99
+  FontSize 18
+  FontStyle bold
+}
+
+actor "Student" as Student
+actor "Academic Staff" as Staff
+actor "Examiner" as Examiner
+actor "Admin" as Admin
+
+rectangle "AIVES\nAI-powered Viva Examination System" {
+  package "Core capabilities" {
+    node "AI viva\nexamination" as C1
+    node "Automatic rubric-based\ngrading" as C2
+    node "Exam paper &\nschedule management" as C3
+    node "Review &\nresult publication" as C4
+  }
+}
+
+node "Cloudflare R2\n(Object Storage)" as R2
+node "LLM Provider\n(Gemini / OpenAI)" as LLM
+node "Whisper STT\n(Speech-to-Text)" as STT
+
+Student --> C1 : "Enroll, record,\nsubmit, view result"
+Staff --> C3 : "Upload material, build paper,\nschedule, enroll"
+Staff --> C2 : "Approve AI questions"
+Examiner --> C4 : "Review, assign official\nscore, publish"
+Admin --> C3 : "Manage accounts, courses,\nstaff assignment"
+
+C1 --> STT : "Transcribe speech\nto text"
+C2 --> LLM : "Generate questions &\ngrade by rubric"
+C1 ..> R2 : "Store & stream\naudio files"
+C4 ..> R2 : "Listen to\nevidence"
+
+note bottom of C2
+  The AI only SUGGESTS —
+  the official score is
+  decided by the EXAMINER
+end note
+
+@enduml

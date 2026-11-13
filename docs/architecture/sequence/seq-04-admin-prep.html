@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEQ 4 – Chuẩn bị & Tổ chức thi</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  .hint { background:#fff8e1; border-left:4px solid #B8860B; padding:12px 16px; margin:0 0 18px;
+           border-radius:0 6px 6px 0; font-size:13.5px; }
+  .zoom { position:fixed; inset:0; background:rgba(10,20,30,.93); display:none; z-index:99;
+           align-items:center; justify-content:center; padding:20px; }
+  .zoom.on { display:flex; }
+  .zoom img { max-width:100%; max-height:100%; background:#fff; border-radius:6px; }
+  .zoom .close { position:absolute; top:14px; right:20px; color:#fff; font-size:32px;
+                  cursor:pointer; line-height:1; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SEQ 4 – Chuẩn bị & Tổ chức thi</h1>
+  <p>Thành viên 5 · Sequence Diagram · Bản tiếng Việt</p>
+</header>
+<nav>
+  <a href="seq-03-review-publish.html">← SEQ 3</a>
+  <a href="sequence-index.html">Index →</a>
+  <a href="./sequence-index.html">Index</a>
+  <a href="../all-diagrams.html">&#128196; All on one page</a>
+</nav>
+<main>
+  <div class="hint">Chuỗi chuẩn bị: <strong>tạo tài khoản → tạo môn học → upload .md → AI sinh câu hỏi → duyệt → lập lịch ca thi → ghi danh</strong>.</div>
+  <div class="card">
+    <h2>Chuẩn bị & Tổ chức thi (Preparation & Exam Scheduling)</h2>
+    <img class="diag" id="diag" src="./SEQ_04_ADMIN_PREP.svg" alt="Chuẩn bị & Tổ chức thi (Preparation & Exam Scheduling)">
+    <p><a href="./SEQ_04_ADMIN_PREP.png" download>Download PNG</a> &middot; <a href="./SEQ_04_ADMIN_PREP.svg" download>Download SVG</a> &middot; <a href="./seq_04_admin_prep.puml" target="_blank">PlantUML source</a> &middot; <a href="./seq-04-admin-prep.md">Markdown</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Các participant & trách nhiệm</h2>
+    <table>
+      <thead><tr><th>Participant</th><th>Trách nhiệm</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Quản trị (Admin)</strong></td><td>Tạo tài khoản & gán vai trò, tạo môn học, phân công giảng viên</td></tr>
+        <tr><td><strong>Giang viên (Staff)</strong></td><td>Upload tài liệu .md, duyệt câu hỏi AI, lập lịch ca thi, theo dõi ghi danh</td></tr>
+        <tr><td><strong>AuthController</strong></td><td><code>POST /api/auth/admin/create-user</code> — kiểm tra trùng email/username</td></tr>
+        <tr><td><strong>AdminCourseController</strong></td><td>Tạo Course và gán giảng viên phụ trách</td></tr>
+        <tr><td><strong>DocumentsController</strong></td><td>Upload .md hợp lệ, sinh câu hỏi AI</td></tr>
+        <tr><td><strong>QuestionBankController</strong></td><td>Duyệt / từ chối câu hỏi AI (PENDING_REVIEW → APPROVED)</td></tr>
+        <tr><td><strong>ExamSessionsController</strong></td><td>Tạo ca thi (SessionCode ESS-XXXXXXXX), mở ca (IN_PROGRESS), monitor</td></tr>
+        <tr><td><strong>AI Service (FastAPI)</strong></td><td><code>/ai/questions/generate</code> — sinh bộ câu hỏi từ tài liệu</td></tr>
+        <tr><td><strong>PostgreSQL (Neon)</strong></td><td>Users, Courses, MarkdownDocuments, QuestionBanks, ExamSessions, Enrollment</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<div class="zoom" id="zoom">
+  <span class="close" id="zoomClose">&times;</span>
+  <img id="zoomImg" src="./SEQ_04_ADMIN_PREP.png" alt="Chuẩn bị & Tổ chức thi (Preparation & Exam Scheduling)">
+</div>
+<footer>AIVES &ndash; Member 5 deliverable &middot; sequence diagram &middot; generated page</footer>
+<script>
+  const z = document.getElementById('zoom');
+  document.getElementById('diag').addEventListener('click', () => z.classList.add('on'));
+  z.addEventListener('click', () => z.classList.remove('on'));
+  document.getElementById('zoomClose').addEventListener('click', () => z.classList.remove('on'));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') z.classList.remove('on'); });
+</script>
+</body>
+</html>

@@ -43,7 +43,9 @@ services:
       ASPNETCORE_HTTP_PORTS: "8080"
       ConnectionStrings__DefaultConnection: ${DATABASE_CONNECTION:?Set DATABASE_CONNECTION in the root .env file}
       Database__SeedOnStartup: ${Database__SeedOnStartup:-false}
-      Jwt__Key: ${Jwt__Key:-aives-docker-local-development-key-32-characters}
+      # Phai khop voi backend/Aives.Api/appsettings.Development.json (Jwt:Key)
+      # neu khong se sinh token khac nhau giuc local va Docker.
+      Jwt__Key: ${Jwt__Key:-your-super-secret-jwt-key-with-at-least-32-chars-long}
       AI__BaseUrl: http://ai-service:8000
       AI__ApiKey: aives-dev-internal-key
       RateLimiting__LoginPermitLimit: ${LOGIN_RATE_LIMIT:-100}
@@ -66,10 +68,24 @@ services:
       - "127.0.0.1:${DOCKER_AI_PORT:-8000}:8000"
     environment:
       AI_SERVICE_ENV: development
-      AI_PROVIDER: mock
+      # Provider lay tu .env (root) - mac dinh mock de khong lam vong Docker
+      # bi that neu chua co key thật.
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_SERVICE_SECRET_KEY: aives-dev-internal-key
-      STT_PROVIDER: mock
-      TTS_PROVIDER: mock
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      GEMINI_STT_MODEL: ${GEMINI_STT_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      STT_PROVIDER: ${STT_PROVIDER:-mock}
+      STT_MAX_RETRIES: ${STT_MAX_RETRIES:-5}
+      TTS_PROVIDER: ${TTS_PROVIDER:-mock}
+      TTS_MAX_RETRIES: ${TTS_MAX_RETRIES:-3}
+      # R2 dung chung bucket voi backend de STT doc audio vua ghi.
+      R2_ACCOUNT_ID: ${CloudflareR2__AccountId:-}
+      R2_ACCESS_KEY_ID: ${CloudflareR2__AccessKeyId:-}
+      R2_SECRET_ACCESS_KEY: ${CloudflareR2__SecretAccessKey:-}
+      R2_BUCKET_NAME: ${CloudflareR2__BucketName:-}
       BACKEND_URL: http://backend:8080
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), timeout=2).close()"]

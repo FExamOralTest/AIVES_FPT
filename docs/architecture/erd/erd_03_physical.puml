@@ -1,0 +1,436 @@
+@startuml ERD_03_PHYSICAL
+'==============================================================
+' AIVES - PHYSICAL ERD (Muc Physical - Cai dat Postgres/Neon that)
+' Muc dich: kieu du lieu Postgres cu the, PK/FK, UNIQUE, index,
+'           CHECK constraint, quy tac ON DELETE
+' Nguon: Neon DB (ep-holy-unit-aofgdav8) - dump information_schema
+'        + backend/Aives.Infrastructure/Persistence/AivesDbContext.cs
+'==============================================================
+title ERD 3 - PHYSICAL ERD (AIVES) - PostgreSQL / Neon
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 12
+skinparam ArrowColor #33475B
+skinparam ArrowThickness 1.5
+skinparam ArrowFontSize 10
+skinparam ArrowFontStyle bold
+skinparam TitleFontSize 26
+skinparam TitleFontStyle bold
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+skinparam entity {
+  BackgroundColor #EAF1F7
+  BorderColor #1F3B52
+  BorderThickness 2
+  FontSize 13
+  FontStyle bold
+  FontColor #10243A
+}
+skinparam package {
+  BackgroundColor #FCFDFE
+  BorderColor #7A8A99
+  BorderThickness 1.5
+  FontSize 14
+  FontStyle bold
+}
+
+package "public.users" {
+  entity "users" as User {
+    user_id         : integer       <<PK, identity>>
+    --
+    username        : varchar(50)   <<UQ, NOT NULL>>
+    full_name       : varchar(100)  <<NOT NULL>>
+    email           : varchar(100)  <<UQ>>
+    password_hash   : varchar(255)  <<NOT NULL>>
+    role            : user_role     <<NOT NULL>>
+    created_at      : timestamptz   <<default now()>>
+  }
+}
+
+package "public.courses" {
+  entity "courses" as Course {
+    course_id       : integer       <<PK, identity>>
+    --
+    course_code     : varchar(20)   <<UQ, NOT NULL>>
+    course_name     : varchar(150)  <<NOT NULL>>
+    teacher_id      : integer       <<FK>>
+    created_by      : integer       <<FK>>
+    created_at      : timestamptz   <<default now()>>
+  }
+}
+
+package "public.enrollments" {
+  entity "enrollments" as Enrollment {
+    enrollment_id   : integer       <<PK, identity>>
+    --
+    student_id      : integer       <<FK, NOT NULL>>
+    course_id       : integer       <<FK, NOT NULL>>
+    enrolled_at     : timestamptz   <<default now()>>
+  }
+}
+
+package "public.markdown_documents" {
+  entity "markdown_documents" as Doc {
+    document_id     : integer       <<PK, identity>>
+    --
+    course_id       : integer       <<FK, NOT NULL>>
+    uploaded_by     : integer       <<FK, NOT NULL>>
+    file_name       : varchar(255)  <<NOT NULL>>
+    doc_type        : doc_type      <<NOT NULL, default CONTENT>>
+    content         : text          <<NOT NULL>>
+    uploaded_at     : timestamptz   <<default now()>>
+  }
+}
+
+package "public.question_bank" {
+  entity "question_bank" as Question {
+    question_id           : integer         <<PK, identity>>
+    --
+    course_id             : integer         <<FK, NOT NULL>>
+    document_id           : integer         <<FK>>
+    question_text         : text            <<NOT NULL>>
+    topic                 : text
+    sample_answer         : text
+    learning_outcome      : varchar(2000)
+    max_score             : real            <<default 1.0>>
+    level                 : integer         <<NOT NULL, default 1>>
+    is_follow_up_allowed  : boolean         <<default true>>
+    expected_keywords     : text[]          <<NOT NULL>>
+    approval_status       : varchar(30)     <<NOT NULL, default PENDING_REVIEW>>
+    reviewed_by           : integer         <<FK>>
+    reviewed_at           : timestamptz
+    rejection_reason      : varchar(2000)
+    created_at            : timestamptz     <<default now()>>
+  }
+}
+
+package "public.question_rubric_criteria" {
+  entity "question_rubric_criteria" as Rubric {
+    criterion_id : integer        <<PK, identity>>
+    --
+    question_id  : integer        <<FK, NOT NULL>>
+    position     : integer        <<NOT NULL>>
+    description  : varchar(2000)  <<NOT NULL>>
+    max_score    : numeric(8,4)   <<NOT NULL>>
+  }
+}
+
+package "public.exams" {
+  entity "exams" as ExamPaper {
+    exam_id          : integer       <<PK, identity>>
+    --
+    course_id        : integer       <<FK, NOT NULL>>
+    created_by       : integer       <<FK, NOT NULL>>
+    title            : varchar(255)  <<NOT NULL>>
+    exam_code        : varchar(50)   <<UQ, NOT NULL>>
+    duration_minutes : integer       <<NOT NULL>>
+    max_questions    : integer       <<NOT NULL, default 10>>
+    exam_status      : exam_status   <<default DRAFT>>
+    is_active        : boolean       <<NOT NULL, default true>>
+    created_at       : timestamptz   <<default now()>>
+  }
+}
+
+package "public.exam_questions" {
+  entity "exam_questions" as ExamQuestion {
+    exam_id        : integer   <<PK, FK>>
+    --
+    question_id   : integer   <<PK, FK>>
+    question_score : real     <<NOT NULL>>
+  }
+}
+
+package "public.exam_periods" {
+  entity "exam_periods" as Period {
+    period_id    : integer        <<PK, identity>>
+    --
+    course_id    : integer        <<FK, NOT NULL>>
+    period_name  : varchar(150)   <<NOT NULL>>
+    description  : text
+    start_date   : timestamptz    <<NOT NULL>>
+    end_date     : timestamptz    <<NOT NULL>>
+    status       : exam_period_status <<NOT NULL>>
+    created_by   : integer        <<FK, NOT NULL>>
+    created_at   : timestamptz    <<default now()>>
+  }
+}
+
+package "public.exam_sessions" {
+  entity "exam_sessions" as Session {
+    session_id          : integer         <<PK, identity>>
+    --
+    exam_id             : integer         <<FK>>
+    course_id           : integer         <<FK>>
+    period_id           : integer         <<FK>>
+    scheduled_by        : integer         <<FK, NOT NULL>>
+    session_name        : varchar(150)    <<NOT NULL>>
+    session_code        : varchar(50)     <<UQ, NOT NULL>>
+    room                : varchar(150)
+    start_time          : timestamptz     <<NOT NULL>>
+    end_time            : timestamptz     <<NOT NULL>>
+    status              : session_status  <<default NOT_STARTED>>
+    max_capacity        : integer         <<NOT NULL, default 50>>
+    current_enrollment  : integer         <<NOT NULL, default 0>>
+    created_at          : timestamptz     <<default now()>>
+  }
+}
+
+package "public.session_exams" {
+  entity "session_exams" as SessionExam {
+    session_id  : integer      <<PK, FK>>
+    --
+    exam_id     : integer      <<PK, FK>>
+    created_at  : timestamptz  <<NOT NULL, default now()>>
+  }
+}
+
+package "public.exam_slot_templates" {
+  entity "exam_slot_templates" as SlotTpl {
+    slot_template_id : integer        <<PK, identity>>
+    --
+    exam_id          : integer        <<FK, NOT NULL>>
+    slot_index       : integer        <<NOT NULL>>
+    slot_name        : varchar(100)   <<NOT NULL>>
+    duration_minutes : integer        <<NOT NULL, default 30>>
+    max_capacity     : integer        <<NOT NULL, default 20>>
+    created_at       : timestamptz    <<default now()>>
+  }
+}
+
+package "public.exam_slot_template_exams" {
+  entity "exam_slot_template_exams" as SlotTplExam {
+    slot_template_id : integer      <<PK, FK>>
+    --
+    exam_paper_id    : integer      <<PK, FK>>
+    created_at       : timestamptz  <<NOT NULL, default now()>>
+  }
+}
+
+package "public.session_slots" {
+  entity "session_slots" as Slot {
+    slot_id          : integer        <<PK, identity>>
+    --
+    session_id       : integer        <<FK, NOT NULL>>
+    slot_template_id : integer        <<FK>>
+    slot_index       : integer        <<NOT NULL>>
+    slot_name        : varchar(100)   <<NOT NULL>>
+    slot_code        : varchar(50)    <<UQ>>
+    start_time       : timestamptz    <<NOT NULL>>
+    end_time         : timestamptz    <<NOT NULL>>
+    max_capacity     : integer        <<NOT NULL, default 10>>
+    created_at       : timestamptz    <<default now()>>
+  }
+}
+
+package "public.session_slot_exams" {
+  entity "session_slot_exams" as SlotExam {
+    slot_id     : integer      <<PK, FK>>
+    --
+    exam_id     : integer      <<PK, FK>>
+    created_at  : timestamptz  <<NOT NULL, default now()>>
+  }
+}
+
+package "public.session_enrollments" {
+  entity "session_enrollments" as SessionReg {
+    session_enrollment_id  : integer         <<PK, identity>>
+    --
+    session_id             : integer         <<FK, NOT NULL>>
+    student_id             : integer         <<FK, NOT NULL>>
+    assigned_exam_id       : integer         <<FK>>
+    assigned_slot_id       : integer         <<FK>>
+    status                 : session_status  <<default NOT_STARTED>>
+    current_question_index : integer
+    enrolled_at            : timestamptz     <<default now()>>
+    started_at             : timestamptz
+    last_activity_at       : timestamptz
+  }
+}
+
+package "public.results" {
+  entity "results" as Result {
+    result_id            : integer             <<PK, identity>>
+    --
+    session_id           : integer             <<FK, NOT NULL>>
+    student_id           : integer             <<FK, NOT NULL>>
+    exam_id              : integer             <<FK>>
+    ai_score             : real
+    ai_feedback          : text
+    ai_analysis          : jsonb
+    ai_evaluation_status : varchar(20)
+    ai_evaluation_error  : text
+    final_score          : real
+    final_feedback       : text
+    status               : submission_status   <<default PENDING_REVIEW>>
+    submitted_at         : timestamptz         <<default now()>>
+    reviewed_by          : integer             <<FK>>
+    reviewed_at          : timestamptz
+    published_by         : integer             <<FK>>
+    published_at         : timestamptz
+  }
+}
+
+package "public.answers" {
+  entity "answers" as Answer {
+    answer_id         : integer      <<PK, identity>>
+    --
+    result_id         : integer      <<FK, NOT NULL>>
+    question_id       : integer      <<FK, NOT NULL>>
+    student_answer    : text
+    transcript        : text
+    object_key        : varchar(500)
+    audio_url         : text
+    is_follow_up      : boolean      <<default false>>
+    ai_score          : real
+    ai_feedback       : text
+    ai_analysis       : jsonb
+    final_score       : real
+    teacher_comment   : text
+    status            : varchar(20)  <<NOT NULL, default PROCESSING>>
+    attempt_count     : integer      <<NOT NULL, default 0>>
+    job_id            : varchar(100)
+    error_message     : text
+    duration_seconds  : real
+    detected_language : varchar(20)
+    answered_at       : timestamptz
+  }
+}
+
+package "public.media_uploads" {
+  entity "media_uploads" as Audio {
+    upload_id              : varchar(64)   <<PK>>
+    --
+    session_id             : integer       <<FK, NOT NULL>>
+    student_id             : integer       <<FK, NOT NULL>>
+    question_id            : integer       <<NOT NULL>>
+    answer_id              : integer       <<FK>>
+    file_name              : varchar(255)  <<NOT NULL>>
+    content_type           : varchar(100)  <<NOT NULL>>
+    total_size             : bigint        <<NOT NULL>>
+    chunk_size             : bigint        <<NOT NULL>>
+    total_chunks           : integer       <<NOT NULL>>
+    received_chunk_indexes : jsonb         <<NOT NULL>>
+    upload_status          : varchar(20)   <<NOT NULL>>
+    object_key             : varchar(500)
+    local_file_path        : varchar(500)
+    r2_upload_id           : text
+    part_etags             : text
+    last_error             : text
+    created_at             : timestamptz   <<NOT NULL, default now()>>
+    completed_at           : timestamptz
+  }
+}
+
+package "public.exam_retakes" {
+  entity "exam_retakes" as Retake {
+    retake_id          : integer        <<PK, identity>>
+    --
+    original_result_id : integer        <<FK, UQ, NOT NULL>>
+    retake_session_id  : integer        <<FK, UQ, NOT NULL>>
+    student_id         : integer        <<FK, NOT NULL>>
+    granted_by         : integer        <<FK, NOT NULL>>
+    reason             : varchar(1000)  <<NOT NULL>>
+    granted_at         : timestamptz    <<NOT NULL>>
+    duration_minutes   : integer        <<NOT NULL>>
+    consumed_at        : timestamptz
+    revision           : integer        <<NOT NULL, default 1>>
+  }
+}
+
+package "public.audit_logs" {
+  entity "audit_logs" as Audit {
+    log_id        : bigint       <<PK, identity>>
+    --
+    entity_name   : varchar(100) <<NOT NULL>>
+    entity_id     : integer      <<NOT NULL>>
+    action        : varchar(100) <<NOT NULL>>
+    old_value     : jsonb
+    new_value     : jsonb
+    reason        : text
+    performed_by  : integer      <<FK>>
+    performed_at  : timestamptz  <<NOT NULL, default now()>>
+    ip_address    : varchar(45)
+  }
+}
+
+' ===== FOREIGN KEYS (chi theo huong cha -> con) =====
+User ||--o{ Course : "created_by / teacher_id"
+User ||--o{ Enrollment : "student_id"
+Course ||--o{ Enrollment : "course_id"
+User ||--o{ Doc : "uploaded_by"
+Course ||--o{ Doc : "course_id"
+Course ||--o{ Question : "course_id"
+Doc ||--o{ Question : "document_id (SET NULL)"
+User ||--o{ Question : "reviewed_by (SET NULL)"
+Question ||--o{ Rubric : "question_id (CASCADE)"
+Course ||--o{ ExamPaper : "course_id"
+User ||--o{ ExamPaper : "created_by"
+ExamPaper ||--o{ ExamQuestion : "exam_id"
+Question ||--o{ ExamQuestion : "question_id"
+Course ||--o{ Period : "course_id"
+User ||--o{ Period : "created_by"
+User ||--o{ Session : "scheduled_by"
+Course ||--o{ Session : "course_id (SET NULL)"
+Period ||--o{ Session : "period_id (SET NULL)"
+ExamPaper ||--o{ Session : "exam_id (SET NULL)"
+Session ||--o{ SessionExam : "session_id"
+ExamPaper ||--o{ SessionExam : "exam_id"
+ExamPaper ||--o{ SlotTpl : "exam_id (CASCADE)"
+SlotTpl ||--o{ SlotTplExam : "slot_template_id"
+ExamPaper ||--o{ SlotTplExam : "exam_paper_id (RESTRICT)"
+Session ||--o{ Slot : "session_id"
+SlotTpl ||--o{ Slot : "slot_template_id (SET NULL)"
+Slot ||--o{ SlotExam : "slot_id"
+ExamPaper ||--o{ SlotExam : "exam_id (RESTRICT)"
+Session ||--o{ SessionReg : "session_id"
+User ||--o{ SessionReg : "student_id"
+ExamPaper ||--o{ SessionReg : "assigned_exam_id (SET NULL)"
+Slot ||--o{ SessionReg : "assigned_slot_id (SET NULL)"
+Session ||--o{ Result : "session_id"
+User ||--o{ Result : "student_id"
+ExamPaper ||--o{ Result : "exam_id (SET NULL)"
+User ||--o{ Result : "reviewed_by / published_by"
+Result ||--o{ Answer : "result_id"
+Question ||--o{ Answer : "question_id"
+Session ||--o{ Audio : "session_id"
+User ||--o{ Audio : "student_id"
+Result ||--o| Retake : "original_result_id (RESTRICT)"
+Session ||--o| Retake : "retake_session_id (RESTRICT)"
+User ||--o{ Retake : "student_id / granted_by"
+User ||--o{ Audit : "performed_by (SET NULL)"
+
+note right of Rubric
+  CHECK ck_question_rubric_score:
+    max_score > 0 AND max_score <= 100
+  CHECK ck_question_rubric_position:
+    position >= 0 AND position < 20
+end note
+
+note right of Retake
+  CHECK ck_retake_duration:
+    duration_minutes BETWEEN 1 AND 240
+  CHECK reason: 5 <= length <= 1000
+  UNIQUE uq_retake_original_result
+  UNIQUE uq_retake_private_session
+  concurrency: revision, consumed_at
+end note
+
+note bottom of Result
+  UNIQUE unique_result_student_session
+    (student_id, session_id)
+  UNIQUE unique_result_question trong answers
+    (result_id, question_id)
+  concurrency token: status
+end note
+
+note bottom of Audio
+  Upload chunked: received_chunk_indexes
+    (jsonb) luu index chunk da nhan
+  Local-first: ghi local_file_path roi
+    PutObject 1 lan len Cloudflare R2
+end note
+
+@enduml

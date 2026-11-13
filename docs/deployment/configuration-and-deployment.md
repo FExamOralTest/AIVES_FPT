@@ -174,7 +174,7 @@ ConnectionStrings__MigrationConnection="Host=<DIRECT>;..." \
 ## 4. Cloudflare R2 (Audio Storage)
 
 ### Step 4.1 — Create the bucket
-1. Cloudflare dashboard → **R2 Object Storage** → **Create bucket** → name: `aives-audio` (matches config).
+1. Cloudflare dashboard → **R2 Object Storage** → **Create bucket** → name: `aives-media-bucket` (matches config).
 2. Under **Settings → CORS Policy**, add (replace with your frontend origin):
    ```json
    [{
@@ -189,22 +189,22 @@ ConnectionStrings__MigrationConnection="Host=<DIRECT>;..." \
 ### Step 4.2 — Generate API token
 R2 → **Manage R2 API Tokens** → **Create API Token** with:
 - Permissions: **Object Read & Write**
-- Scope: bucket = `aives-audio`
+- Scope: bucket = `aives-media-bucket`
 
 Save the **Access Key ID** and **Secret Access Key**. Also note the **Account ID** from the R2 overview page.
 
 ### Step 4.3 — Public access (for audio playback)
-1. R2 → bucket `aives-audio` → **Settings → Public Access** → **Connect Domain**.
+1. R2 → bucket `aives-media-bucket` → **Settings → Public Access** → **Connect Domain**.
 2. Either use the auto-generated `pub-xxxxx.r2.dev` (fine for dev) or attach a custom domain via Cloudflare DNS.
 
 ### Step 4.4 — Configure backend
 ```json
 {
   "CloudflareR2": {
-    "AccountId":           "9e7xxxxxxxxxxxxx",
-    "AccessKeyId":         "f90a3axxxxxxxxxxxxx",
-    "SecretAccessKey":     "58c2cbxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "BucketName":          "aives-audio",
+    "AccountId":           "f51cxxxxxxxxxxxxxx",
+    "AccessKeyId":         "e83a4exxxxxxxxxxxxx",
+    "SecretAccessKey":     "5c5306xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "BucketName":          "aives-media-bucket",
     "PublicBaseUrl":       "https://pub-xxxxx.r2.dev",
     "UseLocalStorageFallback": false
   }
@@ -271,17 +271,20 @@ Edit `ai-service/.env` (copy from `.env.example`):
 # Pick a generation provider
 AI_PROVIDER=mock             # mock | gemini | openai
 GEMINI_API_KEY=...           # if AI_PROVIDER=gemini
-GEMINI_MODEL=gemini-3.1-flash-lite
+GEMINI_MODEL=gemini-3.5-flash
+GEMINI_STT_MODEL=gemini-3.5-flash
 OPENAI_API_KEY=...           # if AI_PROVIDER=openai
 
 # Pick an STT provider
 STT_PROVIDER=mock            # mock | gemini | google | faster_whisper | openai_whisper
-GEMINI_STT_MODEL=gemini-3.1-flash-lite
+STT_MAX_RETRIES=5            # retry khi Gemini tra 429/5xx
 GOOGLE_STT_API_KEY=...
 FASTER_WHISPER_MODEL=base    # for local Whisper
 
 # Pick a TTS provider (if used)
 TTS_PROVIDER=mock            # mock | google | edge_tts | openai_tts
+TTS_MAX_RETRIES=3            # retry khi edge_tts tra "NoAudioReceived"
+TTS_RETRY_DELAY_SECONDS=1
 
 # Auth: must match backend AI:ApiKey
 AI_SERVICE_SECRET_KEY=<same value as AI__ApiKey in backend>
@@ -443,7 +446,10 @@ Set these on your platform (ECS task def, Fly secrets, etc.):
 | `GEMINI_API_KEY` / `OPENAI_API_KEY` | from provider | depends on provider | |
 | `STT_PROVIDER` | `gemini` / `faster_whisper` / `google` | ✅ | |
 | `STT_MAX_AUDIO_BYTES` | `14680064` (~14 MB) | recommended | Caps the audio size STT accepts |
+| `STT_MAX_RETRIES` | `5` | recommended | Retry khi Gemini trả 429/5xx (503 high demand) |
 | `TTS_PROVIDER` | `edge_tts` / `google` / `openai_tts` | recommended | |
+| `TTS_MAX_RETRIES` | `3` | recommended | Retry khi `edge_tts` trả `NoAudioReceived` |
+| `TTS_RETRY_DELAY_SECONDS` | `1` | recommended | |
 | `FASTER_WHISPER_MODEL` | `base` | if using local | `tiny`/`base`/`small`/`medium` |
 | `FASTER_WHISPER_DEVICE` | `cpu` | if using local | `cuda` if a GPU is available |
 | `FASTER_WHISPER_COMPUTE_TYPE` | `int8` | if using local | |
@@ -451,7 +457,7 @@ Set these on your platform (ECS task def, Fly secrets, etc.):
 | `R2_ACCOUNT_ID` | from Cloudflare R2 | ✅ if calling `transcribe-object` | |
 | `R2_ENDPOINT_URL` | `https://<account_id>.r2.cloudflarestorage.com` | ✅ | Derived from the Account ID if left blank |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token | ✅ | **Read** permission on the bucket is enough for STT |
-| `R2_BUCKET_NAME` | `aives-exam-audios` | ✅ | Same bucket the backend uses |
+| `R2_BUCKET_NAME` | `aives-media-bucket` | ✅ | Same bucket the backend uses |
 | `BACKEND_URL` | internal URL of backend | ✅ if using callback | |
 
 > **Important — PR #41 (`transcribe-object`):** as of this version the AI service **downloads audio from R2 on its own** using its own credentials, so the backend no longer needs to sign a presigned URL. The backend only has to send the `object_key` (stored in `answers.object_key`) in the JSON body along with the `X-Internal-Token` header.
@@ -552,11 +558,14 @@ GEMINI_API_KEY / GEMINI_MODEL / GEMINI_STT_MODEL
 OPENAI_API_KEY / OPENAI_MODEL
 STT_PROVIDER
 STT_MAX_AUDIO_BYTES                 # PR #41 — default ~14 MB cap
+STT_MAX_RETRIES                     # retry khi Gemini tra 429/5xx
 GOOGLE_STT_API_KEY
 FASTER_WHISPER_MODEL
 FASTER_WHISPER_DEVICE               # PR #41 — cpu | cuda
 FASTER_WHISPER_COMPUTE_TYPE         # PR #41 — int8 | float16 | ...
 TTS_PROVIDER
+TTS_MAX_RETRIES                     # retry khi edge_tts tra NoAudioReceived
+TTS_RETRY_DELAY_SECONDS
 GOOGLE_TTS_API_KEY
 BACKEND_URL
 # PR #41 — used for the /speech/transcribe-object endpoint

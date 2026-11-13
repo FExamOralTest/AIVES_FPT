@@ -1,0 +1,101 @@
+@startuml DIAGRAM_01_USECASE
+'==============================================================
+' AIVES - USE CASE DIAGRAM (ban rut gon cho thuyet trinh)
+' Actors: 4 vai tro trong he thong
+' Nguon: AIVES SRS 07/11/2026 + backend/Aives.Api (Controllers)
+'==============================================================
+title DIAGRAM 1 - USE CASE DIAGRAM (AIVES)
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 16
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 1.8
+  FontSize 16
+  FontStyle bold
+}
+skinparam rectangle {
+  BackgroundColor #EAF1F7
+  BorderColor #1F3B52
+  BorderThickness 1.8
+  FontSize 15
+  FontStyle bold
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #7A8A99
+  FontSize 17
+  FontStyle bold
+}
+skinparam ArrowColor #1F3B52
+skinparam ArrowThickness 1.5
+
+actor "Sinh vien\n(Student)" as Student
+actor "Giang vien\n(Staff)" as Staff
+actor "Khao thi\n(Examiner)" as Examiner
+actor "Quan tri\n(Admin)" as Admin
+
+rectangle "AIVES - AI-powered Viva Examination System" {
+  package "Quan tri he thong" {
+    usecase "UC-01\nQuan ly tai khoan\nva phan quyen" as UC01
+    usecase "UC-02\nQuan ly mon hoc\nva phan cong GV" as UC02
+  }
+  package "Chuan bi & to chuc thi" {
+    usecase "UC-03\nTai len tai lieu\nchuuan (.md)" as UC03
+    usecase "UC-04\nSinh & duyet\ncau hoi AI" as UC04
+    usecase "UC-05\nTao de thi\n(100% trong so)" as UC05
+    usecase "UC-06\nLap lich ca thi,\nghi danh & phan bo" as UC06
+  }
+  package "Lam bai & cham tu dong" {
+    usecase "UC-07\nTham gia va tra loi\nviva (ghi am)" as UC07
+    usecase "UC-08\nAI cham theo rubric\nva sinh follow-up" as UC08
+  }
+  package "Kiem tra & cong bo" {
+    usecase "UC-09\nReview bang chung\nva cham diem chinh thuc" as UC09
+    usecase "UC-10\nXu ly su co:\ncham lai / cap lai thi" as UC10
+    usecase "UC-11\nSinh vien xem\nket qua da cong bo" as UC11
+  }
+  package "He thong nen tang" {
+    usecase "UC-12\nXac thuc & phan quyen\n(JWT / RBAC)" as UC12
+    usecase "UC-13\nLuu tru & audit log\n(ket qua, audio)" as UC13
+  }
+}
+
+Student -- UC07
+Student -- UC11
+Student -- UC12
+
+Staff -- UC03
+Staff -- UC04
+Staff -- UC05
+Staff -- UC06
+Staff -- UC12
+
+Examiner -- UC09
+Examiner -- UC10
+Examiner -- UC12
+
+Admin -- UC01
+Admin -- UC02
+Admin -- UC12
+
+UC03 ..> UC04 : "sinh cau hoi\ntu tai lieu"
+UC04 ..> UC05 : "cau APPROVED"
+UC05 ..> UC06 : "gan de vao ca"
+UC06 ..> UC07 : "mo ca + phan bo"
+UC07 ..> UC08 : "audio + transcript"
+UC08 ..> UC09 : "AI score\n(PENDING_REVIEW)"
+UC09 ..> UC11 : "PUBLISHED"
+UC10 ..> UC08 : "cham lai 1 cau"
+UC10 ..> UC09 : "cap lai thi"
+
+note bottom of UC08
+  AI KHONG bao gio
+  tu cong bo diem
+end note
+
+@enduml

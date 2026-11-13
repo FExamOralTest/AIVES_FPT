@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SWL-2A-EN – Exam Delivery & AI Grading</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SWL-2A-EN – Exam Delivery & AI Grading</h1>
+  <p>Member 5 · Swimlane Diagram · English version</p>
+</header>
+<nav>
+  <a href="swimlane-02-exam-grading-publish_en.html">← SWL-2-EN</a>
+  <a href="swimlane-02b-review-publish-incident_en.html">SWL-2B-EN →</a>
+  <a href="./swimlane-index-en.html">Index</a>
+  <a href="./simplified/simplified-index-en.html">⚡ Simplified set</a>
+  <a href="./sequence/sequence-index-en.html">🔄 Sequence set</a>
+  <a href="./all-diagrams-en.html">📄 All on one page</a>
+</nav>
+<main>
+  <div class="card">
+    <h2>Exam Delivery & AI Grading</h2>
+    <img class="diag" src="./SWIMLANE_02A_EXAM_DELIVERY_GRADING_EN.svg" alt="Exam Delivery & AI Grading">
+    <p><a href="./SWIMLANE_02A_EXAM_DELIVERY_GRADING_EN.png" download>Download PNG</a> · <a href="./SWIMLANE_02A_EXAM_DELIVERY_GRADING_EN.svg" download>Download SVG</a> · <a href="./swimlane_02a_exam_delivery_grading_en.puml" target="_blank">PlantUML source</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Lanes & responsibility boundaries</h2>
+    <table>
+      <thead><tr><th>Lane</th><th>Responsibility</th><th>SRS reference</th></tr></thead>
+      <tbody>
+        <tr><td><strong>STUDENT</strong></td><td>Decides to participate, answers sequentially</td><td>UC-07, FR-STU-01…06</td></tr>
+        <tr><td><strong>Client (Web / Windows)</strong></td><td>Audio capture, chunked upload, renders questions/follow-ups, local drafts</td><td>FR-STU-03/08, NFR-REL-02</td></tr>
+        <tr><td><strong>Backend / DB / Storage</strong></td><td>Validates exam preconditions, persists Answer as <code>PROCESSING</code></td><td>FR-DATA-01, BR-11/12</td></tr>
+        <tr><td><strong>AI Service (FastAPI)</strong></td><td>STT → transcript, follow-up generation, rubric grading</td><td>FR-AI-01/02, BR-13</td></tr>
+        <tr><td><strong>Hangfire Worker</strong></td><td>Grades the session, backoff retry, stores <code>AiScore</code> as <code>PENDING_REVIEW</code></td><td>FR-STU-06, BR-15</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<footer>AIVES – Member 5 deliverable · swimlane diagram · generated page</footer>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C1 – Sơ đồ Container (multi-container)</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card img { max-width:100%; display:block; margin:0 auto; }
+  h2 { font-size:18px; color:#0f3d5c; margin:28px 0 10px; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; }
+  th,td { border:1px solid #dfe5ea; padding:8px 11px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  td code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.3px; }
+  .hint { background:#fff8e1; border-left:5px solid #B8860B; padding:12px 16px;
+           border-radius:0 8px 8px 0; font-size:13.5px; margin:0 0 20px; }
+  footer { margin-top:30px; font-size:12.5px; color:#5b6b7a; }
+  a { color:#0f3d5c; }
+</style>
+</head>
+<body>
+<header>
+  <h1>C1 – Sơ đồ Container (multi-container)</h1>
+  <p>Thành viên 5 · C4 Container Diagram · Bản tiếng Việt</p>
+</header>
+
+<nav>
+  <a href="./all-diagrams.html">← Tất cả sơ đồ</a>
+  <a href="./c1-container.html">C1 Container</a>
+  <a href="./simplified/simplified-index.html">Bộ rút gọn</a>
+  <a href="./sequence/sequence-index.html">Sequence Diagram</a>
+</nav>
+
+<main>
+  <div class="hint"><strong>C1 Container</strong> cho thấy AIVES được deploy thành <strong>4 container</strong> (frontend · backend · ai-service · postgres) cùng các dịch vụ bên ngoài (Neon PostgreSQL · Cloudflare R2 · LLM). Phần ghi chú mô tả <strong>hàng đợi Hangfire</strong> và <strong>giao thức nội bộ Backend ↔ AI</strong>.</div>
+
+  <div class="card">
+    <img src="./C1_Container.svg?v13" alt="C1 Container Diagram">
+  </div>
+
+  <h2>Container & trách nhiệm</h2>
+  <table>
+    <thead><tr><th>Container</th><th>Trách nhiệm / Cấu hình</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Web Application</strong></td><td>React 19 SPA + Nginx — phục vụ giao diện phòng thi, quản lý ca thi và cổng thẩm định của khảo thí; reverse proxy <code>/api</code> và <code>/uploads</code> về backend</td></tr>
+      <tr><td><strong>Backend Web API</strong></td><td>ASP.NET Core 8 — xác thực JWT, RBAC, điều phối ca thi, ký presigned URL; đồng thời chạy **hai Hangfire server**: <code>aives-api-*</code> (5 worker, queue <code>default</code> + <code>answers</code>) và <code>aives-grading-*</code> (1 worker, queue <code>grading</code>)</td></tr>
+      <tr><td><strong>Message Queue / Job Storage</strong></td><td>Hangfire lưu job trong PostgreSQL schema <code>hangfire</code> — <code>QueuePollInterval = 2s</code>, <code>InvisibilityTimeout = 10m</code>, retry 30s → 120s → 300s tối đa 3 lần (BR-17)</td></tr>
+      <tr><td><strong>AI Worker & Inference Service</strong></td><td>Python FastAPI — Faster-Whisper STT, TTS và chấm điểm rubric bằng LLM; chỉ nội bộ, không public ra Internet</td></tr>
+      <tr><td><strong>Relational Database</strong></td><td>Neon PostgreSQL — users, RBAC, đề thi, ca thi, câu trả lời (status, audio_url) và kết quả chấm</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Topology Docker Compose</h2>
+  <table>
+    <thead><tr><th>Service</th><th>Cổng & ghi chú</th></tr></thead>
+    <tbody>
+      <tr><td><code>frontend</code></td><td>React SPA build tĩnh, Nginx phục vụ trên cổng <code>:80</code> (host <code>:5173</code> khi dev)</td></tr>
+      <tr><td><code>backend</code></td><td>ASP.NET Core 8 trên <code>:8080</code> (host <code>:5000</code>), chứa Hangfire server + Swagger</td></tr>
+      <tr><td><code>ai-service</code></td><td>FastAPI / uvicorn trên <code>:8000</code>, chỉ truy cập nội bộ qua Docker DNS <code>http://ai-service:8000</code></td></tr>
+      <tr><td><code>postgres</code></td><td>PostgreSQL 16 (profile <code>local-db</code>); mặc định dùng Neon PostgreSQL quản lý</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Giao thức nội bộ Backend ↔ AI</h2>
+  <table>
+    <thead><tr><th>Hạng mục</th><th>Chi tiết</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Base URL</strong></td><td>Nội bộ Docker DNS — <code>http://ai-service:8000</code> (không public ra Internet)</td></tr>
+      <tr><td><strong>Header xác thực</strong></td><td><code>X-Internal-Token: &lt;AI_SERVICE_SECRET_KEY&gt;</code> trên mọi request <code>/ai/*</code></td></tr>
+      <tr><td><strong><code>POST /ai/speech/transcribe-object</code></strong></td><td>Nhận <code>{ answerId, objectKey }</code>, tự kéo file từ R2 qua S3 API rồi chạy STT; trả transcript cho câu trả lời</td></tr>
+      <tr><td><strong><code>POST /ai/evaluate/session</code></strong></td><td>Chấm điểm theo rubric của ca thi, trả điểm AI + nhận xét</td></tr>
+      <tr><td><strong><code>POST /ai/interview/follow-up</code></strong></td><td>Sinh câu hỏi phỏng vấn tiếp theo dựa trên rubric & câu trả lời hiện tại</td></tr>
+      <tr><td><strong>Timeout</strong></td><td><code>AI__TimeoutSeconds = 300</code> giây cho mỗi lần gọi</td></tr>
+      <tr><td><strong>Phân loại lỗi</strong></td><td>Retry được: <code>timeout</code> · <code>connection_error</code> · <code>internal_error</code> · <code>http_error</code>; lỗi không retry đưa vào dead-letter</td></tr>
+      <tr><td><strong>Hàng đợi</strong></td><td>Job STT & chấm điểm chạy nền qua Hangfire (schema <code>hangfire</code>), retry 30s → 120s → 300s, tối đa 3 lần (BR-17)</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    * PlantUML: <a href="./c1_container.puml">c1_container.puml</a> &middot;
+      SVG: <a href="./C1_Container.svg">C1_Container.svg</a> &middot;
+      PNG: <a href="./C1_Container.png">C1_Container.png</a> *
+  </footer>
+</main>
+</body>
+</html>

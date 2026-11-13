@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIVES – All ERDs (3 levels)</title>
+<style>
+  :root { color-scheme: light; --ink:#1f2933; --brand:#0f3d5c; --line:#dfe5ea; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f4f6f8; color:var(--ink); font-size:15px; }
+  a { color:var(--brand); }
+
+  header { background:var(--brand); color:#fff; padding:30px 32px 26px; }
+  header h1 { margin:0 0 6px; font-size:27px; letter-spacing:.2px; }
+  header p { margin:0; opacity:.86; font-size:14px; }
+  header .badge { display:inline-block; margin-top:12px; padding:4px 11px; border-radius:99px;
+                   background:rgba(255,255,255,.16); font-size:12.5px; font-weight:600; }
+
+  .topbar { position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid var(--line);
+             padding:0 32px; display:flex; gap:4px; flex-wrap:wrap; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .topbar a { padding:11px 15px; font-size:13.5px; font-weight:600; color:#3c5b73; text-decoration:none;
+               border-bottom:3px solid transparent; }
+  .topbar a:hover { color:var(--brand); border-bottom-color:#b7c9d6; }
+  .topbar a.lang { margin-left:auto; color:var(--brand); }
+
+  main { padding:22px 32px 60px; max-width:1500px; }
+  .banner { background:#fff; border:1px solid var(--line); border-left:5px solid var(--brand);
+             border-radius:8px; padding:16px 20px; margin-bottom:26px; font-size:14px; line-height:1.7; }
+
+  .sec-head { display:flex; align-items:baseline; gap:12px; margin:34px 0 16px; }
+  .sec-head h2 { margin:0; font-size:20px; color:var(--brand); }
+  .sec-head .note { font-size:13px; color:#5b6b7a; }
+  .tag { display:inline-block; padding:3px 10px; border-radius:99px; background:#e3edf5;
+          color:var(--brand); font-size:12px; font-weight:700; letter-spacing:.3px; }
+  .tag.warn { background:#fdf0d8; color:#8a6410; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(400px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px;
+           display:flex; flex-direction:column; }
+  .card h3 { margin:0 0 6px; font-size:17px; color:var(--brand); }
+  .card .meta { font-size:12.5px; color:#5b6b7a; margin-bottom:8px; }
+  .card .desc { font-size:13.5px; color:#3c5b73; line-height:1.6; margin-bottom:12px; }
+  .card .thumb { width:100%; height:260px; overflow:hidden; border:1px solid #eceff2; border-radius:6px;
+                   background:#fbfcfd; display:flex; align-items:flex-start; justify-content:center; cursor:zoom-in; }
+  .card .thumb img { width:100%; height:260px; object-fit:contain; display:block; }
+  .card .links { margin-top:12px; font-size:13px; }
+  .card .links a { margin-right:12px; font-weight:600; text-decoration:none; }
+  .card .links a:hover { text-decoration:underline; }
+  .card .links a.pri { background:var(--brand); color:#fff; padding:4px 12px; border-radius:5px; }
+
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; }
+  th,td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:var(--brand); }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+
+  .lb { position:fixed; inset:0; background:rgba(10,20,30,.92); display:none; z-index:99;
+         align-items:center; justify-content:center; padding:24px; }
+  .lb.on { display:flex; }
+  .lb img { max-width:100%; max-height:100%; background:#fff; border-radius:6px; }
+  .lb .close { position:absolute; top:16px; right:22px; color:#fff; font-size:32px; cursor:pointer; line-height:1; }
+
+  footer { padding:22px 32px; font-size:12.5px; color:#5b6b7a; border-top:1px solid var(--line); }
+  @media (max-width:700px) { main { padding:18px 16px 50px; } .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>AIVES – All ERDs (3 levels)</h1>
+  <p>Member 5 · The three ERD levels: Conceptual · Logical · Physical</p>
+  <span class="badge">3 ERD levels · 21 Neon tables · 2 languages</span>
+</header>
+
+<div class="topbar">
+  <a href="#diagrams">Diagrams</a>
+  <a href="#levels">The three levels</a>
+  <a href="#files">Files</a>
+  <a class="lang" href="./all-erd.html">← Tiếng Việt</a>
+</div>
+
+<main>
+  <div class="banner"><strong>The ERD suite, split out on its own.</strong> Each level answers a different question: <strong>Conceptual</strong> — what does the system store; <strong>Logical</strong> — how is the structure normalised; <strong>Physical</strong> — what does the real Neon schema look like. <strong>Click any image</strong> to view it at full size.</div>
+
+  <section id="diagrams">
+    <div class="sec-head">
+      <span class="tag">ERD</span>
+      <h2>The three ERD diagrams</h2>
+      <span class="note">Conceptual · Logical · Physical</span>
+    </div>
+    <div class="grid">
+    <div class="card">
+      <h3>ERD 1 · Conceptual ERD</h3>
+      <div class="meta">20 entities · 4 business areas · 1008×935</div>
+      <div class="desc">Conceptual level: business entities and their relationships — no attributes, no keys, no data types.</div>
+      <div class="thumb" data-full="./ERD_01_CONCEPTUAL_EN.png"><img src="./ERD_01_CONCEPTUAL_EN.svg" alt="ERD 1 · Conceptual ERD"></div>
+      <div class="links">
+        <a class="pri" href="./erd-01-conceptual_en.html">Open page</a>
+        <a href="./erd-01-conceptual_en.md">MD</a>
+        <a href="./ERD_01_CONCEPTUAL_EN.png" download>PNG</a>
+        <a href="./ERD_01_CONCEPTUAL_EN.svg" download>SVG</a>
+        <a href="./erd_01_conceptual_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <h3>ERD 2 · Logical ERD</h3>
+      <div class="meta">21 3NF relations · PK/FK · constraints · 2751×2645</div>
+      <div class="desc">Logical level: 3NF-normalised relations with attributes, primary keys, foreign keys and business rules.</div>
+      <div class="thumb" data-full="./ERD_02_LOGICAL_EN.png"><img src="./ERD_02_LOGICAL_EN.svg" alt="ERD 2 · Logical ERD"></div>
+      <div class="links">
+        <a class="pri" href="./erd-02-logical_en.html">Open page</a>
+        <a href="./erd-02-logical_en.md">MD</a>
+        <a href="./ERD_02_LOGICAL_EN.png" download>PNG</a>
+        <a href="./ERD_02_LOGICAL_EN.svg" download>SVG</a>
+        <a href="./erd_02_logical_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    <div class="card">
+      <h3>ERD 3 · Physical ERD</h3>
+      <div class="meta">21 Neon tables · Postgres types · indexes · CHECK · 3450×1877</div>
+      <div class="desc">Physical level: 1:1 with the live Neon schema — data types, UNIQUE, FK with ON DELETE rules, CHECK constraints.</div>
+      <div class="thumb" data-full="./ERD_03_PHYSICAL_EN.png"><img src="./ERD_03_PHYSICAL_EN.svg" alt="ERD 3 · Physical ERD"></div>
+      <div class="links">
+        <a class="pri" href="./erd-03-physical_en.html">Open page</a>
+        <a href="./erd-03-physical_en.md">MD</a>
+        <a href="./ERD_03_PHYSICAL_EN.png" download>PNG</a>
+        <a href="./ERD_03_PHYSICAL_EN.svg" download>SVG</a>
+        <a href="./erd_03_physical_en.puml" target="_blank">PUML</a>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section id="levels">
+    <div class="sec-head">
+      <h2>The three ERD levels</h2>
+    </div>
+    <table>
+      <thead><tr><th>Level</th><th>Scope</th><th>Question answered</th></tr></thead>
+      <tbody>
+      <tr><td><b>Conceptual</b></td><td>Business entities, relationships between them, cardinality</td><td><i>“Which things does the system store and how are they related?”</i></td></tr>
+      <tr><td><b>Logical</b></td><td>3NF-normalised relations, attributes, PK/FK, business rules</td><td><i>“How is the stored structure normalised?”</i></td></tr>
+      <tr><td><b>Physical</b></td><td>PostgreSQL data types, indexes, constraints, ON DELETE rules</td><td><i>“What does the real Neon schema look like?”</i></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="files">
+    <div class="sec-head">
+      <h2>Source files & how to use them</h2>
+    </div>
+    <table>
+      <thead><tr><th>File</th><th>Content</th><th>Used for</th></tr></thead>
+      <tbody>
+      <tr><td><code>docs/architecture/erd/erd_0*.puml</code></td><td>PlantUML source (self-contained, renders offline)</td><td>Regenerating the three ERD diagrams</td></tr>
+      <tr><td><code>docs/architecture/erd/ERD_*.svg</code></td><td>Vector image, infinitely scalable</td><td>Dropping into PowerPoint / slides</td></tr>
+      <tr><td><code>docs/architecture/erd/ERD_*.png</code></td><td>Full-resolution raster (rendered from the SVG)</td><td>Documents that need a raster image</td></tr>
+      <tr><td><code>docs/architecture/erd/erd-*.md</code></td><td>Markdown documentation with entity & constraint tables</td><td>Reading / printing the explanation</td></tr>
+      <tr><td><code>ops/tools/dump_neon_schema.py</code></td><td>Script that dumps the live Neon schema</td><td>Regenerating the physical level</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<div class="lb" id="lb">
+  <span class="close" id="lbClose">&times;</span>
+  <img id="lbImg" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+</div>
+
+<footer>AIVES &ndash; Member 5 deliverable &middot; ERD suite &middot; English version</footer>
+
+<script>
+  const lb = document.getElementById('lb'), lbImg = document.getElementById('lbImg');
+  document.querySelectorAll('.thumb').forEach(t => t.addEventListener('click', () => {
+    lbImg.src = t.dataset.full; lb.classList.add('on');
+  }));
+  lb.addEventListener('click', () => lb.classList.remove('on'));
+  document.getElementById('lbClose').addEventListener('click', () => lb.classList.remove('on'));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('on'); });
+</script>
+</body>
+</html>

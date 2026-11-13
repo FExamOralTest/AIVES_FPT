@@ -1,0 +1,128 @@
+@startuml SWIMLANE_02A_EXAM_DELIVERY_GRADING_EN
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2.5
+  FontSize 22
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 20
+  DiamondFontStyle bold
+  DiamondBorderThickness 2.5
+  ConditionFontSize 20
+  ConditionFontStyle bold
+  ArrowFontSize 22
+  ArrowFontStyle bold
+  ArrowThickness 3.0
+}
+skinparam ArrowFontSize 22
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 3.0
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #EAF1F7
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 22
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 28
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 22
+
+'==============================================================
+' AIVES - SWIMLANE 2A (PART 1 of 2): EXAM DELIVERY & AI GRADING (English)
+' Slide-sized slice: from "Start" until AI grading completes.
+' Source: AIVES SRS 07/11/2026 + backend/Aives.Api, ai-service
+'==============================================================
+title SWIMLANE 2A - EXAM DELIVERY & AI GRADING
+
+|STUDENT|
+:Open the Web / Flutter Windows client and sign in (JWT);
+:Select the session (Enrollment) and view the schedule;
+:Join with the Session Code;
+
+|Client (Web / Windows)|
+:Press "Start" -> POST /api/student/viva-sessions/{id}/start;
+
+|Backend / DB / Storage|
+:Check enrollment ownership, session status IN_PROGRESS\nand the slot time window (BR-11);
+if (Start preconditions satisfied?) then (No)
+  :Return 400/403 - "Session not open" / "Slot time not reached";
+  |Client (Web / Windows)|
+  :Show the message to the student, allow retry;
+  |STUDENT|
+  stop
+endif
+:Create the Result (PENDING_REVIEW) and return the current question;
+
+|Client (Web / Windows)|
+:Record audio (WAV 16 kHz mono) or type the answer;\nUpload audio via the chunked flow (init/chunk/complete);
+:POST /api/student/viva-sessions/{id}/submit-answer;
+
+|Backend / DB / Storage|
+:Store the Answer (Status = PROCESSING),\nupload the audio to R2 / local storage;
+
+|AI Service (FastAPI)|
+:STT - convert speech into a transcript\n(/ai/speech/transcribe-object);
+if (STT failed?) then (Error)
+  :Return error (EMPTY_AUDIO / TIMEOUT / INTERNAL_ERROR);
+  |Backend / DB / Storage|
+  :Keep the Answer, write the error into Answer.ErrorMessage;
+  |Client (Web / Windows)|
+  :Let the student re-answer or use the text fallback;
+  |STUDENT|
+else (Success)
+  |AI Service (FastAPI)|
+  :Generate a follow-up question if warranted;
+  |Backend / DB / Storage|
+  :Advance the question index; return the next question or follow-up;
+  |Client (Web / Windows)|
+  :Render the next question for the student;
+  |STUDENT|
+endif
+
+|STUDENT|
+:Answer the remaining questions in order;
+:Press "Finish" -> POST .../finish;
+
+|Backend / DB / Storage|
+:Persist the submission state first\n(AiEvaluationStatus = PENDING);
+if (Any answers submitted?) then (Yes)
+  :Enqueue SessionGradingJob into Hangfire\n(Queue "grading", distributed lock);
+  :Enrollment.Status = COMPLETED;
+  :Return "Submission recorded, grading pending";
+  |STUDENT|
+  :Confirm the submission;\nwait until the result is ready;
+else (No answers)
+  :AiEvaluationStatus = FAILED, return the error to the student;
+  |STUDENT|
+  :Submit again or wait for manual grading;
+endif
+
+|Hangfire Worker (Queue "grading")|
+:Run SessionGradingJob under a shared lock\n(one job at a time);
+
+|AI Service (FastAPI)|
+:POST /ai/evaluate/session - grade against the rubric\n(question, sample answer, rubric, keywords, LO, content);
+if (Result matches the contract?) then (Valid)
+  :Return per-question scores + criterion analysis\n+ overall feedback + study suggestions;
+else (Invalid / error)
+  :Return error_code (question_ids_mismatch, timeout...);
+  |Hangfire Worker (Queue "grading")|
+  :Retryable error -> retry with 30s/120s/300s backoff\n(up to 3 attempts);
+  if (Attempts exhausted?) then (Exhausted)
+    :MarkFailedAsync -> AiEvaluationStatus = FAILED,\nAnswer.Status = ERROR;
+    |Backend / DB / Storage|
+    :Record AiEvaluationError and the audit log;
+  else (Attempts left)
+    |AI Service (FastAPI)|
+  endif
+endif
+
+|Backend / DB / Storage|
+:Update Answer.AiScore / AiFeedback / AiAnalysis\nand Result.AiScore (still PENDING_REVIEW);
+stop
+
+@enduml

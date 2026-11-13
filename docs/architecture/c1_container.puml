@@ -1,30 +1,62 @@
 @startuml C1_Container
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
-title C1 - Container Diagram for AIVES (Async Audio & Worker Pipeline)
+title C1 - Container Diagram for AIVES (Async Audio, Queue & Multi-container)
 
 Person(user, "Users", "Student / Staff / Examiner / Admin")
 
 System_Boundary(aives_core, "AIVES Examination System") {
-    Container(web, "Web Application", "React SPA", "User interface for taking viva exams, management & audit review")
-    Container(backend, "Backend Web API", "ASP.NET Core 8", "Authentication, RBAC, session orchestration & S3 signed URL dispatch")
-    ContainerDb(queue, "Message Queue / Job Storage", "Hangfire / PostgreSQL", "Buffers asynchronous speech-to-text & evaluation tasks")
-    Container(ai_worker, "AI Worker & Inference Service", "Python FastAPI", "Processes Faster-Whisper STT & LLM rubric scoring")
-    ContainerDb(database, "Relational Database", "Neon PostgreSQL", "Stores users, RBAC, exams, answers (status, audio_url) & scores")
+    Container(web, "Web Application", "React 19 SPA + Nginx", "UI for the viva room, exam management and the examiner review portal.\nServes the static SPA and proxies /api + /uploads to the backend.")
+    Container(backend, "Backend Web API", "ASP.NET Core 8", "Authentication, RBAC, session orchestration and S3 signed URL dispatch.\nAlso hosts two Hangfire servers: aives-api-* (5 workers, queues default + answers)\nand aives-grading-* (1 worker, queue grading).")
+    ContainerDb(queue, "Message Queue / Job Storage", "Hangfire / PostgreSQL (schema: hangfire)", "Buffers asynchronous speech-to-text and evaluation tasks.\nPersists the job rows so a restart does not lose them.")
+    Container(ai_worker, "AI Worker and Inference Service", "Python FastAPI", "Processes Faster-Whisper STT, TTS and LLM rubric scoring.\nExposed only on the internal network - never published to the internet.")
+    ContainerDb(database, "Relational Database", "Neon PostgreSQL", "Stores users, RBAC, exams, answers (status, audio_url) and scores")
 }
 
 System_Ext(r2, "Cloudflare R2 Storage", "Object Storage (S3 API)", "Secure private bucket storing student audio answers")
-System_Ext(cloud_ai, "Cloud AI Provider", "Gemini / OpenAI API", "Generates rubric scoring & constructive feedback")
+System_Ext(cloud_ai, "Cloud AI Provider", "Gemini / OpenAI API", "Generates rubric scoring and constructive feedback")
 
 Rel(user, web, "Interacts via HTTPS")
-Rel(web, backend, "Dispatches REST API & WebSockets")
-Rel(backend, database, "Reads & Writes domain entities")
-Rel(backend, r2, "Uploads audio recordings & issues presigned URLs")
-Rel(backend, queue, "Enqueues scoring & STT jobs")
+Rel(web, backend, "REST API over HTTPS (JWT Bearer)\nnginx proxies /api and /uploads")
+Rel(backend, database, "Reads and writes domain entities")
+Rel(backend, r2, "Uploads audio recordings and issues presigned URLs")
+Rel(backend, queue, "Enqueues scoring and STT jobs")
 Rel(queue, ai_worker, "Delivers processing jobs")
 Rel(ai_worker, r2, "Fetches student audio files for transcription")
 Rel(ai_worker, cloud_ai, "Invokes LLM for rubric evaluation")
-Rel(ai_worker, database, "Updates transcripts, scores & review status")
+Rel(ai_worker, database, "Updates transcripts, scores and review status")
 Rel(web, r2, "Examiner streams audio via Presigned GET URLs")
+
+note bottom of backend
+  Multi-container (docker compose):
+  - frontend: Nginx serving the SPA on :80
+  - backend: ASP.NET Core 8, listens on :8080
+  - ai-service: FastAPI / uvicorn, listens on :8000
+  - postgres: PostgreSQL 16 (profile: local-db)
+  Internal DNS: backend calls ai-service via
+  http://ai-service:8000 and the AI service calls
+  back via http://backend:8080.
+end note
+
+note bottom of queue
+  Hangfire queue:
+  - Job rows stored in PostgreSQL schema "hangfire"
+  - QueuePollInterval = 2s, InvisibilityTimeout = 10m
+  - Retry backoff 30s -> 120s -> 300s,
+    MaxTotalAttempts = 3 (BR-17)
+  - attempts.attempt_count is the source of truth
+end note
+
+note bottom of ai_worker
+  Internal-only protocol:
+  every Backend to AI request carries
+  the header X-Internal-Token
+  (shared AI__ApiKey / AI_SERVICE_SECRET_KEY).
+  Endpoints live under the /ai prefix:
+  /ai/speech/transcribe, /ai/speech/transcribe-object,
+  /ai/speech/synthesize, /ai/evaluate/session,
+  /ai/interview/follow-up.
+  Timeout = 300s (AI__TimeoutSeconds).
+end note
 
 @enduml

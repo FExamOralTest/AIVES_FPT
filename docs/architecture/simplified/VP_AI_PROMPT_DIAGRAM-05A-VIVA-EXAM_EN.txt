@@ -1,0 +1,54 @@
+Create a Sequence Diagram in Visual Paradigm that follows this exact specification.
+Title: "Live Viva Exam (AIVES)"
+
+LIFELINES (left to right, in exactly this order):
+1. Student  —  stick figure (actor)
+2. Web App  —  participant box
+3. Backend API (ASP.NET Core)  —  participant box
+4. DB  —  database cylinder
+5. Cloudflare R2  —  participant box
+6. AI Engine (FastAPI)  —  participant box
+
+PHASES / DIVIDERS (use them as dividers, in this order):
+- Start the viva
+- Answer (repeat for each question)
+- Finish
+
+MESSAGES (number them exactly as below; -> = synchronous call, --> = reply/return):
+1. Student -> Web App : Open viva room
+2. Web App -> Backend API (ASP.NET Core) : Start session
+3. Backend API (ASP.NET Core) -> DB : Load session + enrollment
+4. DB --> Backend API (ASP.NET Core) : Session + first question
+5. Backend API (ASP.NET Core) --> Web App : First question
+6. Web App --> Student : Show question
+7. Student -> Web App : Record answer (audio)
+8. Web App -> Backend API (ASP.NET Core) : Init chunked upload
+9. Backend API (ASP.NET Core) --> Web App : uploadId
+10. Web App -> Backend API (ASP.NET Core) : Upload audio chunks
+11. Backend API (ASP.NET Core) -> Cloudflare R2 : Store audio object
+12. Backend API (ASP.NET Core) --> Web App : Upload completed (objectKey)
+13. Web App -> Backend API (ASP.NET Core) : Submit answer (uploadId)
+14. Backend API (ASP.NET Core) -> AI Engine (FastAPI) : Transcribe speech + generate follow-up
+15. AI Engine (FastAPI) --> Backend API (ASP.NET Core) : Transcript + next question
+16. Backend API (ASP.NET Core) -> DB : Save answer (PROCESSING) + result (PENDING_REVIEW)
+17. Backend API (ASP.NET Core) --> Web App : Feedback + next question
+18. Web App --> Student : Show feedback + next question
+19. Student -> Web App : Finish the viva
+20. Web App -> Backend API (ASP.NET Core) : Finish session
+21. Backend API (ASP.NET Core) -> DB : Status = COMPLETED + queue grading job
+22. Backend API (ASP.NET Core) --> Web App : Submitted
+23. Web App --> Student : Submitted
+
+NOTE (attach it over the first and the last lifeline of the note):
+- AI Engine (FastAPI) .. Cloudflare R2: The AI may ask a follow-up after every answer, depending on the rubric of the session.
+- Backend API (ASP.NET Core) .. AI Engine (FastAPI): Internal Backend - AI protocol: POST /ai/speech/transcribe-object and POST /ai/interview/follow-up, header X-Internal-Token (= AI_SERVICE_SECRET_KEY), base URL http://ai-service:8000, timeout 300s.
+
+STYLING (match the Visual Paradigm look):
+- Participant boxes: light blue fill #DAE8FC, border #4A7EBB, 1.6 px, bold dark-blue text #1F3864, font size 15.
+- Life lines: thin DASHED vertical guide, color #6C8EBF, 1.4 px.
+- Message arrows: dark gray #333333, 1.6 px; solid for calls, dashed for replies.
+- Prefix every message with its number, e.g. '1: Open viva room'.
+- Title at the top, bold, 20 pt, color #1F3864.
+- Keep the layout compact so it fits one presentation slide.
+
+Do not add any extra lifeline or message. If you need to ask something, keep it short and keep the spec intact.

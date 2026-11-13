@@ -1,0 +1,54 @@
+Hãy tạo một Sequence Diagram trong Visual Paradigm theo đúng đặc tả sau.
+Tiêu đề: "Live Viva Exam (AIVES)"
+
+LIFELINE (đặt từ trái sang phải, đúng thứ tự này):
+1. Sinh viên  —  hình người (actor)
+2. Web App  —  khối participant
+3. Backend API (ASP.NET Core)  —  khối participant
+4. DB  —  hình trụ database
+5. Cloudflare R2  —  khối participant
+6. AI Engine (FastAPI)  —  khối participant
+
+PHASE / DIVIDER (dùng làm divider, đặt theo thứ tự):
+- Bắt đầu ca thi
+- Trả lời (lặp lại mỗi câu)
+- Kết thúc
+
+MESSAGE (đánh số đúng như dưới đây; -> = call đồng bộ, --> = reply/return):
+1. Sinh viên -> Web App : Mở phòng thi
+2. Web App -> Backend API (ASP.NET Core) : Bắt đầu session
+3. Backend API (ASP.NET Core) -> DB : Lấy session + enrollment
+4. DB --> Backend API (ASP.NET Core) : Session + câu hỏi đầu tiên
+5. Backend API (ASP.NET Core) --> Web App : Câu hỏi đầu tiên
+6. Web App --> Sinh viên : Hiển thị câu hỏi
+7. Sinh viên -> Web App : Ghi âm câu trả lời
+8. Web App -> Backend API (ASP.NET Core) : Khởi tạo upload chunked
+9. Backend API (ASP.NET Core) --> Web App : uploadId
+10. Web App -> Backend API (ASP.NET Core) : Upload các chunk audio
+11. Backend API (ASP.NET Core) -> Cloudflare R2 : Lưu object audio
+12. Backend API (ASP.NET Core) --> Web App : Upload hoàn tất (objectKey)
+13. Web App -> Backend API (ASP.NET Core) : Nộp câu trả lời (uploadId)
+14. Backend API (ASP.NET Core) -> AI Engine (FastAPI) : Chuyển giọng nói + sinh câu hỏi tiếp theo
+15. AI Engine (FastAPI) --> Backend API (ASP.NET Core) : Transcript + câu hỏi tiếp theo
+16. Backend API (ASP.NET Core) -> DB : Lưu câu trả lời (PROCESSING) + result (PENDING_REVIEW)
+17. Backend API (ASP.NET Core) --> Web App : Feedback + câu hỏi tiếp theo
+18. Web App --> Sinh viên : Hiển thị feedback + câu hỏi tiếp theo
+19. Sinh viên -> Web App : Kết thúc bài thi
+20. Web App -> Backend API (ASP.NET Core) : Finish session
+21. Backend API (ASP.NET Core) -> DB : Status = COMPLETED + xếp hàng job chấm điểm
+22. Backend API (ASP.NET Core) --> Web App : Đã nộp bài
+23. Web App --> Sinh viên : Đã nộp bài
+
+NOTE (đặt trên lifeline đầu và cuối trong mục note):
+- AI Engine (FastAPI) .. Cloudflare R2: AI có thể hỏi follow-up sau mỗi câu trả lời, tuỳ theo rubric của ca thi.
+- Backend API (ASP.NET Core) .. AI Engine (FastAPI): Giao thức nội bộ Backend - AI: POST /ai/speech/transcribe-object và POST /ai/interview/follow-up, header X-Internal-Token (= AI_SERVICE_SECRET_KEY), base URL http://ai-service:8000, timeout 300s.
+
+STYLE (bắt chước style Visual Paradigm):
+- Khối participant: nền xanh nhạt #DAE8FC, viền #4A7EBB 1.6 px, chữ xanh đậm #1F3864 đậm, cỡ 15.
+- Lifeline: nét đứt mảnh làm đường dẫn, màu #6C8EBF, 1.4 px.
+- Mũi tên message: xám đậm #333333, 1.6 px; call vẽ liền, reply vẽ đứt.
+- Mỗi message có số thứ tự ở đầu, ví dụ '1: Mở phòng thi'.
+- Tiêu đề đặt trên cùng, đậm, 20 pt, màu #1F3864.
+- Bố cục gọn để vừa 1 slide thuyết trình.
+
+Không vẽ thêm lifeline hay message nào khác. Nếu hỏi thêm, chỉ trả lời ngắn gọn và giữ nguyên đặc tả.
