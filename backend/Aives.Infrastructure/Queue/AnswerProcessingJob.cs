@@ -37,6 +37,13 @@ namespace Aives.Infrastructure.Queue;
     OnlyOn = new[] { typeof(AnswerProcessingJob.RetryableJobException) })]
 public class AnswerProcessingJob : IAnswerProcessingJob
 {
+    /// <summary>
+    /// Queue riêng cho job STT + evaluation của từng answer. Program.cs đăng ký
+    /// Hangfire server cho queue này; tách khỏi <c>grading</c> để bài đang chấm
+    /// tuần tự không chặn việc xử lý audio mới.
+    /// </summary>
+    public const string QueueName = "answers";
+
     private readonly IAnswerOrchestrator _orchestrator;
     private readonly IAnswerRepository _answerRepository;
     private readonly ILogger<AnswerProcessingJob> _logger;
@@ -51,6 +58,7 @@ public class AnswerProcessingJob : IAnswerProcessingJob
         _logger = logger;
     }
 
+    [Queue(QueueName)]
     public async Task ExecuteAsync(QueueJobMetadata metadata, CancellationToken cancellationToken)
     {
         // Task 1.4 — validate metadata theo Queue Job Contract.
@@ -64,6 +72,55 @@ public class AnswerProcessingJob : IAnswerProcessingJob
                 "AnswerProcessingJob aborted: invalid job metadata for AnswerId={AnswerId}. Error={Error}",
                 metadata?.AnswerId, contractError);
             throw new NonRetryableJobException($"Invalid job metadata: {contractError}");
+        }
+
+        // Task 2 — chống nhầm sinh viên khi nhiều bài nộp đồng thời.
+        // Metadata được tạo ở call site với StudentId/SessionId của chủ sở hữu.
+        // Trước khi chạm attempt counter/pipeline, đối chiếu với DB. Job cũ không có
+        // ownership (cả 2 field null) được bỏ qua bước này để tương thích ngược.
+        if (metadata.StudentId.HasValue || metadata.SessionId.HasValue)
+        {
+            var ownedAnswer = await _answerRepository.GetByIdWithDetailsAsync(
+                metadata.AnswerId, cancellationToken);
+
+            if (ownedAnswer?.Result is null)
+            {
+                metadata.Status = QueueJobStatus.DeadLetter;
+                metadata.LastError = "Answer ownership could not be resolved.";
+                _logger.LogError(
+                    "AnswerProcessingJob aborted: cannot resolve owner for AnswerId={AnswerId}.",
+                    metadata.AnswerId);
+                throw new NonRetryableJobException(
+                    $"Answer {metadata.AnswerId} ownership could not be resolved.");
+            }
+
+            var ownerStudentId = ownedAnswer.Result.StudentId;
+            var ownerSessionId = ownedAnswer.Result.SessionId;
+            var ownershipError =
+                metadata.StudentId != ownerStudentId
+                    ? $"Ownership mismatch: job StudentId={metadata.StudentId} but Answer {metadata.AnswerId} belongs to StudentId={ownerStudentId}."
+                    : metadata.SessionId != ownerSessionId
+                        ? $"Ownership mismatch: job SessionId={metadata.SessionId} but Answer {metadata.AnswerId} belongs to SessionId={ownerSessionId}."
+                        : metadata.ResultId is int expectedResultId && expectedResultId != ownedAnswer.ResultId
+                            ? $"Ownership mismatch: job ResultId={expectedResultId} but Answer {metadata.AnswerId} belongs to ResultId={ownedAnswer.ResultId}."
+                            : null;
+
+            if (ownershipError != null)
+            {
+                // KHÔNG MarkFailedAsync: answer trong DB vẫn hợp lệ và thuộc về sinh viên khác.
+                // Chỉ job metadata sai bị dead-letter; bài của sinh viên đúng không bị ảnh hưởng.
+                metadata.Status = QueueJobStatus.DeadLetter;
+                metadata.LastError = ownershipError;
+                _logger.LogError(
+                    "AnswerProcessingJob dead-lettered (ownership): AnswerId={AnswerId}, JobId={JobId}, Error={Error}",
+                    metadata.AnswerId, metadata.JobId, ownershipError);
+                throw new NonRetryableJobException(ownershipError);
+            }
+
+            // Đồng bộ lại metadata để log/dashboard luôn hiển thị đúng chủ sở hữu.
+            metadata.StudentId = ownerStudentId;
+            metadata.SessionId = ownerSessionId;
+            metadata.ResultId ??= ownedAnswer.ResultId;
         }
 
         // 1. Increase the attempt counter in the database — the single source of truth (BR-17).

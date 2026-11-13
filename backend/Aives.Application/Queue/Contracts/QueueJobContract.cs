@@ -12,6 +12,9 @@ namespace Aives.Application.Queue.Contracts;
 ///         <c>answers.job_id</c> để tra cứu job không chỉ từ Hangfire dashboard.</item>
 ///   <item><c>answerId</c> — PK của <c>Answer</c>. Bắt buộc > 0.</item>
 ///   <item><c>resultId</c> — PK của <c>Result</c>. Có thể null (chưa tạo row result).</item>
+///   <item><c>studentId</c> / <c>sessionId</c> — chủ sở hữu của answer. Worker đối chiếu
+///         với DB trước khi chạy pipeline để không xử lý nhầm sinh viên khi có nhiều
+///         bài nộp đồng thời. Nullable cho job cũ; nếu có thì phải có đủ cả cặp.</item>
 ///   <item><c>objectKey</c> — key audio trong R2. Bắt buộc khi xử lý qua đường STT;
 ///         rỗng khi answer chỉ có text.</item>
 ///   <item><c>attempt</c> — <b>KHÔNG phải</b> nguồn sự thật. Hangfire serialize lại metadata
@@ -73,6 +76,26 @@ public static class QueueJobContract
         if (metadata.ResultId is <= 0)
         {
             error = "Queue job metadata ResultId must be positive when provided.";
+            return false;
+        }
+
+        if (metadata.StudentId is <= 0)
+        {
+            error = "Queue job metadata StudentId must be positive when provided.";
+            return false;
+        }
+
+        if (metadata.SessionId is <= 0)
+        {
+            error = "Queue job metadata SessionId must be positive when provided.";
+            return false;
+        }
+
+        // Ownership là một cặp (student, session). Chỉ có một nửa nghĩa là call site
+        // đã quên truyền → worker không thể đối chiếu đầy đủ → reject ngay.
+        if (metadata.StudentId.HasValue != metadata.SessionId.HasValue)
+        {
+            error = "Queue job metadata must provide both StudentId and SessionId, or neither.";
             return false;
         }
 
@@ -163,12 +186,22 @@ public static class QueueJobContract
     /// <param name="resultId">PK của Result (có thể null).</param>
     /// <param name="objectKey">Key audio trong R2 (có thể rỗng nếu answer chỉ có text).</param>
     /// <param name="attempt">Lần thử tiếp theo (1-based).</param>
-    public static QueueJobMetadata Create(int answerId, int? resultId, string? objectKey, int attempt)
+    /// <param name="studentId">PK sinh viên sở hữu answer (khuyến nghị luôn truyền).</param>
+    /// <param name="sessionId">PK ca thi sở hữu answer (khuyến nghị luôn truyền).</param>
+    public static QueueJobMetadata Create(
+        int answerId,
+        int? resultId,
+        string? objectKey,
+        int attempt,
+        int? studentId = null,
+        int? sessionId = null)
     {
         var metadata = new QueueJobMetadata
         {
             AnswerId = answerId,
             ResultId = resultId,
+            StudentId = studentId,
+            SessionId = sessionId,
             ObjectKey = objectKey ?? string.Empty,
             Attempt = attempt < 1 ? 1 : attempt,
             Status = QueueJobStatus.Pending,

@@ -1,4 +1,5 @@
 using Aives.Application.Queue.Contracts;
+using Aives.Application.Queue.DTOs;
 
 namespace Aives.Application.Queue.Interfaces;
 
@@ -39,4 +40,16 @@ public interface IQueueService
     /// Kiểm tra bài thi đã có job chấm đang chờ, đang retry hoặc đang chạy hay chưa.
     /// </summary>
     bool HasPendingSessionGrading(int resultId);
+
+    /// <summary>
+    /// Đọc trạng thái hiện tại của một job từ Hangfire monitoring API.
+    /// Trả về null nếu job không tồn tại (đã hết hạn lưu trữ hoặc JobId không hợp lệ).
+    /// </summary>
+    QueueJobStateDto? GetJobState(string jobId);
+
+    /// <summary>
+    /// Tìm job chấm bài đang chờ/đang chạy của một Result và trả về trạng thái của nó.
+    /// Trả về null khi không còn job nào trong queue (bài đã chấm xong hoặc chưa từng được xếp).
+    /// </summary>
+    QueueJobStateDto? GetSessionGradingState(int resultId);
 }
