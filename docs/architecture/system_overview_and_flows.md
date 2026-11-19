@@ -557,7 +557,7 @@ stateDiagram-v2
 
 ### 🎯 Giai đoạn 2: Tích hợp Cloudflare R2 Object Storage
 1. **Thiết lập trên Cloudflare Dashboard**:
-   * Tạo Bucket: `aives-exam-audios` (chế độ Private).
+   * Tạo Bucket: `aives-media-bucket` (chế độ Private).
    * Cấu hình CORS cho phép origin frontend (`http://localhost:5173` và domain staging).
    * Tạo API Token với quyền `Object Read & Write`.
 2. **Cài đặt thư viện & Service trong Backend (.NET)**:

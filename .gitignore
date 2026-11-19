@@ -68,3 +68,28 @@ Thumbs.db
 
 # ===== Local temporary checks, previews, and generated artifacts =====
 /tmp/
+
+# ===== Monitoring / Load-test artifacts =====
+# Log k6 console rat lon (vai MB moi luot) -> khong commit.
+monitoring/results/**/k6-console-*.log
+monitoring/results/last-run.log
+# Bang tong hop CSV sinh tu dong -> regenerate bang summarize-nginx-results.py
+monitoring/results/nginx-summary.csv
+# Grafana / Prometheus data volume
+monitoring/grafana-data/
+monitoring/prometheus-data/
+
+# ===== Local runtime logs =====
+backend/Aives.Api/run.log
+backend/Aives.Api/run-https.log
+
+# ===== Local diagram tooling (PlantUML jar, tu download) =====
+ops/tools/
+ops/_docx_text.txt
+ops/_extract_docx.py
+ops/_srs_text.txt
+ops/_apply_skin.py
+ops/_svg2png.py
+docs/architecture/simplified/_check_links.py
+docs/architecture/simplified/_build_simplified_html.py
+docs/architecture/_validate_html.py

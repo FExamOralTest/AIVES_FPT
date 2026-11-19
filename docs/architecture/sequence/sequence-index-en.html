@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIVES – Sequence Diagram Index</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, Arial, sans-serif; background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:28px; }
+  header h1 { margin:0 0 8px; font-size:26px; }
+  header p { margin:0; opacity:.85; font-size:14px; }
+  .switch { padding:12px 28px; background:#e8eef3; font-size:14px; border-bottom:1px solid #d3dce3; }
+  .switch a { color:#0f3d5c; font-weight:600; text-decoration:none; margin-right:18px; }
+  main { padding:24px 28px 60px; max-width:1200px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:18px; display:flex; flex-direction:column; }
+  .card h2 { margin:0 0 6px; font-size:17px; color:#0f3d5c; }
+  .card .meta { font-size:12.5px; color:#5b6b7a; margin-bottom:12px; }
+  .card .thumb { width:100%; height:240px; overflow:hidden; border:1px solid #eceff2; border-radius:6px;
+                   background:#fbfcfd; display:flex; align-items:flex-start; justify-content:center; }
+  .card .thumb img { width:100%; height:240px; object-fit:contain; display:block; }
+  .card .links { margin-top:12px; font-size:13px; }
+  .card .links a { color:#0f3d5c; margin-right:12px; font-weight:600; text-decoration:none; }
+  .card .links a:hover { text-decoration:underline; }
+  h3.sec { margin:32px 0 14px; font-size:18px; color:#0f3d5c; border-bottom:2px solid #dbe3ea; padding-bottom:8px; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AIVES – Sequence Diagram Index</h1>
+  <p>Member 5 · English version</p>
+</header>
+<div class="switch">
+  <a href="./sequence-index.html">Vietnamese version →</a>
+  <a href="./sequence-index.md">Markdown index</a>
+  <a href="../swimlane-index.html">&#127912; Swimlane set</a>
+  <a href="../erd/erd-index.html">&#128202; ERD set</a>
+  <a href="../all-diagrams-en.html">&#128196; All on one page</a>
+</div>
+<main>
+  <h3 class="sec">Diagrams</h3>
+  <div class="grid">
+    <div class="card">
+      <h2>SEQ 1-EN · Viva Exam Flow</h2>
+      <div class="meta">3 phases · 8 participants · 2293×2837</div>
+      <div class="thumb"><img src="./SEQ_01_VIVA_FLOW_EN.svg" alt="SEQ 1-EN · Viva Exam Flow"></div>
+      <div class="links">
+        <a href="./seq-01-viva-flow_en.html">Open page</a>
+        <a href="./seq-01-viva-flow_en.md">Markdown</a>
+        <a href="./SEQ_01_VIVA_FLOW_EN.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>SEQ 2-EN · AI Grading</h2>
+      <div class="meta">5 phases · 7 participants · 2320×2021</div>
+      <div class="thumb"><img src="./SEQ_02_GRADING_EN.svg" alt="SEQ 2-EN · AI Grading"></div>
+      <div class="links">
+        <a href="./seq-02-grading_en.html">Open page</a>
+        <a href="./seq-02-grading_en.md">Markdown</a>
+        <a href="./SEQ_02_GRADING_EN.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>SEQ 3-EN · Review, Publish & Result View</h2>
+      <div class="meta">6 phases · 7 participants · 2159×3285</div>
+      <div class="thumb"><img src="./SEQ_03_REVIEW_PUBLISH_EN.svg" alt="SEQ 3-EN · Review, Publish & Result View"></div>
+      <div class="links">
+        <a href="./seq-03-review-publish_en.html">Open page</a>
+        <a href="./seq-03-review-publish_en.md">Markdown</a>
+        <a href="./SEQ_03_REVIEW_PUBLISH_EN.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>SEQ 4-EN · Preparation & Exam Scheduling</h2>
+      <div class="meta">7 phases · 9 participants · 1959×2606</div>
+      <div class="thumb"><img src="./SEQ_04_ADMIN_PREP_EN.svg" alt="SEQ 4-EN · Preparation & Exam Scheduling"></div>
+      <div class="links">
+        <a href="./seq-04-admin-prep_en.html">Open page</a>
+        <a href="./seq-04-admin-prep_en.md">Markdown</a>
+        <a href="./SEQ_04_ADMIN_PREP_EN.svg">SVG</a>
+      </div>
+    </div>
+  </div>
+  <h3 class="sec">Every participant in the system</h3>
+  <table>
+    <thead><tr><th>Participant</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Student</strong></td><td>Takes the exam, records, submits, views the score after publication</td></tr>
+      <tr><td><strong>Staff</strong></td><td>Uploads material, approves AI questions, schedules the session, enrols students</td></tr>
+      <tr><td><strong>Examiner</strong></td><td>Reviews evidence, grades officially, publishes, handles incidents</td></tr>
+      <tr><td><strong>Admin</strong></td><td>Manages accounts, courses, teacher allocation</td></tr>
+      <tr><td><strong>Web SPA</strong></td><td>The web / Windows client front end</td></tr>
+      <tr><td><strong>Backend API (ASP.NET Core)</strong></td><td>Controller + Service + Hangfire worker + audit log</td></tr>
+      <tr><td><strong>AI Service (FastAPI)</strong></td><td>Question generation, STT, follow-up generation, LLM rubric grading</td></tr>
+      <tr><td><strong>Cloudflare R2</strong></td><td>Stores & serves the audio files through presigned URLs</td></tr>
+      <tr><td><strong>PostgreSQL (Neon)</strong></td><td>The single system of record</td></tr>
+    </tbody>
+  </table>
+  <h3 class="sec">Error branches summary</h3>
+  <table>
+    <thead><tr><th>Error branch</th><th>Condition</th><th>Handling</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Start preconditions not met</strong></td><td><code>BR-11</code></td><td>400/403 + message, the student retries</td></tr>
+      <tr><td><strong>STT failure</strong></td><td><code>FR-AI-03</code></td><td>EMPTY_AUDIO / TIMEOUT / INTERNAL_ERROR → fall back to TextAnswer</td></tr>
+      <tr><td><strong>Follow-up generation failure</strong></td><td><code>FR-AI-02</code></td><td>Skip the follow-up, still persist the Answer</td></tr>
+      <tr><td><strong>AI grading failed (retryable)</strong></td><td><code>BR-15</code></td><td>Hangfire retries 30s → 120s → 300s, up to 3 attempts</td></tr>
+      <tr><td><strong>AI grading failed (non-retryable)</strong></td><td><code>FR-AI-02</code></td><td>Answer.Status = ERROR, Result = FAILED, audit log written</td></tr>
+      <tr><td><strong>AI returned the wrong number of analyses</strong></td><td><code>BR-15</code></td><td>question_ids_mismatch → fails immediately, no retry</td></tr>
+      <tr><td><strong>Publish before review</strong></td><td><code>BR-10</code></td><td>409 Conflict, the examiner reviews again first</td></tr>
+      <tr><td><strong>Re-grade one answer / grant a retake</strong></td><td><code>FR-EXA-05/06</code></td><td>RetryAnswerJob or a new Session, history preserved</td></tr>
+    </tbody>
+  </table>
+</main>
+<footer>AIVES &ndash; Member 5 deliverable &middot; sequence diagrams</footer>
+</body>
+</html>

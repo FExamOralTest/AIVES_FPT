@@ -1,0 +1,152 @@
+@startuml SEQ_02_GRADING_EN
+'==============================================================
+' AIVES - SEQUENCE DIAGRAM 2: AI GRADING (English)
+' Source: backend/Aives.Infrastructure/Queue/SessionGradingJob.cs
+'         backend/Aives.Application/Viva/Services/SessionGradingService.cs
+'         backend/Aives.Infrastructure/AI/AiServiceClient.cs
+'         backend/Aives.Application/Queue/Contracts/QueueLimits.cs
+'         backend/Aives.Api/Program.cs (Hangfire wiring)
+'==============================================================
+title SEQUENCE 2 - AI GRADING & QUEUE
+
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #1F3B52
+  ArrowThickness 2.5
+  LifeLineBorderColor #1F3B52
+  LifeLineBackgroundColor #F7FAFC
+  LifeLineThickness 2
+  ParticipantBackgroundColor #EAF1F7
+  ParticipantBorderColor #1F3B52
+  ParticipantBorderThickness 2
+  ParticipantFontSize 20
+  ParticipantFontStyle bold
+  ParticipantPadding 14
+  ActorBackgroundColor #EAF1F7
+  ActorBorderColor #1F3B52
+  ActorBorderThickness 2
+  ActorFontSize 20
+  ActorFontStyle bold
+  DatabaseBackgroundColor #E8F1E9
+  DatabaseBorderColor #1F3B52
+  DatabaseFontSize 19
+  DatabaseFontStyle bold
+  GroupBackgroundColor #EAF1F7
+  GroupBorderColor #1F3B52
+  GroupFontSize 20
+  GroupFontStyle bold
+  NoteBackgroundColor #FFF3CD
+  NoteBorderColor #B8860B
+  NoteFontSize 18
+  NoteFontStyle bold
+  NoteBorderThickness 2
+  BoxPadding 10
+  DividerBackgroundColor #1F3B52
+  DividerFontSize 18
+}
+skinparam titleFontSize 26
+skinparam titleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 18
+
+autonumber
+
+participant "Hangfire Worker\n(queue: grading)" as Worker
+participant "SessionGradingLock\n(distributed lock)" as Lock
+participant "SessionGradingJob" as Job
+participant "SessionGradingService" as Svc
+participant "AI Service\n(FastAPI)" as AI
+participant "LLM Provider\n(Gemini / OpenAI)" as LLM
+database "PostgreSQL\n(Neon)\nschema: hangfire" as DB
+
+note over Worker, DB
+  **HANGFIRE QUEUE (BR-17)**
+  Storage: PostgreSQL schema `hangfire`
+  (QueuePollInterval = 2s, InvisibilityTimeout = 10m)
+  Two servers run inside the backend:
+  - `aives-api-*`: 5 workers, queues `default` + `answers`
+    (runs AnswerProcessingJob - STT)
+  - `aives-grading-*`: 1 worker, queue `grading`
+    (runs SessionGradingJob - grading)
+end note
+
+== Phase 1: The worker picks up the job ==
+
+Worker -> Lock: AcquireDistributedLock("aives:session-grading")
+activate Lock
+Lock --> Worker: Lock acquired (12h timeout)
+Worker -> Job: ExecuteAsync(resultId, PerformContext)
+activate Job
+Job -> Job: ResolveAttempt(context) -> attempt (1..3)
+Job -> Svc: GradeAsync(resultId, finalAttempt)
+activate Svc
+
+== Phase 2: Collect the grading context ==
+
+Svc -> DB: SELECT Result + Answers + Questions + Rubric
+DB --> Svc: Result (PENDING_REVIEW), Answer list
+Svc -> DB: SELECT Documents by Course (CONTENT + LEARNING_OUTCOMES)
+DB --> Svc: Document content (markdown)
+
+note right of Svc
+  EvaluateSessionRequest:
+  - examSessionId, studentId, courseName
+  - documents[] (course_content / learning_outcomes)
+  - questionAnswers[]: question, studentAnswer,
+    sampleAnswer, rubric[], expectedKeywords, maxScore
+end note
+
+== Phase 3: AI grades against the rubric ==
+
+Svc -> AI: POST /ai/evaluate/session\nX-Internal-Token: <AI__ApiKey>
+activate AI
+AI -> LLM: Prompt: question + rubric + answer + documents
+activate LLM
+LLM --> AI: Per-criterion rubric analysis
+deactivate LLM
+AI --> Svc: questionScores[] + overallFeedback + provider/model
+deactivate AI
+
+note right of AI
+  Internal Backend - AI protocol:
+  - Base URL: http://ai-service:8000 (Docker DNS)
+  - Header: X-Internal-Token = AI_SERVICE_SECRET_KEY
+  - Timeout: 300s (AI__TimeoutSeconds)
+  - Retryable errors: timeout | connection_error |
+    internal_error | http_error
+  - Non-retryable errors: invalid_response |
+    evaluation_failed | http_client_error
+end note
+
+== Phase 4: Persist the AI score ==
+
+Svc -> Svc: Verify questionScores.Count == Answer count\n(else "question_ids_mismatch")
+Svc -> Svc: rubricScore = SUM(awardedScore)\nMaxScore = SUM(rubric.MaxScore)\nScore = Scale(rubricScore, rubricMax, questionPercent)
+Svc -> DB: UPDATE Answer (AiScore, AiFeedback,\nStatus=EVALUATED, AiAnalysis JSON)
+Svc -> DB: UPDATE Result (AiScore, AiFeedback, AiAnalysis)
+Svc --> Job: SessionGradingResult { Success = true }
+deactivate Svc
+Job -> Lock: Release lock
+deactivate Lock
+deactivate Job
+
+== Phase 5: Failures & retry handling ==
+
+alt AI failed - retryable error
+  Svc --> Job: Success=false, ErrorCode=timeout|rate_limit
+  Job -> Job: throw RetryableJobException
+  note right of Job
+    Hangfire retries automatically:
+    30s -> 120s -> 300s
+    up to 3 attempts (MaxTotalAttempts)
+    Attempt counter: answers.attempt_count
+  end note
+  Job -> Worker: Job goes back to the "grading" queue
+else AI failed - non-retryable error
+  Svc --> Job: Success=false, ErrorCode=invalid_response
+  Job -> Svc: MarkFailedAsync(resultId, message)
+  Svc -> DB: UPDATE Answer (Status=ERROR) + Result (FAILED)\n+ AuditLog
+  Job -> Job: throw NonRetryableJobException
+end
+
+@enduml

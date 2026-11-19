@@ -1,4 +1,5 @@
 using Aives.Application.Queue.Contracts;
+using Aives.Application.Queue.DTOs;
 using Aives.Application.Queue.Interfaces;
 using Aives.Domain.Entities;
 
@@ -45,4 +46,29 @@ internal class FakeQueueService : IQueueService
 
     public bool HasPendingSessionGrading(int resultId) =>
         EnqueuedSessionGradings.Contains(resultId);
+
+    public QueueJobStateDto? GetJobState(string jobId)
+    {
+        var metadata = EnqueuedJobs.FirstOrDefault(job => job.JobId == jobId);
+        return metadata == null
+            ? null
+            : new QueueJobStateDto
+            {
+                JobId = jobId,
+                State = "Enqueued",
+                Status = QueueJobStatus.Pending,
+                JobType = nameof(QueueJobMetadata)
+            };
+    }
+
+    public QueueJobStateDto? GetSessionGradingState(int resultId) =>
+        EnqueuedSessionGradings.Contains(resultId)
+            ? new QueueJobStateDto
+            {
+                JobId = $"grade-{resultId}",
+                State = "Enqueued",
+                Status = QueueJobStatus.Pending,
+                JobType = "SessionGradingJob"
+            }
+            : null;
 }

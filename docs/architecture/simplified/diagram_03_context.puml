@@ -1,0 +1,74 @@
+@startuml DIAGRAM_03_CONTEXT
+'==============================================================
+' AIVES - SYSTEM CONTEXT DIAGRAM (ban rut gon cho thuyet trinh)
+' Ve ranh gioi he thong + 4 actors + 3 he thong ben ngoai
+' Nguon: AIVES SRS 07/11/2026 + backend/Aives.Api
+'==============================================================
+title DIAGRAM 3 - SYSTEM CONTEXT DIAGRAM (AIVES)
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 17
+skinparam ArrowColor #1F3B52
+skinparam ArrowThickness 2.5
+skinparam ArrowFontSize 17
+skinparam ArrowFontStyle bold
+skinparam componentStyle rectangle
+skinparam node {
+  BackgroundColor #EAF1F7
+  BorderColor #1F3B52
+  BorderThickness 2
+  FontSize 17
+  FontStyle bold
+}
+skinparam rectangle {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2.5
+  FontSize 19
+  FontStyle bold
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #7A8A99
+  FontSize 18
+  FontStyle bold
+}
+
+actor "Sinh vien\n(Student)" as Student
+actor "Giang vien\n(Staff)" as Staff
+actor "Khao thi\n(Examiner)" as Examiner
+actor "Quan tri\n(Admin)" as Admin
+
+rectangle "AIVES\nAI-powered Viva Examination System" {
+  package "Nang luc cot loi" {
+    node "Thi vấn đáp AI" as C1
+    node "Chấm điểm tự động\ntheo rubric" as C2
+    node "Quản lý đề thi\n& lịch thi" as C3
+    node "Kiểm tra &\ncông bố kết quả" as C4
+  }
+}
+
+node "Cloudflare R2\n(Object Storage)" as R2
+node "LLM Provider\n(Gemini / OpenAI)" as LLM
+node "Whisper STT\n(Speech-to-Text)" as STT
+
+Student --> C1 : "Ghi danh, ghi âm,\nnộp bài, xem điểm"
+Staff --> C3 : "Tải tài liệu, tạo đề,\nlập lịch, ghi danh"
+Staff --> C2 : "Duyệt câu hỏi AI"
+Examiner --> C4 : "Review, chấm điểm\nchính thức, publish"
+Admin --> C3 : "Quản lý tài khoản,\nmôn học, phân công"
+
+C1 --> STT : "Chuyển giọng nói\nthành văn bản"
+C2 --> LLM : "Sinh câu hỏi &\nchấm theo rubric"
+C1 ..> R2 : "Lưu & phát\nfile âm thanh"
+C4 ..> R2 : "Nghe lại\nbằng chứng"
+
+note bottom of C2
+  AI chỉ GỢI Ý —
+  điểm chính thức do
+  KHAO THI quyết định
+end note
+
+@enduml

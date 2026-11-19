@@ -1,0 +1,140 @@
+@startuml DIAGRAM_05B_GRADING_REVIEW
+'==============================================================
+' AIVES - AI CHẤM ĐIỂM & KHẢO THÍ REVIEW (slide-ready, tiếng Việt, RÚT GỌN)
+' Giống hệt style Visual Paradigm của DIAGRAM 5A:
+'   - khối participant nền xanh nhạt, viền xanh, chữ xanh đậm
+'   - lifeline: nét đứt mảnh làm đường dẫn
+'   - message: đánh số "1:", "2:", ... liền = call, đứt = return
+'
+' Giữ nguyên 8 lifeline, message rút gọn cho vừa 1 slide.
+'
+' QUY TẮC NGHIỆP VỤ (điểm chính của sơ đồ này):
+'   AI KHÔNG tự chấm. Bài nộp được lưu ở trạng thái PENDING_REVIEW
+'   và vẫn chưa có điểm cho tới khi KHẢO THÍ cho phép chấm AI cho
+'   kết quả đó. Chỉ khi đó mới xếp hàng job.
+'
+'   1. Sinh viên kết thúc bài thi -> lưu bài nộp (PENDING_REVIEW).
+'   2. KHẢO THÍ mở danh sách bài chờ chấm và cho phép chấm AI.
+'   3. Lúc này mới xếp hàng job -> Back-end Service (Grading) ->
+'      AI service chấm theo rubric và trả về điểm.
+'   4. Khảo thí xem bằng chứng, chấm điểm chính thức (REVIEWED)
+'      rồi công bố (PUBLISHED).
+'   5. Sinh viên xem kết quả cuối cùng.
+'
+' Thành phần (8 lifeline, từ trái sang phải):
+'   Finish handler . Hangfire . Back-end Service (Grading) . AI service
+'   Result store . Examiner . DB . Student
+'
+' Đối chiếu với:
+'   backend/Aives.Application/Viva/Services/VivaSessionService.cs   (FinishSessionAsync)
+'   backend/Aives.Infrastructure/Queue/SessionGradingJob.cs         (queue "grading")
+'   backend/Aives.Infrastructure/Queue/AnswerProcessingJob.cs        (answer job)
+'   backend/Aives.Application/Viva/Services/SessionGradingService.cs
+'   backend/Aives.Api/Controllers/ResultsController.cs              (review / publish)
+'   ai-service/app/api/evaluation.py
+'
+'   Sau khi render, chạy:
+'     python ops/_sharpen_svg.py DIAGRAM_05B_GRADING_REVIEW.svg --dashed-lifelines
+'==============================================================
+title AI chấm điểm & Khảo thí review (AIVES)
+
+skinparam shadowing false
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 13
+skinparam defaultFontColor #000000
+skinparam BoxPadding 8
+
+'--- participant / actor / database: nền xanh nhạt giống VP ---
+skinparam sequenceParticipantBackgroundColor #DAE8FC
+skinparam sequenceParticipantBorderColor #4A7EBB
+skinparam sequenceParticipantBorderThickness 1.6
+skinparam sequenceParticipantFontColor #1F3864
+skinparam sequenceParticipantFontStyle bold
+skinparam sequenceParticipantFontSize 15
+
+skinparam sequenceActorBackgroundColor #DAE8FC
+skinparam sequenceActorBorderColor #4A7EBB
+skinparam sequenceActorBorderThickness 1.6
+skinparam sequenceActorFontColor #1F3864
+skinparam sequenceActorFontStyle bold
+skinparam sequenceActorFontSize 15
+
+skinparam sequenceDatabaseBackgroundColor #DAE8FC
+skinparam sequenceDatabaseBorderColor #4A7EBB
+skinparam sequenceDatabaseBorderThickness 1.6
+skinparam sequenceDatabaseFontColor #1F3864
+skinparam sequenceDatabaseFontStyle bold
+skinparam sequenceDatabaseFontSize 14
+
+'--- lifeline: nét đứt mảnh ---
+skinparam sequenceLifeLineBorderColor #6C8EBF
+skinparam sequenceLifeLineBorderThickness 1.4
+skinparam sequenceLifeLineBackgroundColor #FFFFFF
+
+'--- mũi tên: đậm, liền = call, đứt = return ---
+skinparam sequenceArrowColor #333333
+skinparam sequenceArrowThickness 1.6
+
+'--- khung alt / group (nền xanh rất nhạt) ---
+skinparam sequenceGroupBorderColor #4A7EBB
+skinparam sequenceGroupBorderThickness 1.4
+skinparam sequenceGroupBackgroundColor #F4F8FD
+skinparam sequenceGroupFontColor #1F3864
+skinparam sequenceGroupFontSize 13
+
+skinparam titleFontSize 20
+skinparam titleFontStyle bold
+skinparam titleFontColor #1F3864
+
+participant "Finish handler" as FH
+participant "Hangfire\nqueue: grading" as HF
+participant "Back-end Service\n(Grading)" as GR
+participant "AI service" as AI
+participant "Result store" as RS
+actor "Khảo thí" as EX
+database "DB" as DB
+actor "Sinh viên" as ST
+
+ST -> FH: 1: Kết thúc bài thi
+FH -> RS: 2: Lưu bài nộp
+RS -> DB: 3: Ghi (PENDING_REVIEW)
+
+EX -> RS: 4: Mở danh sách bài chờ chấm
+RS --> EX: 5: Danh sách bài chưa chấm
+EX -> RS: 6: Cho phép chấm AI
+RS -> HF: 7: Xếp hàng job chấm điểm
+HF -> GR: 8: Nạp dữ liệu chấm
+GR -> AI: 9: Chấm câu trả lời / rubric
+AI --> GR: 10: Điểm + feedback
+GR -> RS: 11: Lưu điểm AI
+RS -> DB: 12: Ghi (EVALUATED)
+
+EX -> RS: 13: Mở bằng chứng / kết quả AI
+EX -> RS: 14: Lưu điểm chính thức
+RS -> DB: 15: Status = REVIEWED
+EX -> RS: 16: Công bố kết quả
+RS -> DB: 17: Status = PUBLISHED
+ST -> RS: 18: Xem kết quả của mình
+
+note over GR,AI
+  Giao thức nội bộ Backend - AI:
+  - POST /ai/evaluate/session
+  - Header X-Internal-Token
+    (= AI_SERVICE_SECRET_KEY)
+  - Base URL http://ai-service:8000
+  - Timeout 300s
+end note
+
+note over HF,DB
+  Hàng đợi Hangfire:
+  - Storage: schema `hangfire` trong PostgreSQL
+  - Server `aives-grading-*`: 1 worker,
+    queue `grading` (server `aives-api-*`
+    xử lý queue `default` / `answers`)
+  - Retry: 30s -> 120s -> 300s,
+    tối đa 3 lần (BR-17)
+end note
+
+note over EX,RS: AI không tự chấm.\nChỉ bắt đầu chấm sau khi khảo thí cho phép.
+
+@enduml

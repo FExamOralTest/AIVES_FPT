@@ -693,6 +693,10 @@ public class HangfireQueueRetryTests : IDisposable
     private static BackgroundJobServer StartServer() =>
         new(new BackgroundJobServerOptions
         {
+            // Production (Program.cs) chạy worker cho cả queue `default` và `answers`;
+            // AnswerProcessingJob được enqueue lên queue `answers` nên test phải
+            // cấu hình worker tương ứng, nếu không job nằm mãi ở trạng thái Enqueued.
+            Queues = new[] { "default", AnswerProcessingJob.QueueName },
             WorkerCount = 1,
             SchedulePollingInterval = TimeSpan.FromMilliseconds(50),
             HeartbeatInterval = TimeSpan.FromMilliseconds(50),

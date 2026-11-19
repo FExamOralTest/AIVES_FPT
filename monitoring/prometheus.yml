@@ -1,3 +1,11 @@
+# Prometheus cho demo Nginx (Thịnh) + các thành phần đã có.
+#
+# Ngoài cAdvisor (metrics container), file này scrape thêm:
+#   - nginx-prometheus-exporter : metrics của Nginx (upstream, request rate)
+#   - postgres-exporter        : metrics PostgreSQL (connection, query)
+#
+# Grafana dùng datasource uid `cg393kpfzb2f4b` (xem monitoring/grafana/setup-dashboard.py).
+
 global:
   scrape_interval: 5s
 
@@ -9,3 +17,17 @@ scrape_configs:
   - job_name: "aives-containers"
     static_configs:
       - targets: ["cadvisor:8080"]
+
+  - job_name: "nginx"
+    static_configs:
+      - targets: ["nginx-prometheus-exporter:9113"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: "__param_target"
+        replacement: "http://nginx:8088/nginx_status"
+      - source_labels: [__param_target]
+        target_label: "instance"
+
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]

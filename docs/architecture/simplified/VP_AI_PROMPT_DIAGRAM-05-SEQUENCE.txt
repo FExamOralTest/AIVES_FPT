@@ -1,0 +1,51 @@
+Hãy tạo một Sequence Diagram trong Visual Paradigm theo đúng đặc tả sau.
+Tiêu đề: "Sequence Diagram rút gọn (AIVES)"
+
+LIFELINE (đặt từ trái sang phải, đúng thứ tự này):
+1. Sinh viên  —  hình người (actor)
+2. Backend API (ASP.NET Core)  —  khối participant
+3. Hangfire Worker (queue: grading)  —  khối participant
+4. AI Service (FastAPI)  —  khối participant
+5. DB  —  hình trụ database
+6. Khảo thí  —  hình người (actor)
+
+PHASE / DIVIDER (dùng làm divider, đặt theo thứ tự):
+- 1. Làm bài
+- 2. AI chấm điểm (bất đồng bộ)
+- 3. Review, công bố, xem điểm
+
+MESSAGE (đánh số đúng như dưới đây; -> = call đồng bộ, --> = reply/return):
+1. Sinh viên -> Backend API (ASP.NET Core) : Nộp câu trả lời (audio)
+2. Backend API (ASP.NET Core) -> AI Service (FastAPI) : Chuyển giọng nói + sinh câu hỏi tiếp theo
+3. AI Service (FastAPI) --> Backend API (ASP.NET Core) : Transcript + câu hỏi tiếp theo
+4. Backend API (ASP.NET Core) -> DB : Lưu câu trả lời (PROCESSING)
+5. Backend API (ASP.NET Core) --> Sinh viên : Feedback + câu hỏi tiếp theo
+6. Sinh viên -> Backend API (ASP.NET Core) : Kết thúc bài thi
+7. Backend API (ASP.NET Core) -> DB : Result = PENDING_REVIEW + xếp hàng job chấm điểm
+8. Backend API (ASP.NET Core) --> Sinh viên : Đã nộp bài
+9. Hangfire Worker (queue: grading) -> DB : Lấy result + câu trả lời + rubric
+10. Hangfire Worker (queue: grading) -> AI Service (FastAPI) : Chấm điểm theo rubric
+11. AI Service (FastAPI) --> Hangfire Worker (queue: grading) : Điểm + feedback từng câu
+12. Hangfire Worker (queue: grading) -> DB : Lưu điểm AI + feedback (EVALUATED)
+13. Khảo thí -> Backend API (ASP.NET Core) : Mở kết quả (audio + điểm AI)
+14. Backend API (ASP.NET Core) --> Khảo thí : Câu trả lời + điểm AI + rubric
+15. Khảo thí -> Backend API (ASP.NET Core) : Chấm điểm chính thức
+16. Backend API (ASP.NET Core) -> DB : Status = REVIEWED (giữ điểm AI)
+17. Khảo thí -> Backend API (ASP.NET Core) : Công bố kết quả
+18. Backend API (ASP.NET Core) -> DB : Status = PUBLISHED
+19. Backend API (ASP.NET Core) --> Khảo thí : Đã công bố
+20. Sinh viên -> Backend API (ASP.NET Core) : Xem kết quả của mình
+21. Backend API (ASP.NET Core) --> Sinh viên : Điểm + nhận xét của khảo thí
+
+NOTE (đặt trên lifeline đầu và cuối trong mục note):
+- Hangfire Worker (queue: grading) .. AI Service (FastAPI): Lỗi retryable: thử lại 30s / 120s / 300s (tối đa 3 lḀn). Còn lại: AI evaluation = FAILED, câu trả lời = ERROR.
+
+STYLE (bắt chước style Visual Paradigm):
+- Khối participant: nền xanh nhạt #DAE8FC, viền #4A7EBB 1.6 px, chữ xanh đậm #1F3864 đậm, cỡ 15.
+- Lifeline: nét đứt mảnh làm đường dẫn, màu #6C8EBF, 1.4 px.
+- Mũi tên message: xám đậm #333333, 1.6 px; call vẽ liền, reply vẽ đứt.
+- Mỗi message có số thứ tự ở đầu, ví dụ '1: Mở phòng thi'.
+- Tiêu đề đặt trên cùng, đậm, 20 pt, màu #1F3864.
+- Bố cục gọn để vừa 1 slide thuyết trình.
+
+Không vẽ thêm lifeline hay message nào khác. Nếu hỏi thêm, chỉ trả lời ngắn gọn và giữ nguyên đặc tả.

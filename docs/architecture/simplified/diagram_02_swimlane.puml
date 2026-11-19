@@ -1,0 +1,83 @@
+@startuml DIAGRAM_02_SWIMLANE
+'==============================================================
+' AIVES - SWIMLANE DIAGRAM (ban rut gon: moi luong = 1 activity)
+' 5 lane, moi lane mot vai tro. Moi box = MOT LUONG chinh.
+' Luong doc theo thu tu trai -> phai: Admin > GV > SV > He thong > Khao thi
+' Nguon: AIVES SRS 07/11/2026
+'==============================================================
+title DIAGRAM 2 - SWIMLANE RUT GON (AIVES)
+
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2
+  FontSize 18
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 16
+  DiamondFontStyle bold
+  DiamondBorderThickness 2
+  ConditionFontSize 16
+  ConditionFontStyle bold
+  ArrowFontSize 18
+  ArrowFontStyle bold
+  ArrowThickness 2.5
+}
+skinparam ArrowFontSize 18
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 2.5
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #EAF1F7
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 18
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 24
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 18
+
+|QUAN TRI (Admin)|
+start
+:UC-01 Quan ly tai khoan & phan quyen;
+:UC-02 Quan ly mon hoc & phan cong GV;
+
+|GIANG VIEN (Staff)|
+:UC-03 Tai len tai lieu chuan (.md);
+:UC-04 Sinh cau hoi AI -> duyet;
+:UC-05 Tao de thi (tong trong so 100%);
+:UC-06 Lap lich ca thi, ghi danh & phan bo;
+
+|SINH VIEN (Student)|
+:UC-07 Ghi danh, ghi am & nop bai;
+
+|HETHONG (Backend + AI + Hangfire)|
+if (Dieu kien bam dau\nhop le?) then (Sai)
+  :Tra 400/403 - SV thu lai;
+  |SINH VIEN (Student)|
+else (Dung)
+endif
+:UC-08 AI chuyen giong noi thanh text\nva cham rubric (retry 30s/120s/300s);
+if (Cham AI loi?) then (Loi)
+  :FAILED - GV cham tay hoac cham lai;
+  |KHAO THI (Examiner)|
+else (Thanh cong)
+endif
+:UC-13 Luu ket qua PENDING_REVIEW\n+ audit log;
+
+|KHAO THI (Examiner)|
+:UC-09 Review bang chung & cham diem chinh thuc;
+if (Chua review\n/thieu diem?) then (Chua du)
+  :Tra 409 - review lai roi publish;
+  |KHAO THI (Examiner)|
+else (Du dieu kien)
+endif
+:UC-10 Xu ly su co:\ncham lai 1 cau / cap lai thi;
+
+|SINH VIEN (Student)|
+:UC-11 Xem ket qua chinh thuc\n(sau khi PUBLISHED);
+stop
+
+@enduml

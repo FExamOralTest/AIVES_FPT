@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIAGRAM 5B – AI chấm điểm & Khảo thí review</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  .hint { background:#fff8e1; border-left:4px solid #B8860B; padding:12px 16px; margin:0 0 18px;
+           border-radius:0 6px 6px 0; font-size:13.5px; }
+  .vp-box { background:#f7fbff; border:1px solid #cfe0f2; border-radius:6px; padding:14px; margin-top:8px; }
+  .vp-box textarea { width:100%; height:360px; font-family:Consolas,"Courier New",monospace; font-size:12.5px;
+                     line-height:1.5; border:1px solid #cfe0f2; border-radius:6px; padding:12px;
+                     background:#fff; color:#14385C; white-space:pre; overflow:auto; }
+  .vp-box button { margin-top:10px; background:#0f3d5c; color:#fff; border:0; border-radius:6px;
+                    padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; }
+  .vp-box button:hover { background:#155f86; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DIAGRAM 5B – AI chấm điểm & Khảo thí review</h1>
+  <p>Thành viên 5 · Bộ diagram rút gọn cho thuyết trình · Bản tiếng Việt</p>
+</header>
+<nav>
+  <a href="diagram-05a-viva-exam.html">← DIAGRAM 5A</a>
+  <a href="diagram-05-sequence.html">DIAGRAM 5 →</a>
+  <a href="./simplified-index.html">Index</a>
+  <a href="../all-diagrams.html">📄 All on one page</a>
+  <a href="diagram-05a-viva-exam.html">DIAGRAM 5A →</a>
+</nav>
+<main>
+  <div class="hint"><strong>Phần 2/2 – chấm điểm & công bố</strong>: sinh viên kết thúc bài thi → bài nộp được lưu ở trạng thái <code>PENDING_REVIEW</code> và <strong>chưa được chấm</strong> → <strong>khảo thí mở danh sách bài chờ chấm và cho phép chấm AI</strong> → lúc này mới xếp hàng job Hangfire → Back-end Service (Grading) gọi AI service chấm theo rubric, lưu điểm vào Result store → khảo thí mở bằng chứng, lưu điểm chính thức (REVIEWED) rồi công bố (PUBLISHED) → sinh viên xem điểm. <strong>8 lifeline</strong>, message rút gọn <strong>1:</strong> → <strong>18:</strong> (liền = call, đứt = return).</div>
+  <div class="card">
+    <h2>AI chấm điểm & Khảo thí review – AIVES</h2>
+    <img class="diag" src="./DIAGRAM_05B_GRADING_REVIEW.svg?v13" alt="AI chấm điểm & Khảo thí review – AIVES">
+    <p><a href="./DIAGRAM_05B_GRADING_REVIEW.png" download>Download PNG</a> &middot; <a href="./DIAGRAM_05B_GRADING_REVIEW.svg" download>Download SVG</a> &middot; <a href="./diagram_05b_grading_review.puml" target="_blank">PlantUML source</a> &middot; <a href="./DIAGRAM_05B_GRADING_REVIEW.xmi" download>Visual Paradigm (.xmi)</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>8 lifeline & 4 giai đoạn</h2>
+    <table>
+      <thead><tr><th>Participant</th><th>Trách nhiệm</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Finish handler</strong></td><td>Nhận yêu cầu kết thúc bài thi và lưu bài nộp vào Result store</td></tr>
+        <tr><td><strong>Hangfire (queue <code>grading</code>)</strong></td><td>Hàng đợi job chấm điểm; worker tự retry 30s / 120s / 300s (tối đa 3 lḀn)</td></tr>
+        <tr><td><strong>Back-end Service (Grading)</strong></td><td>Điều phối chấm điểm: lấy result + rubric, gọi AI, lưu điểm, đánh dấu FAILED/ERROR khi hết retry</td></tr>
+        <tr><td><strong>AI service</strong></td><td>Chấm theo rubric, trả về điểm + feedback + nhận xét từng câu</td></tr>
+        <tr><td><strong>Result store</strong></td><td>Lưu điểm AI + feedback, phục vụ khảo thí review và trả kết quả cho sinh viên</td></tr>
+        <tr><td><strong>DB (PostgreSQL / Neon)</strong></td><td>Session, Question, Answer, Result (PENDING_REVIEW → EVALUATED → REVIEWED → PUBLISHED)</td></tr>
+        <tr><td><strong>Khảo thí (Examiner)</strong></td><td><strong>Cho phép chấm AI</strong> (nếu không có lệnh này thì AI không được chấm), nghe bằng chứng, chấm điểm chính thức, công bố kết quả</td></tr>
+        <tr><td><strong>Sinh viên (Student)</strong></td><td>Xem điểm + nhận xét sau khi kết quả được công bố</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Lệnh cho AI chat của Visual Paradigm</h2>
+    <p>Copy khối bên dưới rồi dán vào <strong>AI chat của Visual Paradigm</strong> (mở một Sequence Diagram mới → dán lệnh) để dựng lại sơ đồ này.</p>
+    <div class="vp-box">
+      <textarea id="vpPrompt" readonly>Hãy tạo một Sequence Diagram trong Visual Paradigm theo đúng đặc tả sau.
+Tiêu đề: &quot;AI chấm điểm &amp; Khảo thí công bố (AIVES)&quot;
+
+LIFELINE (đặt từ trái sang phải, đúng thứ tự này):
+1. Finish handler  —  khối participant
+2. Hangfire (queue: grading)  —  khối participant
+3. Back-end Service (Grading)  —  khối participant
+4. AI service  —  khối participant
+5. Result store  —  khối participant
+6. Khảo thí  —  hình người (actor)
+7. DB  —  hình trụ database
+8. Sinh viên  —  hình người (actor)
+
+PHASE / DIVIDER (dùng làm divider, đặt theo thứ tự):
+- Nộp bài (chưa chấm)
+- Khảo thí cho phép chấm AI
+- Chấm điểm AI (bất đồng bộ)
+- Khảo thí review &amp; công bố
+
+MESSAGE (đánh số đúng như dưới đây; -&gt; = call đồng bộ, --&gt; = reply/return):
+1. Sinh viên -&gt; Finish handler : Kết thúc bài thi
+2. Finish handler -&gt; Result store : Lưu bài nộp
+3. Result store -&gt; DB : Ghi (PENDING_REVIEW)
+4. Khảo thí -&gt; Result store : Mở danh sách bài chờ chấm
+5. Result store --&gt; Khảo thí : Danh sách bài chưa chấm
+6. Khảo thí -&gt; Result store : Cho phép chấm AI
+7. Result store -&gt; Hangfire (queue: grading) : Xếp hàng job chấm điểm
+8. Hangfire (queue: grading) -&gt; Back-end Service (Grading) : Nạp dữ liệu chấm
+9. Back-end Service (Grading) -&gt; AI service : Chấm câu trả lời / rubric
+10. AI service --&gt; Back-end Service (Grading) : Điểm + feedback
+11. Back-end Service (Grading) -&gt; Result store : Lưu điểm AI
+12. Result store -&gt; DB : Ghi (EVALUATED)
+13. Khảo thí -&gt; Result store : Mở bằng chứng / kết quả AI
+14. Khảo thí -&gt; Result store : Lưu điểm chính thức
+15. Result store -&gt; DB : Status = REVIEWED
+16. Khảo thí -&gt; Result store : Công bố kết quả
+17. Result store -&gt; DB : Status = PUBLISHED
+18. Sinh viên -&gt; Result store : Xem kết quả của mình
+
+NOTE (đặt trên lifeline đầu và cuối trong mục note):
+- Khảo thí .. Back-end Service (Grading): AI không tự chấm — chỉ bắt đầu chấm sau khi khảo thí cho phép.
+- Back-end Service (Grading) .. AI service: Giao thức nội bộ Backend - AI: POST /ai/evaluate/session, header X-Internal-Token (= AI_SERVICE_SECRET_KEY), base URL http://ai-service:8000, timeout 300s.
+- Hangfire (queue: grading) .. DB: Hàng đợi Hangfire: lưu job trong schema hangfire của PostgreSQL; server aives-grading-* chạy 1 worker trên queue grading (aives-api-* xử lý queue default / answers); retry 30s → 120s → 300s, tối đa 3 lần (BR-17).
+
+STYLE (bắt chước style Visual Paradigm):
+- Khối participant: nền xanh nhạt #DAE8FC, viền #4A7EBB 1.6 px, chữ xanh đậm #1F3864 đậm, cỡ 15.
+- Lifeline: nét đứt mảnh làm đường dẫn, màu #6C8EBF, 1.4 px.
+- Mũi tên message: xám đậm #333333, 1.6 px; call vẽ liền, reply vẽ đứt.
+- Mỗi message có số thứ tự ở đầu, ví dụ &#x27;1: Mở phòng thi&#x27;.
+- Tiêu đề đặt trên cùng, đậm, 20 pt, màu #1F3864.
+- Bố cục gọn để vừa 1 slide thuyết trình.
+
+Không vẽ thêm lifeline hay message nào khác. Nếu hỏi thêm, chỉ trả lời ngắn gọn và giữ nguyên đặc tả.</textarea>
+      <button type="button" onclick="copyVpPrompt()">📋 Copy lệnh</button>
+      <a href="./VP_AI_PROMPT_DIAGRAM-05B-GRADING-REVIEW.txt" download style="margin-left:12px;font-size:13px;">⬇️ Tải file .txt</a>
+      <span id="vpStatus" style="margin-left:10px;font-size:13px;color:#0E9F6E;"></span>
+    </div>
+    <script>
+      function copyVpPrompt() {
+        var t = document.getElementById('vpPrompt');
+        t.focus(); t.select(); t.setSelectionRange(0, 999999);
+        var done = function () { document.getElementById('vpStatus').textContent = '✔ Đã copy'; };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(t.value).then(done, function () {
+            try { document.execCommand('copy'); done(); } catch (e) {}
+          });
+        } else {
+          try { document.execCommand('copy'); done(); } catch (e) {}
+        }
+      }
+    </script>
+  </div>
+</main>
+<footer>AIVES – Member 5 deliverable · simplified diagram set</footer>
+</body>
+</html>

@@ -114,7 +114,9 @@ public class AnswerAudioService : IAnswerAudioService
             answerId,
             answer.ResultId,
             audioKey,
-            attempt: 1);
+            attempt: 1,
+            studentId: result.StudentId,
+            sessionId: result.SessionId);
         var jobId = _queueService.EnqueueAnswerProcessing(metadata);
 
         if (string.IsNullOrEmpty(jobId))

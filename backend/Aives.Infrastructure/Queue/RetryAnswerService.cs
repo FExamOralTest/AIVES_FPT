@@ -108,7 +108,9 @@ public class RetryAnswerService : IRetryAnswerService
             answerId,
             answer.ResultId,
             objectKey,
-            answer.AttemptCount + 1);
+            answer.AttemptCount + 1,
+            studentId: result.StudentId,
+            sessionId: result.SessionId);
         var jobId = _queueService.EnqueueAnswerProcessing(metadata);
 
         if (string.IsNullOrEmpty(jobId))

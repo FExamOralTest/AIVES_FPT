@@ -61,4 +61,36 @@ AI_STT --> AI_GRD : Pass Transcript
 AI_STT --> R2 : Download Audio [S3 GetObject]
 AI_GEN --> GEM : Prompt Syllabus [HTTPS]
 AI_GRD --> GEM : Evaluate Rubric [HTTPS]
+
+note bottom of API
+  Multi-container (docker compose):
+  - frontend: Nginx serving the SPA on :80 (host :5173)
+  - backend: ASP.NET Core 8, listens on :8080 (host :5068)
+  - ai-service: FastAPI / uvicorn, listens on :8000
+  - postgres: PostgreSQL 16 (profile: local-db, default: Neon Cloud)
+  Internal DNS: backend calls ai-service via
+  http://ai-service:8000 and the AI service calls
+  back via http://backend:8080.
+end note
+
+note bottom of MQ
+  Hangfire queue:
+  - Job rows stored in PostgreSQL schema "hangfire"
+  - QueuePollInterval = 2s, InvisibilityTimeout = 10m
+  - Retry backoff 30s -> 120s -> 300s, MaxTotalAttempts = 3 (BR-17)
+  - attempts.attempt_count is the source of truth
+end note
+
+note bottom of AI_GRD
+  Internal-only protocol:
+  every Backend to AI request carries
+  the header X-Internal-Token
+  (shared AI__ApiKey / AI_SERVICE_SECRET_KEY).
+  Endpoints live under the /ai prefix:
+  /ai/speech/transcribe, /ai/speech/transcribe-object,
+  /ai/speech/synthesize, /ai/evaluate/session,
+  /ai/interview/follow-up.
+  Timeout = 300s (AI__TimeoutSeconds).
+end note
+
 @enduml

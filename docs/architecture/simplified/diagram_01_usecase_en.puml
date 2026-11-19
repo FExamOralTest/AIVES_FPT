@@ -1,0 +1,101 @@
+@startuml DIAGRAM_01_USECASE_EN
+'==============================================================
+' AIVES - USE CASE DIAGRAM (simplified version for presentation)
+' Actors: 4 roles in the system
+' Source: AIVES SRS 07/11/2026 + backend/Aives.Api (Controllers)
+'==============================================================
+title DIAGRAM 1 - USE CASE DIAGRAM (AIVES)
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 16
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 1.8
+  FontSize 16
+  FontStyle bold
+}
+skinparam rectangle {
+  BackgroundColor #EAF1F7
+  BorderColor #1F3B52
+  BorderThickness 1.8
+  FontSize 15
+  FontStyle bold
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #7A8A99
+  FontSize 17
+  FontStyle bold
+}
+skinparam ArrowColor #1F3B52
+skinparam ArrowThickness 1.5
+
+actor "Student" as Student
+actor "Academic Staff" as Staff
+actor "Examiner" as Examiner
+actor "Admin" as Admin
+
+rectangle "AIVES - AI-powered Viva Examination System" {
+  package "System administration" {
+    usecase "UC-01\nManage accounts\n& roles" as UC01
+    usecase "UC-02\nManage courses\n& assign staff" as UC02
+  }
+  package "Preparation & scheduling" {
+    usecase "UC-03\nUpload learning\nmaterial (.md)" as UC03
+    usecase "UC-04\nGenerate & approve\nAI questions" as UC04
+    usecase "UC-05\nBuild exam paper\n(100% weight)" as UC05
+    usecase "UC-06\nSchedule sessions,\nenroll & distribute" as UC06
+  }
+  package "Exam delivery & auto grading" {
+    usecase "UC-07\nJoin & answer\nthe viva (audio)" as UC07
+    usecase "UC-08\nAI grades by rubric\n& asks follow-ups" as UC08
+  }
+  package "Review & publication" {
+    usecase "UC-09\nReview evidence &\nassign official score" as UC09
+    usecase "UC-10\nHandle incidents:\nre-grade / retake" as UC10
+    usecase "UC-11\nStudent views\npublished result" as UC11
+  }
+  package "Platform services" {
+    usecase "UC-12\nAuthentication & RBAC\n(JWT)" as UC12
+    usecase "UC-13\nPersistence & audit log\n(results, audio)" as UC13
+  }
+}
+
+Student -- UC07
+Student -- UC11
+Student -- UC12
+
+Staff -- UC03
+Staff -- UC04
+Staff -- UC05
+Staff -- UC06
+Staff -- UC12
+
+Examiner -- UC09
+Examiner -- UC10
+Examiner -- UC12
+
+Admin -- UC01
+Admin -- UC02
+Admin -- UC12
+
+UC03 ..> UC04 : "generate questions\nfrom material"
+UC04 ..> UC05 : "APPROVED\nquestions"
+UC05 ..> UC06 : "assign paper\nto session"
+UC06 ..> UC07 : "open session\n& distribute"
+UC07 ..> UC08 : "audio +\ntranscript"
+UC08 ..> UC09 : "AI score\n(PENDING_REVIEW)"
+UC09 ..> UC11 : "PUBLISHED"
+UC10 ..> UC08 : "re-grade\none answer"
+UC10 ..> UC09 : "grant retake"
+
+note bottom of UC08
+  The AI NEVER
+  publishes a score
+end note
+
+@enduml

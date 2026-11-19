@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Aives.Application.Queue.DTOs;
+using Aives.Application.Queue.Interfaces;
 using Aives.Application.Viva.DTOs;
 using Aives.Application.Viva.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -16,10 +18,14 @@ namespace Aives.Api.Controllers;
 public class VivaSessionController : ControllerBase
 {
     private readonly IVivaSessionService _vivaService;
+    private readonly IProcessingStatusService _statusService;
 
-    public VivaSessionController(IVivaSessionService vivaService)
+    public VivaSessionController(
+        IVivaSessionService vivaService,
+        IProcessingStatusService statusService)
     {
         _vivaService = vivaService;
+        _statusService = statusService;
     }
 
     /// <summary>
@@ -217,6 +223,37 @@ public class VivaSessionController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// [STUDENT] Theo dõi trạng thái bài nộp của chính mình trong ca thi:
+    /// job chấm cả bài, từng answer và lỗi (nếu có).
+    /// </summary>
+    [HttpGet("{sessionId:int}/submission-status")]
+    [ProducesResponseType(typeof(SubmissionStatusDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSubmissionStatus(
+        int sessionId,
+        CancellationToken cancellationToken)
+    {
+        var studentId = GetCurrentUserId();
+        if (studentId is null)
+            return Unauthorized(new { message = "Invalid token." });
+
+        try
+        {
+            return Ok(await _statusService.GetSubmissionStatusAsync(
+                sessionId, studentId.Value, cancellationToken));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
     }
 

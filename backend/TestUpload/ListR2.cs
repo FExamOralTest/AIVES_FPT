@@ -1,12 +1,12 @@
 using Amazon.S3;
 using Amazon.S3.Model;
 
-// Cấu hình từ appsettings.Development.json — test bucket "aives" (bucket thực trên dashboard)
-var accountId = "9e7256bedb995a7382bd318df204157e";
-var accessKey = "f90a3ac141e7ca8aefce28b1c7572dbf";
-var secretKey = "58c2cb130292330569b4b1d5f3db54ce063f9d21f8d33fbeecb498810b588df8";
+// Cấu hình từ appsettings.Development.json — bucket "aives-media-bucket"
+var accountId = "f51c459991d7230cc196c83f4f97934f";
+var accessKey = "e83a4e263e89e42da2ccfc8ca1e70052";
+var secretKey = "5c53063739de0a40f27b9282a857561807ebba3cda6f4cb2bab698710c543de2";
 
-var buckets = new[] { "aives" };
+var buckets = new[] { "aives-media-bucket" };
 
 var config = new AmazonS3Config
 {

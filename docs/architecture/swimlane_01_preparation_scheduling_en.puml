@@ -1,0 +1,99 @@
+@startuml SWIMLANE_01_PREPARATION_EN
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2.5
+  FontSize 22
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 20
+  DiamondFontStyle bold
+  DiamondBorderThickness 2.5
+  ConditionFontSize 20
+  ConditionFontStyle bold
+  ArrowFontSize 22
+  ArrowFontStyle bold
+  ArrowThickness 3.0
+}
+skinparam ArrowFontSize 22
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 3.0
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #EAF1F7
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 22
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 28
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 22
+
+'==============================================================
+' AIVES - SWIMLANE 1: PREPARATION & EXAM SCHEDULING (English)
+' Lane = unit that holds the responsibility for the step.
+' Source: AIVES SRS 07/11/2026 + backend/Aives.Api implementation
+'==============================================================
+title SWIMLANE 1 - PREPARATION & EXAM SCHEDULING
+
+|ADMIN|
+start
+:Create user accounts and assign roles\n(ADMIN / STAFF / EXAMINER / STUDENT);
+if (Duplicate email / username?) then (Error)
+  :API returns 400 - duplicate;
+  :Admin corrects the data and retries;
+  stop
+else (Valid)
+endif
+:Create Course and assign the responsible Staff\n(POST /api/admin/courses + assign-teacher);
+
+|STAFF|
+:View the assigned Courses\n(GET /api/teacher/courses);
+:Upload Markdown documents\n(CONTENT / LEARNING_OUTCOMES);
+if (Valid .md file, not empty,\nwithin size limit?) then (Valid)
+else (Error)
+  :API returns 400 - invalid document;
+  :STAFF fixes and re-uploads;
+  stop
+endif
+:Generate questions from content + Learning Outcome\n(POST /api/documents/generate-questions);
+
+|AI Service (FastAPI)|
+:LLM produces question set (rubric, keywords,\nsample answer, level) => PENDING_REVIEW;
+if (LLM call failed?) then (Error)
+  :Return error_code to Backend;
+  |STAFF|
+  :Error notice - STAFF creates the question manually;
+else (Success)
+  |STAFF|
+endif
+:Approve / reject the question\n(approve / reject);
+
+:Build the exam paper from APPROVED questions only\n(POST /api/exams);
+if (Total weight = 100%?) then (Pass)
+else (Error)
+  :API returns 400 - total weight is not 100%;
+  :STAFF adjusts the weight of each question;
+  stop
+endif
+:Create ExamPeriod -> Session -> Exam Slot;
+if (Slot overlaps / falls outside\nthe session window?) then (Error)
+  :API returns 400 - invalid time configuration;
+  :STAFF corrects the configuration;
+  stop
+endif
+:Enroll students and distribute paper + slot\n(POST /api/exam-sessions/{id}/enroll);
+if (Duplicate enrollment / slot full?) then (Error)
+  :API returns 400 - business rule conflict;
+  :STAFF fixes the roster or the slot;
+  stop
+endif
+:Open the session (IN_PROGRESS) and monitor\nstudent progress;
+
+|Backend / DB / Storage|
+:Persist Course, Markdown documents, questions, exam paper,\nperiod, session, slot and enrollments in PostgreSQL;
+stop
+
+@enduml

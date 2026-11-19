@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERD 3 &ndash; Sơ đồ ERD vật lý</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  ul { font-size:14px; line-height:1.7; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ERD 3 &ndash; Sơ đồ ERD vật lý</h1>
+  <p>Thành viên 5 · ERD · Bản tiếng Việt</p>
+</header>
+<nav>
+  <a href="erd-02-logical.html">&larr; ERD 2</a>
+  <a href="erd-index.html">Index &rarr;</a>
+  <a href="./erd-index.html">Index</a>
+  <a href="./erd-index.md">Markdown</a>
+  <a href="./all-erd.html">&#128202; All ERDs on one page</a>
+  <a href="../sequence/sequence-index.html">&#128260; Sequence set</a>
+</nav>
+<main>
+  <div class="card">
+    <h2>ERD Mức Vật Lý (Physical ERD) &ndash; PostgreSQL / Neon</h2>
+    <img class="diag" src="./ERD_03_PHYSICAL.svg" alt="ERD Mức Vật Lý (Physical ERD) &ndash; PostgreSQL / Neon">
+    <p><a href="./ERD_03_PHYSICAL.png" download>Download PNG</a> &middot; <a href="./ERD_03_PHYSICAL.svg" download>Download SVG</a> &middot; <a href="./erd_03_physical.puml" target="_blank">PlantUML source</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Đặc điểm của mức vật lý</h2>
+    <ul>
+      <li>Ánh xạ <b>1:1</b> với schema thật trên Neon: <b>21 bảng</b> trong schema <code>public</code>.</li>
+      <li>Hiển thị <b>kiểu dữ liệu PostgreSQL cụ thể</b>: <code>integer</code>, <code>bigint</code>, <code>varchar(n)</code>, <code>text</code>, <code>jsonb</code>, <code>text[]</code>, <code>real</code>, <code>numeric(8,4)</code>, <code>timestamptz</code> và các enum do ứng dụng định nghĩa.</li>
+      <li>Ghi rõ <b>PK</b>, <b>UNIQUE</b>, <b>FK</b> kèm <b>quy tắc ON DELETE</b> (CASCADE / SET NULL / RESTRICT) và các <b>CHECK constraint</b>.</li>
+      <li>Bảng được nhóm theo package theo tên bảng thật (<code>public.users</code>, <code>public.results</code>, &hellip;).</li>
+    </ul>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Bảng vật lý và đặc điểm kỹ thuật</h2>
+    <table>
+      <thead><tr><th>Bảng</th><th>Số cột</th><th>Khóa chính</th><th>Đặc điểm đáng chú ý</th></tr></thead>
+      <tbody>
+        <tr><td><code>users</code></td><td>7</td><td><code>user_id</code> serial</td><td>Enum <code>user_role</code> · UQ username/email</td></tr>
+        <tr><td><code>courses</code></td><td>6</td><td><code>course_id</code> serial</td><td>UQ <code>course_code</code> · FK SET NULL</td></tr>
+        <tr><td><code>enrollments</code></td><td>4</td><td><code>enrollment_id</code> serial</td><td>UQ <code>(student_id, course_id)</code></td></tr>
+        <tr><td><code>markdown_documents</code></td><td>7</td><td><code>document_id</code> serial</td><td>Enum <code>doc_type</code> · nội dung <code>text</code></td></tr>
+        <tr><td><code>question_bank</code></td><td>17</td><td><code>question_id</code> serial</td><td><code>expected_keywords text[]</code> · <code>approval_status</code></td></tr>
+        <tr><td><code>question_rubric_criteria</code></td><td>5</td><td><code>criterion_id</code> serial</td><td>2 CHECK constraint về điểm và thứ tự</td></tr>
+        <tr><td><code>exams</code> / <code>exam_questions</code></td><td>9 / 3</td><td><code>exam_id</code> · PK gộp</td><td>Enum <code>exam_status</code> · soft delete <code>is_active</code></td></tr>
+        <tr><td><code>exam_periods</code></td><td>9</td><td><code>period_id</code> serial</td><td>Enum <code>exam_period_status</code></td></tr>
+        <tr><td><code>exam_sessions</code></td><td>14</td><td><code>session_id</code> serial</td><td>Enum <code>session_status</code> · UQ <code>session_code</code></td></tr>
+        <tr><td><code>session_exams</code> / <code>session_slot_exams</code></td><td>3 / 3</td><td>PK gộp 2 cột</td><td>Bảng nối nhiều–nhiều</td></tr>
+        <tr><td><code>exam_slot_templates</code> / <code>exam_slot_template_exams</code></td><td>7 / 3</td><td><code>slot_template_id</code> · PK gộp</td><td>FK <code>exam_paper_id</code> RESTRICT</td></tr>
+        <tr><td><code>session_slots</code></td><td>11</td><td><code>slot_id</code> serial</td><td>UQ <code>(session_id, slot_index)</code>, <code>slot_code</code></td></tr>
+        <tr><td><code>session_enrollments</code></td><td>11</td><td><code>session_enrollment_id</code> serial</td><td>Concurrency token <code>status</code>, <code>started_at</code></td></tr>
+        <tr><td><code>results</code></td><td>19</td><td><code>result_id</code> serial</td><td><code>ai_analysis jsonb</code> · concurrency token <code>status</code></td></tr>
+        <tr><td><code>answers</code></td><td>21</td><td><code>answer_id</code> serial</td><td><code>ai_analysis jsonb</code> · <code>attempt_count</code> cho retry</td></tr>
+        <tr><td><code>media_uploads</code></td><td>21</td><td><code>upload_id varchar(64)</code></td><td><code>received_chunk_indexes jsonb</code> · local-first + R2</td></tr>
+        <tr><td><code>exam_retakes</code></td><td>10</td><td><code>retake_id</code> serial</td><td>CHECK duration · UQ result/session · concurrency <code>revision</code></td></tr>
+        <tr><td><code>audit_logs</code></td><td>11</td><td><code>log_id bigint</code> identity</td><td><code>old_value/new_value jsonb</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<footer>AIVES &ndash; Member 5 deliverable &middot; ERD suite &middot; generated page</footer>
+</body>
+</html>

@@ -1,0 +1,82 @@
+@startuml DIAGRAM_02_SWIMLANE_EN
+'==============================================================
+' AIVES - SWIMLANE DIAGRAM (simplified: one box = one flow)
+' 5 lanes, one role each. Flow runs left -> right.
+' Source: AIVES SRS 07/11/2026
+'==============================================================
+title DIAGRAM 2 - SIMPLIFIED SWIMLANE (AIVES)
+
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7FAFC
+  BorderColor #1F3B52
+  BorderThickness 2
+  FontSize 18
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 16
+  DiamondFontStyle bold
+  DiamondBorderThickness 2
+  ConditionFontSize 16
+  ConditionFontStyle bold
+  ArrowFontSize 18
+  ArrowFontStyle bold
+  ArrowThickness 2.5
+}
+skinparam ArrowFontSize 18
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 2.5
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #EAF1F7
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 18
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 24
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 18
+
+|ADMIN|
+start
+:UC-01 Manage accounts & roles;
+:UC-02 Manage courses & assign staff;
+
+|STAFF|
+:UC-03 Upload learning material (.md);
+:UC-04 Generate AI questions -> approve;
+:UC-05 Build exam paper (100% weight);
+:UC-06 Schedule sessions, enroll & distribute;
+
+|STUDENT|
+:UC-07 Enroll, record & submit answers;
+
+|SYSTEM (Backend + AI + Hangfire)|
+if (Start preconditions\nvalid?) then (No)
+  :400/403 - student retries;
+  |STUDENT|
+else (Yes)
+endif
+:UC-08 AI transcribes & grades\nby rubric (retry 30s/120s/300s);
+if (Grading failed?) then (Error)
+  :FAILED - examiner grades manually\nor re-grades;
+  |EXAMINER|
+else (Success)
+endif
+:UC-13 Persist result PENDING_REVIEW\n+ audit log;
+
+|EXAMINER|
+:UC-09 Review evidence & assign official score;
+if (Not reviewed /\nscore missing?) then (No)
+  :409 - review again then publish;
+  |EXAMINER|
+else (OK)
+endif
+:UC-10 Handle incidents:\nre-grade one answer / grant retake;
+
+|STUDENT|
+:UC-11 View official result\n(after PUBLISHED);
+stop
+
+@enduml

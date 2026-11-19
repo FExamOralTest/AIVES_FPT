@@ -1,0 +1,217 @@
+﻿TOTAL COMMITS (all branches): 288
+
+===== Hữu (64 commits, non-merge) =====
+  - docs: document student submission protocol and queue behavior
+  - test(queue): cover 100 concurrent submissions and status APIs
+  - feat(api): expose answer, result, and submission processing status
+  - feat(queue): add answer ownership metadata and answers queue
+  - Show each question's exam percentage on the paper, viva, and review screens.
+  - Scale each question score to its exam percentage so the paper total is the sum of those shares.
+  - Transcript of Phuong 03-11-2026
+  - Show Vo Tran Ngoc Huu in the desktop release title.
+  - Write desktop release notes in English.
+  - Document how to download the desktop GitHub Release.
+  - Publish Windows desktop builds on GitHub Releases.
+  - Point the Docker backend at the configured Neon database.
+  - test(queue): cover a burst of fifty exams graded one by one
+  - feat(viva): enqueue exam grading when a student finishes
+  - feat(queue): score one submitted exam from the grading job
+  - feat(queue): add a Hangfire queue for whole-exam grading
+  - docs(desktop): explain local exam backup and recovery
+  - feat(desktop): require durable AppData backup before submission
+  - ci(desktop): validate and package Windows builds on GitHub
+  - feat(desktop): enforce Windows fullscreen examination mode
+  - feat(desktop): add persistent guarded Quit control
+  - Document the simplified student desktop workflow
+  - Focus desktop exams on code entry and recording
+  - Simplify desktop sign-in and shared visual styling
+  - Add script of Phuong Teacher 27/10/2026
+  - docs(desktop): document builds and shared Neon test workflow
+  - test(desktop): cover exam flow and submission recovery
+  - feat(desktop): implement English student examination interface
+  - feat(desktop): add backend client and local audio recovery
+  - build(desktop): configure Flutter Windows target and dependencies
+  - Add transcript from audio of Phuong Sensei to project ( Including 4 file|)
+  - fix(ai): connect R2 transcription and persist pipeline results
+  - feat(stt): handle invalid audio, empty speech and inference failures
+  - feat(stt): transcribe private R2 audio with Faster-Whisper
+  - Add task sprint 2 for project version 2
+  - feat: add Docker Desktop development stack
+  - feat: complete resource CRUD flows with backend safeguards
+  - feat(ai): add Gemini transcription and build backend on startup
+  - feat: implement student enrolled sessions page
+  - fix: clarify viva session entry and preserve API errors
+  - feat(ai): select relevant Markdown context and preserve code
+  - feat: persist AI analysis and expose grounded review feedback
+  - feat(ai): ground viva feedback in the rubric and transcript
+  - feat: generate and manage scored question rubrics
+  - fix(ai): route mocks explicitly and validate provider responses
+  - docs(api): update question bank and exam selection contracts
+  - fix(exams): authorize selection and save validated exams atomically
+  - feat(question-bank): add course-scoped CRUD and protect used questions
+  - chore(backend): configure question generation HTTP timeouts
+  - fix(backend): validate AI question contracts and save complete batches
+  - feat(backend): persist generated question topics and model answers
+  - feat(ai): add batch question bank generation endpoint
+  - File hướng dẫn chấm điểm MidTerm Week 6
+  - feat(ai-service): integrate generation errors and document-aware mock responses
+  - feat(ai-service): generate outcome-aligned questions with validation and retries
+  - feat(ai-service): define validated question generation contracts
+  - refactor(ai-service): integrate MarkdownProcessor into all AI services
+  - feat(ai-service): add POST /ai/markdown/process endpoint and Pydantic models
+  - feat(ai-service): add MarkdownProcessor service with 5-step pipeline
+  - feat(ai-service): setup FastAPI routers and application entry point
+  - feat(ai-service): implement AI logic services and prompt templates
+  - feat(ai-service): add pydantic schemas and pluggable AI client
+  - feat(ai-service): initialize base project setup and configuration
+  - Add the documentation to describe the project flow and bussiness include : Diagram and SRS
+
+===== Bắc (29 commits, non-merge) =====
+  - change_neon
+  - exam_manager
+  - feat(exam-sessions): modular refactoring with periods, quick slot splitter, and hierarchical filtering
+  - feat: decouple master exam papers and session slot management into distinct modules
+  - test: update ExamSessionSlotTests to match merged VivaSessionService signature and FakeStorageService
+  - Exam-slot
+  - feat: session slot distribution and fix blank screen on edit
+  - feat: session slot distribution and fix blank screen on edit
+  - SessionDetailDialog.
+  - feat(exam-session): refactor session to support multiple exams and random distribution
+  - Result
+  - feat(audit-log)
+  - setup_cloudflare r2
+  - change_teacher-staff
+  - doc
+  - Critical Blockers
+  - record_fe
+  - setup_run
+  - exam
+  - fix_conflit
+  - update fe
+  - VivaSessionService
+  - fix_conflit
+  - teacher_flow
+  - chore: remove all sensitive appsettings from git tracking
+  - security: remove sensitive appsettings from git tracking
+  - deleteappsetting
+  - neon ef scaffold
+  - set up neon
+
+===== Hưng (30 commits, non-merge) =====
+  -     feat(monitoring): integrate Prometheus Grafana and cAdvisor
+  - change flow chosse period -> session
+  - add Exam period for examer
+  - feat: add exam retake flow
+  - update Expected keywords
+  - update field expected keywords in question bank
+  - result conflict
+  - Exam CRUD, ExamSession management, Session Code and Student Enrollment
+  - test
+  - update expected_keywords and question status: PENDING_REVIEW, staff will APPROVED and REJECTED
+  -  Authentication, Role Migration & RBAC — AIVES
+  - API Contract Standardization
+  - pull dev resolt conflict
+  - test
+  - test
+  - test
+  - update Teacher Review & Publish Final Results.
+  - update Teacher Review & Publish Final Results.
+  - update auth/jwt
+  - update auth
+  - update auth
+  - admin course/admin user/ teacher doccument
+  - delete auth test
+  - delete auth test
+  - check
+  - login/register feature
+  - login/register feature
+  - setup src
+  - setup src project
+  - Create README.md
+
+===== Huyền (23 commits, non-merge) =====
+  - feat(web): grade students one after another in the review dialog
+  - feat(viva): read questions aloud with TTS
+  - feat(exams): let staff change exam status
+  - docs: rewrite README with project overview, architecture and setup guide
+  - docs: rewrite README with project overview, architecture and setup guide
+  - feat(web): flat exam sessions table for academic staff
+  - feat(web): flat edge-to-edge admin list pages
+  - feat(web): redesign sign-up panel and features artwork
+  - feat(web): redesign sign-in panel with robot artwork
+  - feat(web): redesign landing hero and how-it-works with robot artwork
+  - feat(web): search admin courses by code, name or staff
+  - feat(web): admin statistics page and exams & results session browser
+  - feat(web): edit and delete exam sessions, add and remove students
+  - fix(web): don't call typed answers transcribed when the browser has no speech-to-text
+  - feat(web): viva room countdown, auto-submit and typed-answer fallback
+  - feat(web): pick sessions from lists instead of typing session IDs
+  - feat(web): approve and reject questions in the question bank
+  - feat(web): English UI, small bug fixes and dead code cleanup
+  - feat(web): teacher exams and exam sessions pages
+  - feat(web): admin user management page
+  - feat(web): student enroll page (join exam session by code)
+  - feat(web): role app shell, feature placeholders, stronger auth validation
+  - feat(web): landing page, auth UI on shadcn/ui, feature-based structure
+
+===== Trí (23 commits, non-merge) =====
+  - Complete Member 3 local load tests
+  - merge dev into my branch
+  - update rubric
+  - docker compose
+  - update ai score
+  - docs(api): document every AI service endpoint
+  - test(ai): add end-to-end and live Gemini suites
+  - test(ai): cover evaluation, question and follow-up pipelines
+  - test(ai): add deterministic provider fixtures and contract tests
+  - fix(deploy): share internal service token between backend and AI
+  - fix(ai): route interview flow through validated contracts
+  - fix(ai): validate rubric scoring output before returning
+  - fix(ai): align question generation with response contract
+  - fix(ai): align follow-up service and prompt with contract fields
+  - fix(ai): retry transient provider errors in feedback analysis
+  - fix(ai): call Gemini generateContent with strict JSON output
+  - feat(ai): add scoring provider and retry settings
+  - feat(ai): validate AI responses and raise typed pipeline errors
+  - feat(ai): add LLM response contracts for scoring and follow-up
+  - chore(ai): add pytest config excluding live provider tests
+  - feat(ai-service): scoring feedback follows student answer language (en/vi)
+  - chore: update Tri task progress to 100% (2.3, 2.4, 2.5, 2.6, 3.1)
+  - feat(ai-service): add Gemini Interactions client, faster-whisper STT, edge-tts TTS
+
+===== Thịnh (27 commits, non-merge) =====
+  - docs(nginx): tai lieu huong dan chi tiet Nginx & Load Balancing
+  - feat(nginx): Round Robin load balancing + k6 verification + Grafana dashboard
+  - chunking file audio luu local & r2
+  - test 2
+  - upload tao c up lên cloudflare
+  - test
+  - Delete make_baseline.ps1
+  - Revert "update 20 test"
+  - update 20 test
+  - update cong viec
+  - admin exam/admin rp sumarry
+  - document update
+  - guide deploy Backend, Frontend, Neon, R2, Hangfire, AI Service.
+  - feature 2.0
+  - feature: cloudflare upload
+  - feature: staff crud api
+  - feature: api put document
+  - thin update AdminCourse, AdminUser, Documents, Results, TeacherDocument
+  - admin, user, result
+  - fix
+  - update
+  - sua format de nhin xu ly hau het cac loi cua teacher admin
+  - test dev
+  - feature: result, gen quest
+  - feature: admin quan ly user crs teacher
+  - feature: add api_guide
+  - feature: upload md, admin, teacher, student course crud
+
+=========== SUMMARY COUNTS ===========
+Hữu: 64
+Bắc: 29
+Hưng: 30
+Huyền: 23
+Trí: 23
+Thịnh: 27

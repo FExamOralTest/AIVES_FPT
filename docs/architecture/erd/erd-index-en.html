@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIVES &ndash; ERD Index (3 levels)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, Arial, sans-serif; background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:28px; }
+  header h1 { margin:0 0 8px; font-size:26px; }
+  header p { margin:0; opacity:.85; font-size:14px; }
+  .switch { padding:12px 28px; background:#e8eef3; font-size:14px; border-bottom:1px solid #d3dce3; }
+  .switch a { color:#0f3d5c; font-weight:600; text-decoration:none; margin-right:18px; }
+  main { padding:24px 28px 60px; max-width:1200px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:18px; display:flex; flex-direction:column; }
+  .card h2 { margin:0 0 6px; font-size:17px; color:#0f3d5c; }
+  .card .meta { font-size:12.5px; color:#5b6b7a; margin-bottom:12px; }
+  .card .thumb { width:100%; height:200px; overflow:hidden; border:1px solid #eceff2; border-radius:6px;
+                   background:#fbfcfd; display:flex; align-items:flex-start; justify-content:center; }
+  .card .thumb img { width:100%; height:200px; object-fit:contain; display:block; }
+  .card .links { margin-top:12px; font-size:13px; }
+  .card .links a { color:#0f3d5c; margin-right:12px; font-weight:600; text-decoration:none; }
+  .card .links a:hover { text-decoration:underline; }
+  h3.sec { margin:32px 0 14px; font-size:18px; color:#0f3d5c; border-bottom:2px solid #dbe3ea; padding-bottom:8px; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AIVES &ndash; ERD Index (3 levels)</h1>
+  <p>Member 5 · English version</p>
+</header>
+<div class="switch">
+  <a href="./erd-index-en.html">Bản tiếng Việt &rarr;</a>
+  <a href="./erd-index-en.md">Markdown index</a>
+  <a href="./all-erd-en.html">&#128202; All ERDs on one page</a>
+  <a href="../sequence/sequence-index-en.html">&#128260; Sequence set</a>
+</div>
+<main>
+  <h3 class="sec">Diagrams</h3>
+  <div class="grid">
+    <div class="card">
+      <h2>ERD 1 &ndash; Conceptual ERD</h2>
+      <div class="meta">Conceptual &middot; Member 5 · ERD · English version</div>
+      <div class="thumb"><img src="./ERD_01_CONCEPTUAL_EN.svg" alt="Conceptual ERD"></div>
+      <div class="links">
+        <a href="./erd-01-conceptual_en.html">Open page</a>
+        <a href="./erd-01-conceptual_en.md">Markdown</a>
+        <a href="./ERD_01_CONCEPTUAL_EN.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>ERD 2 &ndash; Logical ERD</h2>
+      <div class="meta">Logical &middot; Member 5 · ERD · English version</div>
+      <div class="thumb"><img src="./ERD_02_LOGICAL_EN.svg" alt="Logical ERD"></div>
+      <div class="links">
+        <a href="./erd-02-logical_en.html">Open page</a>
+        <a href="./erd-02-logical_en.md">Markdown</a>
+        <a href="./ERD_02_LOGICAL_EN.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>ERD 3 &ndash; Physical ERD</h2>
+      <div class="meta">Physical &middot; Member 5 · ERD · English version</div>
+      <div class="thumb"><img src="./ERD_03_PHYSICAL_EN.svg" alt="Physical ERD &ndash; PostgreSQL / Neon"></div>
+      <div class="links">
+        <a href="./erd-03-physical_en.html">Open page</a>
+        <a href="./erd-03-physical_en.md">Markdown</a>
+        <a href="./ERD_03_PHYSICAL_EN.svg">SVG</a>
+      </div>
+    </div>
+  </div>
+  <h3 class="sec">The three ERD levels</h3>
+  <table>
+    <thead><tr><th>Level</th><th>Scope</th><th>Question answered</th></tr></thead>
+    <tbody>
+      <tr><td><b>Conceptual</b></td><td>Business entities, relationships between them, cardinality</td><td><i>“Which things does the system store and how are they related?”</i></td></tr>
+      <tr><td><b>Logical</b></td><td>3NF-normalised relations, attributes, PK/FK, business rules</td><td><i>“How is the stored structure normalised?”</i></td></tr>
+      <tr><td><b>Physical</b></td><td>PostgreSQL data types, indexes, constraints, ON DELETE rules</td><td><i>“What does the real Neon schema look like?”</i></td></tr>
+    </tbody>
+  </table>
+</main>
+<footer>AIVES &ndash; Member 5 deliverable &middot; ERD suite</footer>
+</body>
+</html>

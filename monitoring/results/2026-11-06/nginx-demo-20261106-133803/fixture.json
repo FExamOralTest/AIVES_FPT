@@ -1,0 +1,14 @@
+{
+    "createdAt":  "2026-11-06T13:38:11.3361346+07:00",
+    "baseUrl":  "http://localhost:8088",
+    "database":  "local PostgreSQL / aives_dev",
+    "courseId":  1,
+    "questionId":  1,
+    "examId":  1,
+    "userPrefix":  "demo-20261106-133803-",
+    "userCount":  50,
+    "graders":  5,
+    "sessionId":  1,
+    "startTime":  "2026-11-06T06:36:08.392594Z",
+    "endTime":  "2026-11-06T09:38:08.402538Z"
+}

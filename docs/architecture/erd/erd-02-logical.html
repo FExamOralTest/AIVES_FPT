@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERD 2 &ndash; Sơ đồ ERD logic</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  ul { font-size:14px; line-height:1.7; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ERD 2 &ndash; Sơ đồ ERD logic</h1>
+  <p>Thành viên 5 · ERD · Bản tiếng Việt</p>
+</header>
+<nav>
+  <a href="erd-01-conceptual.html">&larr; ERD 1</a>
+  <a href="erd-03-physical.html">ERD 3 &rarr;</a>
+  <a href="./erd-index.html">Index</a>
+  <a href="./erd-index.md">Markdown</a>
+  <a href="./all-erd.html">&#128202; All ERDs on one page</a>
+  <a href="../sequence/sequence-index.html">&#128260; Sequence set</a>
+</nav>
+<main>
+  <div class="card">
+    <h2>ERD Mức Logic (Logical ERD)</h2>
+    <img class="diag" src="./ERD_02_LOGICAL.svg" alt="ERD Mức Logic (Logical ERD)">
+    <p><a href="./ERD_02_LOGICAL.png" download>Download PNG</a> &middot; <a href="./ERD_02_LOGICAL.svg" download>Download SVG</a> &middot; <a href="./erd_02_logical.puml" target="_blank">PlantUML source</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Đặc điểm của mức logic</h2>
+    <ul>
+      <li>Mô tả <b>quan hệ đã chuẩn hóa 3NF</b> với đầy đủ thuộc tính, khóa chính (PK) và khóa ngoại (FK).</li>
+      <li>Kiểu dữ liệu ở mức <b>trừu tượng</b> (Integer, String, DateTime, Boolean, Text, Decimal) &ndash; không gắn với DBMS cụ thể.</li>
+      <li>Bảng trung gian cho quan hệ nhiều–nhiều: <code>exam_questions</code>, <code>session_exams</code>, <code>session_slot_exams</code>, <code>exam_slot_template_exams</code>, <code>enrollments</code>, <code>session_enrollments</code>.</li>
+      <li>Ghi rõ các ràng buộc nghiệp vụ: UNIQUE, CHECK, quy tắc xóa dữ liệu và concurrency token.</li>
+    </ul>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Các quan hệ chính và ràng buộc</h2>
+    <table>
+      <thead><tr><th>Quan hệ</th><th>Ý nghĩa</th><th>Ràng buộc chính</th></tr></thead>
+      <tbody>
+        <tr><td><b>USERS</b></td><td>Tài khoản người dùng &ndash; vai trò hệ thống</td><td>PK <code>user_id</code> · UQ <code>username</code>, <code>email</code></td></tr>
+        <tr><td><b>COURSES</b></td><td>Môn học</td><td>PK <code>course_id</code> · UQ <code>course_code</code> · FK giảng viên, người tạo</td></tr>
+        <tr><td><b>ENROLLMENTS</b></td><td>Ghi danh học môn</td><td>UQ <code>(student_id, course_id)</code></td></tr>
+        <tr><td><b>MARKDOWN_DOCUMENTS</b></td><td>Tài liệu nội dung / learning outcome</td><td>FK <code>course_id</code>, <code>uploaded_by</code></td></tr>
+        <tr><td><b>QUESTION_BANK</b></td><td>Ngân hàng câu hỏi</td><td>UQ trạng thái duyệt · FK tài liệu nguồn (SET NULL)</td></tr>
+        <tr><td><b>QUESTION_RUBRIC_CRITERIA</b></td><td>Tiêu chí chấm của câu hỏi</td><td>CHECK <code>0 &lt; max_score &le; 100</code>, <code>0 &le; position &lt; 20</code></td></tr>
+        <tr><td><b>EXAMS</b> / <b>EXAM_QUESTIONS</b></td><td>Đề thi và các câu hỏi được chọn</td><td>PK gộp <code>(exam_id, question_id)</code></td></tr>
+        <tr><td><b>EXAM_PERIODS</b> / <b>EXAM_SESSIONS</b></td><td>Kỳ thi và ca thi</td><td>UQ <code>session_code</code> · theo dõi sức chứa</td></tr>
+        <tr><td><b>EXAM_SLOT_TEMPLATES</b> / <b>SESSION_SLOTS</b></td><td>Mẫu kíp thi và kíp thi thực tế</td><td>UQ <code>(session_id, slot_index)</code>, <code>slot_code</code></td></tr>
+        <tr><td><b>SESSION_ENROLLMENTS</b></td><td>Ghi danh ca thi &amp; phân công đề/kíp</td><td>UQ <code>(student_id, session_id)</code> · concurrency token</td></tr>
+        <tr><td><b>RESULTS</b></td><td>Kết quả bài làm của học sinh</td><td>UQ <code>(student_id, session_id)</code> · concurrency token <code>status</code></td></tr>
+        <tr><td><b>ANSWERS</b></td><td>Câu trả lời của học sinh</td><td>UQ <code>(result_id, question_id)</code></td></tr>
+        <tr><td><b>MEDIA_UPLOADS</b></td><td>Phiên upload âm thanh theo chunk</td><td>PK <code>upload_id</code> · jsonb chunk indexes</td></tr>
+        <tr><td><b>EXAM_RETAKES</b></td><td>Quyền thi lại</td><td>CHECK <code>1 &le; duration_minutes &le; 240</code> · UQ result/session</td></tr>
+        <tr><td><b>AUDIT_LOGS</b></td><td>Nhật ký kiểm toán</td><td>jsonb old/new value · FK người thực hiện (SET NULL)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<footer>AIVES &ndash; Member 5 deliverable &middot; ERD suite &middot; generated page</footer>
+</body>
+</html>

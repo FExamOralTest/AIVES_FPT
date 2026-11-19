@@ -39,7 +39,7 @@ class Settings(BaseSettings):
         default=240, gt=0, le=3600, alias="QUESTION_GENERATION_TIMEOUT_SECONDS"
     )
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
-    gemini_model: str = Field(default="gemini-3.1-flash-lite", alias="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-3.5-flash", alias="GEMINI_MODEL")
     gemini_stt_model: str = Field(default="", alias="GEMINI_STT_MODEL")
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
@@ -52,17 +52,20 @@ class Settings(BaseSettings):
     faster_whisper_compute_type: str = Field(default="int8", alias="FASTER_WHISPER_COMPUTE_TYPE")
     stt_max_audio_bytes: int = Field(default=50 * 1024 * 1024, gt=0, alias="STT_MAX_AUDIO_BYTES")
     stt_timeout_seconds: float = Field(default=110, gt=0, le=3600, alias="STT_TIMEOUT_SECONDS")
+    stt_max_retries: int = Field(default=5, ge=1, le=10, alias="STT_MAX_RETRIES")
 
     # --- R2 ---
     r2_account_id: str = Field(default="", alias="R2_ACCOUNT_ID")
     r2_endpoint_url: str = Field(default="", alias="R2_ENDPOINT_URL")
     r2_access_key_id: str = Field(default="", alias="R2_ACCESS_KEY_ID")
     r2_secret_access_key: str = Field(default="", alias="R2_SECRET_ACCESS_KEY")
-    r2_bucket_name: str = Field(default="aives-exam-audios", alias="R2_BUCKET_NAME")
+    r2_bucket_name: str = Field(default="aives-media-bucket", alias="R2_BUCKET_NAME")
 
     # --- TTS ---
     tts_provider: str = Field(default="mock", alias="TTS_PROVIDER")
     google_tts_api_key: str = Field(default="", alias="GOOGLE_TTS_API_KEY")
+    tts_max_retries: int = Field(default=3, ge=1, le=10, alias="TTS_MAX_RETRIES")
+    tts_retry_delay_seconds: float = Field(default=1.0, gt=0, le=30, alias="TTS_RETRY_DELAY_SECONDS")
 
     # --- Backend ---
     backend_url: str = Field(default="http://localhost:5000", alias="BACKEND_URL")

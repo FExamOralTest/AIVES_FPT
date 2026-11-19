@@ -125,13 +125,16 @@ class SpeechToTextService:
             "generationConfig": {"temperature": 0},
         }
         async with httpx.AsyncClient(timeout=120) as client:
-            for attempt in range(3):
+            # Gemini thuong tra 503 (high demand) khi model dang ban tai:
+            # thu lai nhieu lan hon truoc khi bo cuoc thi.
+            max_attempts = max(3, settings.stt_max_retries)
+            for attempt in range(max_attempts):
                 response = await client.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                     headers={"x-goog-api-key": settings.gemini_api_key}, json=payload,
                 )
-                if response.status_code in (429, 500, 502, 503, 504) and attempt < 2:
-                    await asyncio.sleep(2 ** attempt)
+                if response.status_code in (429, 500, 502, 503, 504) and attempt < max_attempts - 1:
+                    await asyncio.sleep(min(2 ** attempt, 8))
                     continue
                 break
             response.raise_for_status()

@@ -1,7 +1,7 @@
 # AIVES Backend ↔ FastAPI AI Service Contract
 
-**Version:** 2.0
-**Last Updated:** 2026-10-29
+**Version:** 2.1
+**Last Updated:** 2026-11-11
 **Owner:** Hưng (BE1)
 
 ---
@@ -10,10 +10,12 @@
 
 This document defines the contract between **ASP.NET Core Backend** and **FastAPI AI Service**.
 
-- **FastAPI Base URL:** `http://localhost:8000`
-- **Auth:** Internal secret key via header `X-AI-Service-Key`
-- **Timeout:** 60 seconds per request (configurable)
-- **Retry Policy:** Up to 3 retries for transient errors
+- **FastAPI Base URL:** `AI:BaseUrl`, default `http://localhost:8000`
+- **Auth:** shared internal secret via header **`X-Internal-Token`** (`AI:ApiKey`)
+- **Timeout:** `AI:TimeoutSeconds` for the HTTP client (default 300 s); per-call STT/evaluation budget in `AnswerOrchestrator` is 120 s
+- **Retry Policy:** Hangfire owns retries for background jobs (max 3 total attempts); `AiServiceClient` only classifies errors
+
+Giao thức nộp bài end-to-end: [student-submission-protocol.md](student-submission-protocol.md).
 
 ---
 
@@ -24,11 +26,12 @@ This document defines the contract between **ASP.NET Core Backend** and **FastAP
 All Backend → FastAPI requests must include:
 
 ```
-Header: X-AI-Service-Key
-Value: <configured-secret-key>
+Header: X-Internal-Token
+Value: <AI:ApiKey>
 ```
 
 > **Note:** JWT tokens are NOT used for AI service calls. Only the internal secret key.
+> `AiServiceClient` adds the header automatically before every request.
 
 ### 2.2 Error Response for Auth Failure
 
@@ -134,10 +137,27 @@ Content-Type: multipart/form-data
 
 ### 3.5 Backend Processing Notes
 
-- Backend downloads audio from R2 before sending to STT
-- Transcript is stored in Answer.Transcript
-- Language detection stored in Answer.Language
-- Duration calculated from audio metadata
+- Viva `submit-answer` uploads audio then calls `POST /ai/speech/transcribe` with the multipart form.
+- Background answer jobs (`AnswerProcessingJob`) call `POST /ai/speech/transcribe-object` with `{ answerId, objectKey }` — the AI service reads the object from R2/local storage itself; backend does **not** download the object first.
+- Legacy audio rows that only have `audio_url` still fall back to resolve-URL + download + `/ai/speech/transcribe`.
+- Transcript is stored in `answers.transcript`; detected language in `answers.detected_language`; duration in `answers.duration_seconds`.
+- Retry/dead-letter decisions live in the Hangfire job, not in `AiServiceClient`.
+
+### 3.6 Stored-object endpoint
+
+```
+POST /ai/speech/transcribe-object
+Header: X-Internal-Token: <AI:ApiKey>
+Content-Type: application/json
+```
+
+```json
+{ "answerId": 45, "objectKey": "exams/3/sessions/300/students/501/q_7.webm" }
+```
+
+Response follows the same STT Response Contract as section 2 of
+[queue-and-stt-contract.md](queue-and-stt-contract.md): `success`, `transcript`,
+`language_detected`, `duration`, and `error { code, message, retryable }` on failure.
 
 ---
 
@@ -445,23 +465,25 @@ Content-Type: application/json
 
 | Operation | Timeout |
 |-----------|---------|
-| STT | 60 seconds |
-| Evaluation | 120 seconds |
-| Follow-up | 30 seconds |
-| Question Generation | 30 seconds |
+| `HttpClient` (toàn bộ AI calls) | `AI:TimeoutSeconds`, mặc định 300 s |
+| STT trong `AnswerOrchestrator` | 120 s (`AiCallTimeout`) |
+| Evaluation trong `AnswerOrchestrator` | 120 s (`AiCallTimeout`) |
+| Follow-up | Theo `HttpClient`/request token |
 
 ### 8.2 Retry Strategy
 
-- **Max Retries:** 3 attempts total
-- **Retry Delay:** Exponential backoff (2s, 4s, 8s)
+- **Max attempts:** 3 lần thử tổng cộng cho mỗi vòng xử lý (BR-17).
+- **Retry owner:** Hangfire `AnswerProcessingJob` (`AutomaticRetry`), không phải `AiServiceClient`.
+- **Retry delays:** 30 s → 120 s → 300 s.
 - **Retryable Errors:**
-  - `503 Service Unavailable`
-  - `504 Gateway Timeout`
-  - Connection errors
+  - `504` / timeout
+  - `503` / internal error / connection error
+  - `http_error`, `transcript_pending`
 - **Non-Retryable:**
   - `400 Bad Request`
-  - `401 Unauthorized`
+  - `401 Unauthorized` / `403 Forbidden`
   - `422 Unprocessable Entity`
+  - Audio corrupted, empty transcript, unsupported format, invalid response
   - `500 Internal Server Error` (may be retryable if transient)
 
 ### 8.3 Error Logging

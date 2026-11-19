@@ -1,0 +1,125 @@
+@startuml DIAGRAM_05_SEQUENCE_EN
+'==============================================================
+' AIVES - SIMPLIFIED SEQUENCE DIAGRAM (slide-ready, English)
+'
+' Simple by design: 6 participants, 3 phases, 21 messages.
+' No raw endpoints - every message states WHAT happens, not the URL.
+'
+' COLOUR CODE (4 meanings only):
+'   BLUE   solid  = REQUEST  (call)
+'   GREEN  dashed = RESPONSE (return)
+'   PURPLE solid  = DATABASE access
+'   ORANGE solid  = INTERNAL / retry
+'   GREY-BLUE      = life line (guide only, no arrow head)
+'
+' Verified against: VivaSessionController/VivaSessionService,
+'   SessionGradingJob/SessionGradingService,
+'   ResultsController/ResultService, StudentResultController.
+'   After rendering, run: python ops/_sharpen_svg.py <this>.svg
+'==============================================================
+title DIAGRAM 5 - SIMPLIFIED SEQUENCE DIAGRAM (AIVES)
+
+skinparam shadowing false
+
+skinparam sequenceArrowColor #1F5FBF
+skinparam sequenceArrowThickness 2.6
+
+skinparam sequenceLifeLineBorderColor #8FA6C4
+skinparam sequenceLifeLineBorderThickness 2.4
+skinparam sequenceLifeLineBackgroundColor #F7FAFF
+
+skinparam sequenceParticipantBorderColor #1F5FBF
+skinparam sequenceParticipantBorderThickness 2.4
+skinparam sequenceParticipantBackgroundColor #FFFFFF
+skinparam sequenceActorBorderColor #1F5FBF
+skinparam sequenceActorBorderThickness 2.4
+skinparam sequenceActorBackgroundColor #FFFFFF
+skinparam sequenceDatabaseBorderColor #7C3AED
+skinparam sequenceDatabaseBorderThickness 2.4
+skinparam sequenceDatabaseBackgroundColor #FFFFFF
+skinparam sequenceNoteBorderColor #1F5FBF
+skinparam sequenceNoteBackgroundColor #EAF2FE
+skinparam sequenceNoteBorderThickness 2
+skinparam sequenceGroupBorderColor #8FA6C4
+skinparam sequenceGroupBorderThickness 2
+skinparam sequenceGroupBackgroundColor #F4F7FB
+skinparam sequenceDividerBackgroundColor #1F5FBF
+skinparam sequenceDividerFontColor #FFFFFF
+
+skinparam ParticipantFontColor #14385C
+skinparam ActorFontColor #14385C
+skinparam DatabaseFontColor #5B21B6
+skinparam NoteFontColor #14385C
+skinparam GroupFontColor #14385C
+skinparam DividerFontColor #FFFFFF
+
+skinparam ParticipantFontSize 16
+skinparam ActorFontSize 16
+skinparam DatabaseFontSize 15
+skinparam NoteFontSize 14
+skinparam GroupFontSize 14
+skinparam DividerFontSize 14
+skinparam ParticipantFontStyle bold
+skinparam ActorFontStyle bold
+skinparam DatabaseFontStyle bold
+skinparam NoteFontStyle bold
+skinparam GroupFontStyle bold
+
+skinparam titleFontSize 21
+skinparam titleFontStyle bold
+skinparam titleFontColor #14385C
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 13
+skinparam defaultFontColor #14385C
+skinparam BoxPadding 6
+
+actor "Student" as Student
+participant "Backend API\nASP.NET Core" as BE
+participant "Hangfire Worker\nqueue: grading" as WJ
+participant "AI Service\nFastAPI" as AI
+database "PostgreSQL" as DB
+actor "Examiner" as Ex
+
+== 1. TAKE THE VIVA ==
+
+Student -[#1F5FBF]-> BE: Submit answer (audio)
+BE -[#1F5FBF]-> AI: Transcribe speech + generate follow-up
+AI -[#0E9F6E,dashed]-> BE: Transcript + next question
+BE -[#7C3AED]-> DB: Save answer (PROCESSING)
+BE -[#0E9F6E,dashed]-> Student: Feedback + next question
+
+Student -[#1F5FBF]-> BE: Finish the viva
+BE -[#7C3AED]-> DB: Result = PENDING_REVIEW + queue grading job
+BE -[#0E9F6E,dashed]-> Student: Submitted
+
+== 2. AI GRADES (async) ==
+
+WJ -[#7C3AED]-> DB: Load result + answers + rubric
+WJ -[#1F5FBF]-> AI: Evaluate answers against rubric
+AI -[#0E9F6E,dashed]-> WJ: Score + feedback per answer
+WJ -[#7C3AED]-> DB: Save AI score + feedback (EVALUATED)
+
+== 3. REVIEW, PUBLISH, VIEW ==
+
+Ex -[#1F5FBF]-> BE: Open result (audio + AI score)
+BE -[#0E9F6E,dashed]-> Ex: Answers + AI score + rubric
+Ex -[#1F5FBF]-> BE: Assign official score
+BE -[#7C3AED]-> DB: Status = REVIEWED (AI score kept)
+Ex -[#1F5FBF]-> BE: Publish result
+BE -[#7C3AED]-> DB: Status = PUBLISHED
+BE -[#0E9F6E,dashed]-> Ex: Published
+
+Student -[#1F5FBF]-> BE: View my result
+BE -[#0E9F6E,dashed]-> Student: Score + examiner comment
+
+note over WJ, AI
+  Retryable error: retry 30s / 120s / 300s (max 3 attempts).
+  Otherwise AI evaluation = FAILED, answer = ERROR.
+end note
+
+legend
+  | <#1F5FBF> | <#0E9F6E> | <#7C3AED> | <#C2410C> |
+  | Request | Response | Database | Internal |
+endlegend
+
+@enduml

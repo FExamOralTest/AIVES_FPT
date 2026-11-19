@@ -1,0 +1,172 @@
+@startuml SEQ_01_VIVA_FLOW_EN
+'==============================================================
+' AIVES - SEQUENCE DIAGRAM 1: VIVA EXAM FLOW (English)
+' Source: backend/Aives.Api/Controllers/VivaSessionController.cs
+'         backend/Aives.Application/Viva/Services/VivaSessionService.cs
+'         backend/Aives.Infrastructure/AI/AiServiceClient.cs
+'         backend/Aives.Api/Controllers/ChunkedAudioController.cs
+'==============================================================
+title SEQUENCE 1 - VIVA EXAM FLOW
+
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #1F3B52
+  ArrowThickness 2.5
+  LifeLineBorderColor #1F3B52
+  LifeLineBackgroundColor #F7FAFC
+  LifeLineThickness 2
+  ParticipantBackgroundColor #EAF1F7
+  ParticipantBorderColor #1F3B52
+  ParticipantBorderThickness 2
+  ParticipantFontSize 20
+  ParticipantFontStyle bold
+  ParticipantPadding 14
+  ActorBackgroundColor #EAF1F7
+  ActorBorderColor #1F3B52
+  ActorBorderThickness 2
+  ActorFontSize 20
+  ActorFontStyle bold
+  DatabaseBackgroundColor #E8F1E9
+  DatabaseBorderColor #1F3B52
+  DatabaseFontSize 19
+  DatabaseFontStyle bold
+  GroupBackgroundColor #EAF1F7
+  GroupBorderColor #1F3B52
+  GroupFontSize 20
+  GroupFontStyle bold
+  NoteBackgroundColor #FFF3CD
+  NoteBorderColor #B8860B
+  NoteFontSize 18
+  NoteFontStyle bold
+  NoteBorderThickness 2
+  BoxPadding 10
+  DividerBackgroundColor #1F3B52
+  DividerFontSize 18
+}
+skinparam titleFontSize 26
+skinparam titleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 18
+
+autonumber
+
+actor "Student" as Student
+participant "Web SPA\n(VivaRoomPage)" as SPA
+participant "VivaSessionController" as Ctrl
+participant "ChunkedAudioController" as Chunk
+participant "VivaSessionService" as Svc
+participant "Cloudflare R2\n(Object Storage)" as R2
+participant "AI Service\n(FastAPI)" as AI
+database "PostgreSQL\n(Neon)" as DB
+
+== Phase 1: Start the session ==
+
+Student -> SPA: Open the viva room, click "Start"
+SPA -> Ctrl: POST /api/student/viva-sessions/{id}/start
+activate Ctrl
+Ctrl -> Svc: StartSessionAsync(sessionId, studentId)
+activate Svc
+Svc -> DB: Read Session + Enrollment + ExamQuestions
+DB --> Svc: Session, CurrentQuestionIndex, question list
+
+alt Not enrolled / outside the exam window
+  Svc --> Ctrl: InvalidOperationException
+  deactivate Svc
+  Ctrl --> SPA: 400 Bad Request
+  SPA --> Student: "Preconditions not met - error shown"
+else All preconditions met
+  Svc -> DB: UPDATE Enrollment.LastActivityAt
+  Svc --> Ctrl: StartVivaSessionResponse
+  deactivate Svc
+  Ctrl --> SPA: 200 OK (first question)
+  deactivate Ctrl
+  SPA --> Student: Render question + answer hint
+end
+
+== Phase 2: Record & submit the answer ==
+
+Student -> SPA: Record WAV/webm, answer the question
+SPA -> Chunk: POST /api/audio/chunked/init
+Chunk --> SPA: uploadId
+SPA -> Chunk: POST /api/audio/chunked/chunk (repeated)
+Chunk -> R2: Upload each part
+Chunk --> SPA: 200 OK (assembled)
+note right of Chunk
+  Chunked path: used for long
+  recordings (>5 min) or a weak link
+end note
+
+SPA -> Ctrl: POST /api/student/viva-sessions/{id}/submit-answer\n(multipart: Audio + TextAnswer + QuestionId)
+activate Ctrl
+Ctrl -> Svc: SubmitAnswerAsync(sessionId, studentId, request)
+activate Svc
+
+alt An audio file is attached
+  Svc -> R2: UploadAudioAsync(objectKey)\nexams/{examId}/sessions/{sid}/students/{uid}/q_{qid}_{ticks}.ext
+  R2 --> Svc: audioUrl (presigned)
+else Audio already uploaded in chunks
+  Svc -> DB: ResolveChunkedAudioKeyAsync(uploadId)
+  DB --> Svc: objectKey
+end
+
+Svc -> AI: POST /ai/speech/transcribe-object\n{answerId, objectKey} + X-Internal-Token
+activate AI
+note right of AI
+  Internal Backend - AI protocol:
+  - Base URL: http://ai-service:8000
+  - Header: X-Internal-Token =
+    AI_SERVICE_SECRET_KEY
+  - Timeout: 300s
+  - The AI service pulls the audio
+    from R2 itself (R2_ACCESS_KEY
+    / R2_BUCKET_NAME)
+end note
+alt STT succeeds
+  AI --> Svc: transcript + duration
+else STT fails
+  AI --> Svc: success=false\n(EMPTY_AUDIO / NO_SPEECH /\nAUDIO_CORRUPTED / TIMEOUT)
+  Svc -> Svc: Fall back to TextAnswer
+end
+deactivate AI
+
+Svc -> AI: POST /ai/interview/follow-up\n(question + studentAnswer + questionIndex)\n+ X-Internal-Token
+activate AI
+alt AI wants a follow-up
+  AI --> Svc: shouldFollowUp=true, followUpQuestion
+else No follow-up needed
+  AI --> Svc: shouldFollowUp=false
+end
+deactivate AI
+
+Svc -> DB: INSERT Answer (Status=PROCESSING,\nTranscript, AudioUrl, ObjectKey)
+Svc -> DB: UPDATE Enrollment.CurrentQuestionIndex / LastActivityAt
+Svc -> DB: INSERT AuditLog
+
+alt A follow-up is required
+  Svc --> Ctrl: nextQuestion = follow-up (IsFollowUpAllowed=false)
+else All questions answered
+  Svc --> Ctrl: nextQuestion = null (completed)
+else More questions remain
+  Svc --> Ctrl: nextQuestion = the next question
+end
+deactivate Svc
+Ctrl --> SPA: 200 OK (score, feedback, nextQuestion)
+deactivate Ctrl
+SPA --> Student: Show feedback + next question
+
+== Phase 3: Finish the session ==
+
+Student -> SPA: "Finish interview" / time expires
+SPA -> Ctrl: POST /api/student/viva-sessions/{id}/finish
+activate Ctrl
+Ctrl -> Svc: FinishSessionAsync(sessionId, studentId)
+activate Svc
+Svc -> DB: UPSERT Result (Status=PENDING_REVIEW,\nSubmittedAt = UTC)
+Svc -> Svc: Enqueue SessionGradingJob (Hangfire, queue "grading")
+Svc --> Ctrl: FinishVivaSessionResponse
+deactivate Svc
+Ctrl --> SPA: 200 OK
+deactivate Ctrl
+SPA --> Student: "Submitted - waiting for grading"
+
+@enduml

@@ -107,6 +107,17 @@ Provider này nhận WAV, WebM, Ogg, MP3 và MP4, tối đa 14 MB mỗi lần g�
 `GEMINI_STT_MODEL` mặc định dùng model của `GEMINI_MODEL`.
 Đọc câu hỏi tiếng Việt không cần key riêng: đặt `TTS_PROVIDER=edge_tts`.
 
+> **Lưu ý về model & độ ổn định**
+>
+> - Dùng `GEMINI_MODEL=gemini-3.5-flash` (hoặc `gemini-flash-lite-latest`).
+>   `gemini-3.1-flash-lite` thường trả **503 UNAVAILABLE** (high demand) →
+>   service tự retry nhưng vẫn nên đổi sang model ổn định.
+> - `edge_tts` đôi khi đóng websocket mà không trả audio
+>   (`NoAudioReceived`). Service đã tự retry `TTS_MAX_RETRIES` lần
+>   (mặc định 3) nên gọi qua HTTP sẽ ổn định hơn gọi thẳng thư viện.
+> - STT Gemini retry tối đa `STT_MAX_RETRIES` lần (mặc định 5) khi gặp
+>   429/5xx.
+
 Khi backend có API mới, cần build và khởi động lại backend; chạy trực tiếp DLL cũ
 có thể trả HTTP 404 dù controller đã có trong mã nguồn. Từ repo root trên PowerShell,
 dùng `./scripts/run-backend.ps1` sau khi cấu hình `ConnectionStrings__DefaultConnection`,

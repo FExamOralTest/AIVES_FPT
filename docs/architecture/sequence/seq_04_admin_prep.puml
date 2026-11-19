@@ -1,0 +1,152 @@
+@startuml SEQ_04_ADMIN_PREP
+'==============================================================
+' AIVES - SEQUENCE DIAGRAM 4: CHUAN BI & TO CHUC THI
+' Nguon: backend/Aives.Api/Controllers/AuthController.cs
+'       backend/Aives.Api/Controllers/AdminCourseController.cs
+'       backend/Aives.Api/Controllers/DocumentsController.cs
+'       backend/Aives.Api/Controllers/QuestionBankController.cs
+'       backend/Aives.Api/Controllers/ExamSessionsController.cs
+'==============================================================
+title SEQUENCE 4 - CHUAN BI & TO CHUC THI
+
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #1F3B52
+  ArrowThickness 2.5
+  LifeLineBorderColor #1F3B52
+  LifeLineBackgroundColor #F7FAFC
+  LifeLineThickness 2
+  ParticipantBackgroundColor #EAF1F7
+  ParticipantBorderColor #1F3B52
+  ParticipantBorderThickness 2
+  ParticipantFontSize 20
+  ParticipantFontStyle bold
+  ParticipantPadding 14
+  ActorBackgroundColor #EAF1F7
+  ActorBorderColor #1F3B52
+  ActorBorderThickness 2
+  ActorFontSize 20
+  ActorFontStyle bold
+  DatabaseBackgroundColor #E8F1E9
+  DatabaseBorderColor #1F3B52
+  DatabaseFontSize 19
+  DatabaseFontStyle bold
+  GroupBackgroundColor #EAF1F7
+  GroupBorderColor #1F3B52
+  GroupFontSize 20
+  GroupFontStyle bold
+  NoteBackgroundColor #FFF3CD
+  NoteBorderColor #B8860B
+  NoteFontSize 18
+  NoteFontStyle bold
+  NoteBorderThickness 2
+  BoxPadding 10
+  DividerBackgroundColor #1F3B52
+  DividerFontSize 18
+}
+skinparam titleFontSize 26
+skinparam titleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 18
+
+autonumber
+
+actor "Quan tri\n(Admin)" as Admin
+actor "Giang vien\n(Staff)" as Staff
+participant "AuthController" as AuthCtrl
+participant "AdminCourseController" as CourseCtrl
+participant "DocumentsController" as DocCtrl
+participant "QuestionBankController" as QbCtrl
+participant "ExamSessionsController" as SessCtrl
+participant "AI Service\n(FastAPI)" as AI
+database "PostgreSQL\n(Neon)" as DB
+
+== Giai doan 1: Quan tri tao tai khoan ==
+
+Admin -> AuthCtrl: POST /api/auth/admin/create-user\n(email, username, password, role)
+activate AuthCtrl
+AuthCtrl -> DB: Kiem tra email/username ton tai
+alt Trung email hoac username
+  AuthCtrl --> Admin: 400 Bad Request (trung lap)
+else Hop le
+  AuthCtrl -> DB: INSERT User + UserRole (hash password)
+  AuthCtrl --> Admin: 201 Created (UserDto)
+end
+deactivate AuthCtrl
+
+== Giai doan 2: Tao mon hoc & phan cong GV ==
+
+Admin -> CourseCtrl: POST /api/admin/courses\n(name, code, description)
+activate CourseCtrl
+CourseCtrl -> DB: INSERT Course
+CourseCtrl --> Admin: 201 Created
+deactivate CourseCtrl
+
+Admin -> CourseCtrl: PUT /api/admin/courses/{id}/assign-teacher\n(teacherId)
+CourseCtrl -> DB: UPDATE Course.AssignedTeacherId
+CourseCtrl --> Admin: 200 OK
+
+== Giai doan 3: Giang vien tai len tai lieu ==
+
+Staff -> DocCtrl: POST /api/courses/{courseId}/documents\n(multipart: file .md, docType)
+activate DocCtrl
+DocCtrl -> DB: Kiem tra .md hop le, khong rong, dung kich thuoc
+alt Tai lieu khong hop le
+  DocCtrl --> Staff: 400 Bad Request
+else Hop le
+  DocCtrl -> DB: INSERT MarkdownDocuments\n(content, docType=CONTENT|LEARNING_OUTCOMES)
+  DocCtrl --> Staff: 200 OK (DocumentDto)
+end
+deactivate DocCtrl
+
+== Giai doan 4: AI sinh cau hoi tu tai lieu ==
+
+Staff -> DocCtrl: POST /api/courses/{courseId}/documents/generate-questions\n(count, level, focus)
+activate DocCtrl
+DocCtrl -> AI: POST /ai/questions/generate\n(documents + learningOutcomes + count + level)
+activate AI
+AI -> AI: LLM tao bo cau hoi\n(rubric, keywords, sampleAnswer, level)
+AI --> DocCtrl: BatchGenerateQuestionsResponse
+deactivate AI
+DocCtrl -> DB: INSERT QuestionBanks\n(Status=PENDING_REVIEW, AiGenerated=true)
+DocCtrl --> Staff: 200 OK (danh sach cau hoi moi)
+deactivate DocCtrl
+
+== Giai doan 5: Giang vien duyet cau hoi ==
+
+Staff -> QbCtrl: POST /api/courses/{courseId}/questions/{questionId}/approve
+activate QbCtrl
+QbCtrl -> DB: UPDATE QuestionBanks (Status=APPROVED)
+QbCtrl --> Staff: 200 OK
+deactivate QbCtrl
+
+== Giai doan 6: Lap lich ca thi ==
+
+Staff -> SessCtrl: POST /api/exam-sessions\n(examId, periodId, slotId, startTime, endTime)
+activate SessCtrl
+SessCtrl -> DB: Kiem tra slot trung gio / ngoai khung ca thi
+alt Khung thoi gian khong hop le
+  SessCtrl --> Staff: 400 Bad Request
+else Hop le
+  SessCtrl -> DB: INSERT ExamSessions\n(Status=NOT_STARTED, SessionCode=ESS-XXXXXXXX)
+  SessCtrl --> Staff: 201 Created (SessionCode)
+end
+deactivate SessCtrl
+
+Staff -> SessCtrl: PUT /api/exam-sessions/{id}/status (IN_PROGRESS)
+SessCtrl -> DB: UPDATE ExamSessions (Status=IN_PROGRESS)
+SessCtrl --> Staff: 200 OK
+
+== Giai doan 7: Ghi danh sinh vien ==
+
+Staff -> SessCtrl: GET /api/exam-sessions/{id}/monitor
+SessCtrl -> DB: SELECT Enrollment + trang thai
+SessCtrl --> Staff: 200 OK (tien do)
+
+note over Staff, DB
+  Ghi danh: POST /api/student/enrollments (SessionCode)
+  - kiem tra lich, si so toi da
+  - gan de thi + kip cho tung sinh vien
+end note
+
+@enduml

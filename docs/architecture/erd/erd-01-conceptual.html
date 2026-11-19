@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERD 1 &ndash; Sơ đồ ERD khái niệm</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card h2 { margin-top:0; font-size:16px; color:#0f3d5c; }
+  .diag { display:block; max-width:none; height:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:8px; font-size:13.5px; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  ul { font-size:14px; line-height:1.7; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ERD 1 &ndash; Sơ đồ ERD khái niệm</h1>
+  <p>Thành viên 5 · ERD · Bản tiếng Việt</p>
+</header>
+<nav>
+  <a href="erd-index.html">&larr; Index</a>
+  <a href="erd-02-logical.html">ERD 2 &rarr;</a>
+  <a href="./erd-index.html">Index</a>
+  <a href="./erd-index.md">Markdown</a>
+  <a href="./all-erd.html">&#128202; All ERDs on one page</a>
+  <a href="../sequence/sequence-index.html">&#128260; Sequence set</a>
+</nav>
+<main>
+  <div class="card">
+    <h2>ERD Mức Khái Niệm (Conceptual ERD)</h2>
+    <img class="diag" src="./ERD_01_CONCEPTUAL.svg" alt="ERD Mức Khái Niệm (Conceptual ERD)">
+    <p><a href="./ERD_01_CONCEPTUAL.png" download>Download PNG</a> &middot; <a href="./ERD_01_CONCEPTUAL.svg" download>Download SVG</a> &middot; <a href="./erd_01_conceptual.puml" target="_blank">PlantUML source</a></p>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Đặc điểm của mức khái niệm</h2>
+    <ul>
+      <li>Chỉ mô tả <b>thực thể nghiệp vụ</b> và <b>quan hệ</b> giữa chúng &ndash; không thuộc tính, không khóa, không kiểu dữ liệu.</li>
+      <li>Phù hợp để thảo luận với người nghiệp vụ (giảng viên, trưởng khoa) và giải thích phạm vi hệ thống.</li>
+      <li>4 nhóm nghiệp vụ: <b>Danh mục &amp; nội dung</b>, <b>Tổ chức thi</b>, <b>Thi &amp; chấm điểm</b>, <b>Ghi danh &amp; kiểm toán</b>.</li>
+      <li><b>20 thực thể</b> nghiệp vụ. Ba bảng nối nhiều–nhiều (<code>session_exams</code>, <code>exam_slot_template_exams</code>, <code>session_slot_exams</code>) được gộp thành một thực thể khái niệm <b>Exam Assignment</b> để giữ sơ đồ dễ đọc.</li>
+    </ul>
+  </div>
+  <div class="card" style="margin-top:20px;">
+    <h2>Các thực thể nghiệp vụ chính</h2>
+    <table>
+      <thead><tr><th>Thực thể</th><th>Ý nghĩa nghiệp vụ</th><th>Thuộc nhóm</th></tr></thead>
+      <tbody>
+        <tr><td><b>User</b></td><td>Tài khoản người dùng với vai trò ADMIN / STAFF / EXAMINER / STUDENT</td><td>Danh mục &amp; nội dung</td></tr>
+        <tr><td><b>Course</b></td><td>Môn học do giảng viên phụ trách, giảng viên tạo</td><td>Danh mục &amp; nội dung</td></tr>
+        <tr><td><b>Document</b></td><td>Tài liệu Markdown (nội dung bài học hoặc learning outcome) nạp lên</td><td>Danh mục &amp; nội dung</td></tr>
+        <tr><td><b>Question</b></td><td>Câu hỏi trong ngân hàng câu hỏi, có trạng thái duyệt</td><td>Danh mục &amp; nội dung</td></tr>
+        <tr><td><b>Rubric</b></td><td>Tiêu chí chấm điểm của một câu hỏi</td><td>Danh mục &amp; nội dung</td></tr>
+        <tr><td><b>Exam Paper</b></td><td>Đề thi chọn từ ngân hàng câu hỏi</td><td>Danh mục &amp; nội dung</td></tr>
+        <tr><td><b>Exam Question</b></td><td>Câu hỏi được chọn vào một đề thi kèm điểm</td><td>Danh mục &amp; nội dung</td></tr>
+        <tr><td><b>Period</b></td><td>Kỳ thi thuộc một môn học</td><td>Tổ chức thi</td></tr>
+        <tr><td><b>Session</b></td><td>Ca thi trong một kỳ thi, gắn mã ghi danh và sức chứa</td><td>Tổ chức thi</td></tr>
+        <tr><td><b>Slot Template</b></td><td>Mẫu chia kíp thi theo thời lượng và sức chứa</td><td>Tổ chức thi</td></tr>
+        <tr><td><b>Session Slot</b></td><td>Kíp thi cụ thể sinh ra trong một ca thi</td><td>Tổ chức thi</td></tr>
+        <tr><td><b>Exam Assignment</b></td><td>Phân công đề thi cho ca thi / kíp thi (gộp 3 bảng nối nhiều–nhiều)</td><td>Tổ chức thi</td></tr>
+        <tr><td><b>Registration</b></td><td>Học sinh ghi danh vào ca thi và được phân công kíp / đề</td><td>Tổ chức thi</td></tr>
+        <tr><td><b>Result</b></td><td>Bài làm của học sinh trong một ca thi</td><td>Thi &amp; chấm điểm</td></tr>
+        <tr><td><b>Answer</b></td><td>Câu trả lời (văn bản hoặc giọng nói) cho một câu hỏi</td><td>Thi &amp; chấm điểm</td></tr>
+        <tr><td><b>AI Evaluation</b></td><td>Kết quả chấm gợi ý của AI (điểm, nhận xét, phân tích)</td><td>Thi &amp; chấm điểm</td></tr>
+        <tr><td><b>Audio Upload</b></td><td>Tệp âm thanh bài làm, lưu trên Cloudflare R2</td><td>Thi &amp; chấm điểm</td></tr>
+        <tr><td><b>Retake</b></td><td>Yêu cầu thi lại khi xảy ra sự cố</td><td>Thi &amp; chấm điểm</td></tr>
+        <tr><td><b>Course Enrollment</b></td><td>Học sinh ghi danh học môn</td><td>Ghi danh &amp; kiểm toán</td></tr>
+        <tr><td><b>Audit Log</b></td><td>Nhật ký kiểm toán mọi thao tác nhạy cảm</td><td>Ghi danh &amp; kiểm toán</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<footer>AIVES &ndash; Member 5 deliverable &middot; ERD suite &middot; generated page</footer>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { AlertCircle, CalendarClock, Inbox, Loader2, RotateCw, Search } from 'lucide-react'
+import { AlertCircle, CalendarClock, CheckCircle2, Inbox, Loader2, RotateCw, Search } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -8,7 +8,7 @@ import { formatDateTime, parseApiDate } from '@/lib/format/date'
 import { toApiError } from '@/lib/http/apiError'
 import { useApi } from '@/lib/http/useApi'
 import { teacherResultsApi } from '../api/teacherResultsApi'
-import { ResultReviewModal } from '../components/ResultReviewModal'
+import { ResultReviewModal, type ReviewNavigation } from '../components/ResultReviewModal'
 import type { ResultForReviewDto, ResultSearchResponse } from '../types'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -45,6 +45,7 @@ export default function TeacherResultsPage() {
   const [selected, setSelected] = useState<ResultForReviewDto | null>(null)
   const [opening, setOpening] = useState<number | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
   const detailRequest = useRef<AbortController | null>(null)
   useEffect(() => () => detailRequest.current?.abort(), [])
 
@@ -82,6 +83,9 @@ export default function TeacherResultsPage() {
   }
 
   function refresh() { setResponse(null); setAttempt(n => n + 1) }
+  // Reloads the list but keeps showing the current rows until the new ones arrive,
+  // so the review dialog keeps its place while the examiner works through students.
+  function refreshQuietly() { setAttempt(n => n + 1) }
 
   async function openResult(resultId: number) {
     detailRequest.current?.abort()
@@ -96,6 +100,33 @@ export default function TeacherResultsPage() {
     } finally {
       if (!controller.signal.aborted) setOpening(null)
     }
+  }
+
+  const items = data?.items ?? []
+  const selectedIndex = selected ? items.findIndex(r => r.resultId === selected.resultId) : -1
+  const isDone = (status: string) => status === 'PUBLISHED' || status === 'CANCELLED'
+  const navigation: ReviewNavigation | undefined = selectedIndex < 0 ? undefined : {
+    position: selectedIndex + 1,
+    total: items.length,
+    hasPrevious: selectedIndex > 0,
+    hasNext: selectedIndex < items.length - 1,
+    loading: opening !== null,
+    error: detailError,
+    onPrevious: () => void openResult(items[selectedIndex - 1].resultId),
+    onNext: () => void openResult(items[selectedIndex + 1].resultId),
+  }
+
+  /** After publishing, open the next attempt on this page that still needs review. */
+  function openNextPending(published: ResultForReviewDto) {
+    const from = items.findIndex(r => r.resultId === published.resultId)
+    const next = items.slice(from + 1).find(r => !isDone(r.status))
+      ?? items.slice(0, Math.max(from, 0)).find(r => !isDone(r.status))
+    if (next) {
+      void openResult(next.resultId)
+      return
+    }
+    setSelected(null)
+    setFlash(`Published ${published.studentName}. Every attempt on this page is reviewed.`)
   }
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
@@ -148,7 +179,8 @@ export default function TeacherResultsPage() {
         </form>
       </section>
 
-      {detailError && <Alert variant="destructive" className="mb-4"><AlertDescription>{detailError}</AlertDescription></Alert>}
+      {flash && <Alert className="mb-4"><CheckCircle2 /><AlertDescription className="flex items-center justify-between gap-3">{flash}<button type="button" className="text-xs underline" onClick={() => setFlash(null)}>Dismiss</button></AlertDescription></Alert>}
+      {detailError && !selected && <Alert variant="destructive" className="mb-4"><AlertDescription>{detailError}</AlertDescription></Alert>}
       {!enabled && <div className="rounded-2xl border border-dashed p-12 text-center"><CalendarClock className="mx-auto mb-3 text-brand" /><p>Choose an exam period above to see students' attempts.</p></div>}
       {loading && <p role="status" className="p-8 text-center text-muted-foreground">Loading attempts…</p>}
       {current?.error && <Alert variant="destructive"><AlertDescription>{current.error} <button type="button" className="underline" onClick={refresh}>Try again</button></AlertDescription></Alert>}
@@ -175,7 +207,14 @@ export default function TeacherResultsPage() {
           <Button variant="outline" disabled={page * data.pageSize >= data.totalCount} onClick={() => { const next = new URLSearchParams(params); next.set('page', String(page + 1)); setParams(next) }}>Next</Button>
         </nav>
       </>}
-      {selected && <ResultReviewModal result={selected} onClose={() => setSelected(null)} onUpdated={updated => { setSelected(updated); refresh() }} />}
+      {selected && <ResultReviewModal
+        key={selected.resultId}
+        result={selected}
+        navigation={navigation}
+        onClose={() => { detailRequest.current?.abort(); setOpening(null); setDetailError(null); setSelected(null) }}
+        onUpdated={updated => { setSelected(updated); refreshQuietly() }}
+        onPublished={openNextPending}
+      />}
     </div>
   )
 }

@@ -1,0 +1,91 @@
+@startuml DIAGRAM_04_SWIMLANE_10_EN
+'==============================================================
+' AIVES - SWIMLANE 10 ACTIVITY (new, for slides) - English version
+' 5 lanes, EXACTLY 10 activities (UC-01..UC-10) + 3 error branches
+' Does NOT modify any existing file / old diagram.
+' Source: AIVES SRS 07/11/2026
+'==============================================================
+title DIAGRAM 4 - SWIMLANE 10 ACTIVITY (AIVES)
+
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #EAF1F7
+  BorderColor #1F3B52
+  BorderThickness 2.2
+  FontSize 19
+  FontStyle bold
+  FontColor #10243A
+  DiamondBackgroundColor #FFF3CD
+  DiamondBorderColor #B8860B
+  DiamondFontSize 17
+  DiamondFontStyle bold
+  DiamondBorderThickness 2
+  ConditionFontSize 17
+  ConditionFontStyle bold
+  ArrowFontSize 19
+  ArrowFontStyle bold
+  ArrowThickness 2.6
+}
+skinparam ArrowFontSize 19
+skinparam ArrowFontStyle bold
+skinparam ArrowThickness 2.6
+skinparam ArrowColor #1F3B52
+skinparam PartitionBackgroundColor #D7E3EC
+skinparam PartitionBorderColor #1F3B52
+skinparam PartitionFontSize 19
+skinparam PartitionFontStyle bold
+skinparam TitleFontSize 26
+skinparam TitleFontStyle bold
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 19
+
+|ADMIN|
+start
+:UC-01 Manage accounts, roles & courses;
+
+|STAFF|
+:UC-02 Upload .md material -> generate & approve AI questions;
+:UC-03 Build exam paper & schedule sessions;
+:UC-04 Enroll students & distribute papers;
+
+|STUDENT|
+:UC-05 Take the exam & record answers;
+
+|SYSTEM (Backend + AI + Hangfire)|
+if (Submission valid?) then (No)
+  #FFE8CC:SUBMIT ERROR - 400/403, student retries;
+  detach
+else (Yes)
+endif
+:UC-06 AI transcribes speech & grades by rubric\n(retry 30s/120s/300s);
+if (Grading failed?) then (Yes)
+  #FFE8CC:GRADING ERROR - FAILED, examiner grades manually or re-grades;
+  detach
+else (No)
+endif
+:UC-07 Persist result PENDING_REVIEW + audit log;
+
+|EXAMINER|
+:UC-08 Review evidence & assign the official score;
+if (Ready to publish?) then (No)
+  #FFE8CC:PUBLISH ERROR - 409, review again then publish;
+  detach
+else (Yes)
+endif
+if (Incident to handle?) then (Yes)
+  :UC-09 Handle incident: re-grade one answer / grant retake;
+else (No)
+endif
+
+|STUDENT|
+:UC-10 View the published result (PUBLISHED);
+stop
+
+legend right
+  |= Colour |= Meaning |
+  | <#EAF1F7> | **10 activities** (UC-01 ... UC-10) |
+  | <#FFE8CC> | **3 error branches** (submit / grading / publish) |
+  | <#FFF3CD> | Decision condition |
+endlegend
+
+@enduml

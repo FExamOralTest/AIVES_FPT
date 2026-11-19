@@ -1,0 +1,134 @@
+@startuml DIAGRAM_05A_VIVA_EXAM
+'==============================================================
+' AIVES - LIVE VIVA EXAM (slide-ready, Vietnamese)
+' Style modelled on the Visual Paradigm look used by the reference:
+'   - participant box: light blue fill, blue border, blue bold text
+'   - life line: THIN DASHED vertical guide (kept dashed on purpose)
+'   - messages: numbered "1:", "2:", ... solid = call, dashed = return
+'
+' Thành phần: Sinh viên . Web App . Backend API . DB . Cloudflare R2 . AI Engine
+'
+' Đối chiếu với:
+'   frontend/aives-web/src/lib/media/chunkedUploader.ts
+'   backend/Aives.Api/Controllers/ChunkedAudioController.cs
+'   backend/Aives.Application/Viva/Services/VivaSessionService.cs
+'   ai-service/app/api/{speech,interview}.py
+'
+'   Sau khi render, chạy:
+'     python ops/_sharpen_svg.py DIAGRAM_05A_VIVA_EXAM.svg --dashed-lifelines
+'==============================================================
+title Live Viva Exam (AIVES)
+
+skinparam shadowing false
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 13
+skinparam defaultFontColor #000000
+skinparam BoxPadding 8
+
+'--- participant / actor boxes: light blue like VP ---
+skinparam sequenceParticipantBackgroundColor #DAE8FC
+skinparam sequenceParticipantBorderColor #4A7EBB
+skinparam sequenceParticipantBorderThickness 1.6
+skinparam sequenceParticipantFontColor #1F3864
+skinparam sequenceParticipantFontStyle bold
+skinparam sequenceParticipantFontSize 15
+
+skinparam sequenceActorBackgroundColor #DAE8FC
+skinparam sequenceActorBorderColor #4A7EBB
+skinparam sequenceActorBorderThickness 1.6
+skinparam sequenceActorFontColor #1F3864
+skinparam sequenceActorFontStyle bold
+skinparam sequenceActorFontSize 15
+
+skinparam sequenceDatabaseBackgroundColor #DAE8FC
+skinparam sequenceDatabaseBorderColor #4A7EBB
+skinparam sequenceDatabaseBorderThickness 1.6
+skinparam sequenceDatabaseFontColor #1F3864
+skinparam sequenceDatabaseFontStyle bold
+skinparam sequenceDatabaseFontSize 14
+
+'--- life lines: thin dashed guide ---
+skinparam sequenceLifeLineBorderColor #6C8EBF
+skinparam sequenceLifeLineBorderThickness 1.4
+skinparam sequenceLifeLineBackgroundColor #FFFFFF
+
+'--- arrows: dark, call = solid, return = dashed ---
+skinparam sequenceArrowColor #333333
+skinparam sequenceArrowThickness 1.6
+
+skinparam sequenceNoteBorderColor #4A7EBB
+skinparam sequenceNoteBackgroundColor #DAE8FC
+skinparam sequenceNoteBorderThickness 1.4
+skinparam sequenceNoteFontColor #1F3864
+skinparam sequenceNoteFontSize 13
+
+skinparam sequenceGroupBorderColor #4A7EBB
+skinparam sequenceGroupBorderThickness 1.4
+skinparam sequenceGroupBackgroundColor #F4F8FD
+skinparam sequenceGroupFontColor #1F3864
+skinparam sequenceGroupFontSize 13
+
+skinparam sequenceDividerBackgroundColor #4A7EBB
+skinparam sequenceDividerFontColor #FFFFFF
+skinparam sequenceDividerFontSize 13
+
+skinparam titleFontSize 20
+skinparam titleFontStyle bold
+skinparam titleFontColor #1F3864
+
+actor "Sinh viên" as Student
+participant "Web App" as Web
+participant "Backend API\nASP.NET Core" as BE
+database "DB" as DB
+participant "Cloudflare R2" as R2
+participant "AI Engine\nFastAPI" as AI
+
+== Bắt đầu ca thi ==
+
+Student -> Web: 1: Mở phòng thi
+Web -> BE: 2: Bắt đầu session
+BE -> DB: 3: Lấy session + enrollment
+DB --> BE: 4: Session + câu hỏi đầu tiên
+BE --> Web: 5: Câu hỏi đầu tiên
+Web --> Student: 6: Hiển thị câu hỏi
+
+== Trả lời (lặp lại mỗi câu) ==
+
+Student -> Web: 7: Ghi âm câu trả lời
+Web -> BE: 8: Khởi tạo upload chunked
+BE --> Web: 9: uploadId
+Web -> BE: 10: Upload các chunk audio
+BE -> R2: 11: Lưu object audio
+BE --> Web: 12: Upload hoàn tất (objectKey)
+Web -> BE: 13: Nộp câu trả lời (uploadId)
+BE -> AI: 14: Chuyển giọng nói + sinh câu hỏi tiếp theo
+AI --> BE: 15: Transcript + câu hỏi tiếp theo
+BE -> DB: 16: Lưu câu trả lời (PROCESSING) + result (PENDING_REVIEW)
+BE --> Web: 17: Feedback + câu hỏi tiếp theo
+Web --> Student: 18: Hiển thị feedback + câu hỏi tiếp theo
+
+note over BE,AI
+  Giao thức nội bộ Backend - AI:
+  - POST /ai/speech/transcribe-object
+    (AI tự kéo audio từ R2)
+  - POST /ai/interview/follow-up
+  - Header X-Internal-Token
+    (= AI_SERVICE_SECRET_KEY)
+  - Base URL http://ai-service:8000
+  - Timeout 300s
+end note
+
+== Kết thúc ==
+
+Student -> Web: 19: Kết thúc bài thi
+Web -> BE: 20: Finish session
+BE -> DB: 21: Status = COMPLETED + xếp hàng job chấm điểm
+BE --> Web: 22: Đã nộp bài
+Web --> Student: 23: Đã nộp bài
+
+note over AI, R2
+  AI có thể hỏi follow-up sau mỗi câu trả lời,
+  tuỳ theo rubric của ca thi.
+end note
+
+@enduml

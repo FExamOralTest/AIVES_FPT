@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIVES – Bộ Diagram Rút Gọn</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, Arial, sans-serif; background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:28px; }
+  header h1 { margin:0 0 8px; font-size:26px; }
+  header p { margin:0; opacity:.85; font-size:14px; }
+  .switch { padding:12px 28px; background:#e8eef3; font-size:14px; border-bottom:1px solid #d3dce3; }
+  .switch a { color:#0f3d5c; font-weight:600; text-decoration:none; margin-right:18px; }
+  main { padding:24px 28px 60px; max-width:1200px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:18px; display:flex; flex-direction:column; }
+  .card h2 { margin:0 0 6px; font-size:17px; color:#0f3d5c; }
+  .card .meta { font-size:12.5px; color:#5b6b7a; margin-bottom:12px; }
+  .card .thumb { width:100%; height:210px; overflow:hidden; border:1px solid #eceff2; border-radius:6px;
+                   background:#fbfcfd; display:flex; align-items:center; justify-content:center; }
+  .card .thumb img { width:100%; height:100%; object-fit:contain; display:block; }
+  .card .links { margin-top:12px; font-size:13px; }
+  .card .links a { color:#0f3d5c; margin-right:12px; font-weight:600; text-decoration:none; }
+  .card .links a:hover { text-decoration:underline; }
+  h3.sec { margin:32px 0 14px; font-size:18px; color:#0f3d5c; border-bottom:2px solid #dbe3ea; padding-bottom:8px; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; }
+  th,td { border:1px solid #dfe5ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  .hint { background:#fff8e1; border-left:4px solid #B8860B; padding:12px 16px; margin:0 0 18px;
+           border-radius:0 6px 6px 0; font-size:13.5px; }
+  code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  footer { padding:20px 28px; font-size:12px; color:#5b6b7a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AIVES – Bộ Diagram Rút Gọn</h1>
+  <p>Thành viên 5 · Bản tiếng Việt</p>
+</header>
+<div class="switch">
+  <a href="./simplified-index-en.html">English version →</a>
+  <a href="./simplified-index-en.md">Markdown index</a>
+  <a href="../swimlane-index.html">Detailed swimlane set</a>
+  <a href="../all-diagrams-en.html">📄 All on one page</a>
+</div>
+<main>
+  <div class="hint">Bộ <strong>7 sơ đồ gọn</strong> dùng để thuyết trình tổng quan. Bản swimlane chi tiết (<strong>6 lane, ~40 hộp, 8 nhánh lỗi</strong>) vẫn được giữ nguyên để tham khảo.</div>
+  <h3 class="sec">Các sơ đồ</h3>
+  <div class="grid">
+    <div class="card">
+      <h2>DIAGRAM 1 · Use Case Diagram</h2>
+      <div class="meta">4 actor · 13 use case · 1819×1553</div>
+      <div class="thumb"><img src="./DIAGRAM_01_USECASE.svg?v13" alt="DIAGRAM 1 · Use Case Diagram"></div>
+      <div class="links">
+        <a href="./diagram-01-usecase.html">Open page</a>
+        <a href="./DIAGRAM_01_USECASE.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>DIAGRAM 2 · Swimlane rút gọn</h2>
+      <div class="meta">5 lane · 13 hộp · 1929×1570</div>
+      <div class="thumb"><img src="./DIAGRAM_02_SWIMLANE.svg?v13" alt="DIAGRAM 2 · Swimlane rút gọn"></div>
+      <div class="links">
+        <a href="./diagram-02-swimlane.html">Open page</a>
+        <a href="./DIAGRAM_02_SWIMLANE.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>DIAGRAM 3 · System Context Diagram</h2>
+      <div class="meta">4 actor · 4 năng lực · 1016×663</div>
+      <div class="thumb"><img src="./DIAGRAM_03_CONTEXT.svg?v13" alt="DIAGRAM 3 · System Context Diagram"></div>
+      <div class="links">
+        <a href="./diagram-03-context.html">Open page</a>
+        <a href="./DIAGRAM_03_CONTEXT.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>DIAGRAM 4 · Swimlane 10 Activity</h2>
+      <div class="meta">5 lane · 10 activity · 2347×1517</div>
+      <div class="thumb"><img src="./DIAGRAM_04_SWIMLANE_10.svg?v13" alt="DIAGRAM 4 · Swimlane 10 Activity"></div>
+      <div class="links">
+        <a href="./diagram-04-swimlane-10.html">Open page</a>
+        <a href="./DIAGRAM_04_SWIMLANE_10.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>DIAGRAM 5A · Live Viva Exam</h2>
+      <div class="meta">6 lifeline (gồm DB) · 3 giai đoạn · PNG 2.5×</div>
+      <div class="thumb"><img src="./DIAGRAM_05A_VIVA_EXAM.svg?v13" alt="DIAGRAM 5A · Live Viva Exam"></div>
+      <div class="links">
+        <a href="./diagram-05a-viva-exam.html">Open page</a>
+        <a href="./DIAGRAM_05A_VIVA_EXAM.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>DIAGRAM 5B · AI chấm điểm & Khảo thí review</h2>
+      <div class="meta">8 lifeline · 13 message · PNG 2.5×</div>
+      <div class="thumb"><img src="./DIAGRAM_05B_GRADING_REVIEW.svg?v13" alt="DIAGRAM 5B · AI chấm điểm & Khảo thí review"></div>
+      <div class="links">
+        <a href="./diagram-05b-grading-review.html">Open page</a>
+        <a href="./DIAGRAM_05B_GRADING_REVIEW.svg">SVG</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>DIAGRAM 5 · Sequence Diagram rút gọn</h2>
+      <div class="meta">6 participant · 3 giai đoạn · PNG 2.5×</div>
+      <div class="thumb"><img src="./DIAGRAM_05_SEQUENCE.svg?v13" alt="DIAGRAM 5 · Sequence Diagram rút gọn"></div>
+      <div class="links">
+        <a href="./diagram-05-sequence.html">Open page</a>
+        <a href="./DIAGRAM_05_SEQUENCE.svg">SVG</a>
+      </div>
+    </div>
+  </div>
+  <h3 class="sec">Thứ tự trình bày đề xuất</h3>
+  <table>
+    <thead><tr><th>Slide</th><th>Nội dung</th><th>Sơ đồ</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1</strong></td><td>Bối cảnh – ai dùng hệ thống, hệ thống dùng gì</td><td>DIAGRAM 3 (Context)</td></tr>
+      <tr><td><strong>2</strong></td><td>Hệ thống làm gì – 13 chức năng &amp; ai dùng</td><td>DIAGRAM 1 (Use Case)</td></tr>
+      <tr><td><strong>3</strong></td><td>Luồng đi qua ai – 5 vai trò, 3 nhánh lỗi</td><td>DIAGRAM 2 (Swimlane rút gọn)</td></tr>
+      <tr><td><strong>4</strong></td><td>Cô đọng nhất – 10 activity, vừa 1 slide</td><td>DIAGRAM 4 (Swimlane 10 Activity)</td></tr>
+      <tr><td><strong>5</strong></td><td>Ca thi trực tiếp – sinh viên &amp; AI phỏng vấn</td><td>DIAGRAM 5A (Live Viva Exam)</td></tr>
+      <tr><td><strong>6</strong></td><td>Chấm điểm AI &amp; khảo thí công bố</td><td>DIAGRAM 5B (Grading &amp; Review)</td></tr>
+      <tr><td><strong>7</strong></td><td>Toàn bộ luồng trong 1 sơ đồ</td><td>DIAGRAM 5 (Sequence rút gọn)</td></tr>
+      <tr><td><strong>8+</strong></td><td>Chi tiết (khi GV hỏi sâu)</td><td>SWL-1 / SWL-2A / SWL-2B · SEQ-1…SEQ-4</td></tr>
+    </tbody>
+  </table>
+</main>
+<footer>AIVES – Member 5 deliverable · simplified diagram set</footer>
+</body>
+</html>

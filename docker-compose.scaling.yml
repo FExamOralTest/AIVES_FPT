@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────
+#  Override cho chế độ SCALED (Thịnh — Nginx & Load Balancing
+#  + Huyền — Docker Backend Replicas).
+#
+#  Dùng khi:
+#      docker compose -f docker-compose.yml -f docker-compose.scaling.yml \
+#          --profile scaling up -d --scale backend=3 nginx
+#
+#  Vì sao cần override?
+#   1. `ports: 127.0.0.1:5000:8080` chỉ publish được cho MỘT container —
+#      scale backend=3 thì container thứ 2,3 sẽ fail với
+#      "port is already allocated".  Ở chế độ scaled, bỏ publish port của
+#      backend; truy cập qua Nginx (:8088) hoặc qua mạng nội bộ Docker.
+#   2. Nới rate-limit login: 500 VU đăng nhập đồng thời từ một IP sẽ bị
+#      429 nếu giữ mặc định 100 lần/15 phút.
+#   3. Tăng số Hangfire worker chấm bài để hàng đợi chấm không nghẽn.
+#   4. Giữ "scaling" là profile riêng → `docker compose up` mặc định vẫn
+#      chạy đúng 1 backend như cũ, không ảnh hưởng workflow hiện tại.
+#
+#  LƯU Ý:
+#   - Sau khi scale, Nginx cần resolve lại DNS để nhận IP các replica mới.
+#     Bản nginx.conf đã bật `resolve` nên Nginx tự làm mới (TTL 10 s),
+#     không cần restart thủ công.
+#   - Dừng về chế độ thường:
+#         docker compose -f docker-compose.yml -f docker-compose.scaling.yml \
+#             --profile scaling down
+#         docker compose up -d
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  backend:
+    # Bỏ publish port host — nhiều replica không thể cùng bind 127.0.0.1:5000.
+    ports: !reset []
+    environment:
+      # 500 học sinh đăng nhập đồng thời → cần nới rate limit login.
+      RateLimiting__LoginPermitLimit: "5000"
+      # Nhiều replica cùng chạy Hangfire → giữ số worker chấm vừa phải để
+      # tránh 2 worker giành cùng 1 bài (409 concurrency token không phải lỗi tải).
+      Hangfire__GradingWorkerCount: "2"
+      Hangfire__WorkerCount: "5"
+      # QUAN TRỌNG — giới hạn connection pool khi scale nhiều replica:
+      #   Npgsql mặc định Maximum Pool Size = 100 / process.
+      #   3 replica × 100 = 300 > PostgreSQL max_connections (250)
+      #   → "connection pool has been exhausted" khi tải nặng.
+      #
+      #   ĐO THỰC TẾ (monitoring/results/.../conn_watch): đỉnh 372 connection
+      #   khi 500 VU nộp bài đồng thời (trung bình 101).  → cần ≥ 500 slot.
+      #   Đặt 190/replica → tổng 570, dưới max_connections (600) nhưng đủ để
+      #   500 request song song đều có connection riêng.
+      #   (Npgsql KHÔNG có keyword "Maximum Idle Connections" — chỉ có
+      #    "Idle In Transaction Timeout" và "Connection Idle Lifetime".)
+      ConnectionStrings__DefaultConnection: >-
+        Host=postgres;Database=aives_dev;Username=aives;Password=aives-local-development;Maximum Pool Size=190;Minimum Pool Size=5;Timeout=60;Command Timeout=120
+      # Đồng bộ max_connections của PostgreSQL local (mặc định 100 → quá thấp).
+      POSTGRES_MAX_CONNECTIONS: "600"
+
+  nginx:
+    # Nginx là entry point duy nhất khi scaled.
+    image: nginx:1.27-alpine
+    ports:
+      - "127.0.0.1:${DOCKER_NGINX_PORT:-8088}:8088"
+    volumes:
+      - ./monitoring/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8088/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  nginx-logs:

@@ -1,0 +1,53 @@
+Hãy tạo một Sequence Diagram trong Visual Paradigm theo đúng đặc tả sau.
+Tiêu đề: "AI chấm điểm & Khảo thí công bố (AIVES)"
+
+LIFELINE (đặt từ trái sang phải, đúng thứ tự này):
+1. Finish handler  —  khối participant
+2. Hangfire (queue: grading)  —  khối participant
+3. Back-end Service (Grading)  —  khối participant
+4. AI service  —  khối participant
+5. Result store  —  khối participant
+6. Khảo thí  —  hình người (actor)
+7. DB  —  hình trụ database
+8. Sinh viên  —  hình người (actor)
+
+PHASE / DIVIDER (dùng làm divider, đặt theo thứ tự):
+- Nộp bài (chưa chấm)
+- Khảo thí cho phép chấm AI
+- Chấm điểm AI (bất đồng bộ)
+- Khảo thí review & công bố
+
+MESSAGE (đánh số đúng như dưới đây; -> = call đồng bộ, --> = reply/return):
+1. Sinh viên -> Finish handler : Kết thúc bài thi
+2. Finish handler -> Result store : Lưu bài nộp
+3. Result store -> DB : Ghi (PENDING_REVIEW)
+4. Khảo thí -> Result store : Mở danh sách bài chờ chấm
+5. Result store --> Khảo thí : Danh sách bài chưa chấm
+6. Khảo thí -> Result store : Cho phép chấm AI
+7. Result store -> Hangfire (queue: grading) : Xếp hàng job chấm điểm
+8. Hangfire (queue: grading) -> Back-end Service (Grading) : Nạp dữ liệu chấm
+9. Back-end Service (Grading) -> AI service : Chấm câu trả lời / rubric
+10. AI service --> Back-end Service (Grading) : Điểm + feedback
+11. Back-end Service (Grading) -> Result store : Lưu điểm AI
+12. Result store -> DB : Ghi (EVALUATED)
+13. Khảo thí -> Result store : Mở bằng chứng / kết quả AI
+14. Khảo thí -> Result store : Lưu điểm chính thức
+15. Result store -> DB : Status = REVIEWED
+16. Khảo thí -> Result store : Công bố kết quả
+17. Result store -> DB : Status = PUBLISHED
+18. Sinh viên -> Result store : Xem kết quả của mình
+
+NOTE (đặt trên lifeline đầu và cuối trong mục note):
+- Khảo thí .. Back-end Service (Grading): AI không tự chấm — chỉ bắt đầu chấm sau khi khảo thí cho phép.
+- Back-end Service (Grading) .. AI service: Giao thức nội bộ Backend - AI: POST /ai/evaluate/session, header X-Internal-Token (= AI_SERVICE_SECRET_KEY), base URL http://ai-service:8000, timeout 300s.
+- Hangfire (queue: grading) .. DB: Hàng đợi Hangfire: lưu job trong schema hangfire của PostgreSQL; server aives-grading-* chạy 1 worker trên queue grading (aives-api-* xử lý queue default / answers); retry 30s → 120s → 300s, tối đa 3 lần (BR-17).
+
+STYLE (bắt chước style Visual Paradigm):
+- Khối participant: nền xanh nhạt #DAE8FC, viền #4A7EBB 1.6 px, chữ xanh đậm #1F3864 đậm, cỡ 15.
+- Lifeline: nét đứt mảnh làm đường dẫn, màu #6C8EBF, 1.4 px.
+- Mũi tên message: xám đậm #333333, 1.6 px; call vẽ liền, reply vẽ đứt.
+- Mỗi message có số thứ tự ở đầu, ví dụ '1: Mở phòng thi'.
+- Tiêu đề đặt trên cùng, đậm, 20 pt, màu #1F3864.
+- Bố cục gọn để vừa 1 slide thuyết trình.
+
+Không vẽ thêm lifeline hay message nào khác. Nếu hỏi thêm, chỉ trả lời ngắn gọn và giữ nguyên đặc tả.

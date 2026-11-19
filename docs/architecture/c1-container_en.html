@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C1 – Container Diagram (multi-container)</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         background:#f6f7f9; color:#1f2933; }
+  header { background:#0f3d5c; color:#fff; padding:20px 28px; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; font-size:13px; opacity:.85; }
+  nav { padding:10px 28px; background:#e8eef3; font-size:13px; border-bottom:1px solid #d3dce3; }
+  nav a { color:#0f3d5c; margin-right:16px; text-decoration:none; font-weight:600; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:24px 28px 60px; }
+  .card { background:#fff; border:1px solid #dfe5ea; border-radius:8px; padding:20px; overflow:auto; }
+  .card img { max-width:100%; display:block; margin:0 auto; }
+  h2 { font-size:18px; color:#0f3d5c; margin:28px 0 10px; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; background:#fff; }
+  th,td { border:1px solid #dfe5ea; padding:8px 11px; text-align:left; vertical-align:top; }
+  th { background:#eef3f7; color:#0f3d5c; }
+  td code { background:#eef3f7; padding:1px 5px; border-radius:4px; font-size:12.3px; }
+  .hint { background:#fff8e1; border-left:5px solid #B8860B; padding:12px 16px;
+           border-radius:0 8px 8px 0; font-size:13.5px; margin:0 0 20px; }
+  footer { margin-top:30px; font-size:12.5px; color:#5b6b7a; }
+  a { color:#0f3d5c; }
+</style>
+</head>
+<body>
+<header>
+  <h1>C1 – Container Diagram (multi-container)</h1>
+  <p>Member 5 · C4 Container Diagram · English version</p>
+</header>
+
+<nav>
+  <a href="./all-diagrams-en.html">← All diagrams</a>
+  <a href="./c1-container-en.html">C1 Container</a>
+  <a href="./simplified/simplified-index-en.html">Simplified set</a>
+  <a href="./sequence/sequence-index-en.html">Sequence Diagrams</a>
+</nav>
+
+<main>
+  <div class="hint"><strong>C1 Container</strong> shows AIVES deployed as <strong>4 containers</strong> (frontend · backend · ai-service · postgres) plus the external services (Neon PostgreSQL · Cloudflare R2 · LLM). The notes cover the <strong>Hangfire queue</strong> and the <strong>internal Backend ↔ AI protocol</strong>.</div>
+
+  <div class="card">
+    <img src="./C1_Container.svg?v13" alt="C1 Container Diagram">
+  </div>
+
+  <h2>Containers & responsibilities</h2>
+  <table>
+    <thead><tr><th>Container</th><th>Responsibility / configuration</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Web Application</strong></td><td>React 19 SPA + Nginx — serves the viva room, exam management and the examiner review portal; reverse-proxies <code>/api</code> and <code>/uploads</code> to the backend</td></tr>
+      <tr><td><strong>Backend Web API</strong></td><td>ASP.NET Core 8 — JWT auth, RBAC, session orchestration, presigned URL signing; it also hosts **two Hangfire servers**: <code>aives-api-*</code> (5 workers, queues <code>default</code> + <code>answers</code>) and <code>aives-grading-*</code> (1 worker, queue <code>grading</code>)</td></tr>
+      <tr><td><strong>Message Queue / Job Storage</strong></td><td>Hangfire stores jobs in the PostgreSQL schema <code>hangfire</code> — <code>QueuePollInterval = 2s</code>, <code>InvisibilityTimeout = 10m</code>, retry 30s → 120s → 300s for at most 3 attempts (BR-17)</td></tr>
+      <tr><td><strong>AI Worker & Inference Service</strong></td><td>Python FastAPI — Faster-Whisper STT, TTS and rubric grading with an LLM; internal only, never published to the internet</td></tr>
+      <tr><td><strong>Relational Database</strong></td><td>Neon PostgreSQL — users, RBAC, exams, sessions, answers (status, audio_url) and scores</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Docker Compose topology</h2>
+  <table>
+    <thead><tr><th>Service</th><th>Ports & notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>frontend</code></td><td>Static React SPA build served by Nginx on <code>:80</code> (host <code>:5173</code> in dev)</td></tr>
+      <tr><td><code>backend</code></td><td>ASP.NET Core 8 on <code>:8080</code> (host <code>:5000</code>), hosting the Hangfire servers + Swagger</td></tr>
+      <tr><td><code>ai-service</code></td><td>FastAPI / uvicorn on <code>:8000</code>, reachable only internally through the Docker DNS name <code>http://ai-service:8000</code></td></tr>
+      <tr><td><code>postgres</code></td><td>PostgreSQL 16 (profile <code>local-db</code>); by default the managed Neon PostgreSQL is used</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Internal Backend ↔ AI protocol</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Base URL</strong></td><td>Internal Docker DNS — <code>http://ai-service:8000</code> (never published to the internet)</td></tr>
+      <tr><td><strong>Auth header</strong></td><td><code>X-Internal-Token: &lt;AI_SERVICE_SECRET_KEY&gt;</code> on every <code>/ai/*</code> request</td></tr>
+      <tr><td><strong><code>POST /ai/speech/transcribe-object</code></strong></td><td>Accepts <code>{ answerId, objectKey }</code>, pulls the file from R2 via the S3 API and runs STT; returns the answer transcript</td></tr>
+      <tr><td><strong><code>POST /ai/evaluate/session</code></strong></td><td>Grades against the session rubric and returns the AI score + comments</td></tr>
+      <tr><td><strong><code>POST /ai/interview/follow-up</code></strong></td><td>Generates the next interview question from the rubric and the current answer</td></tr>
+      <tr><td><strong>Timeout</strong></td><td><code>AI__TimeoutSeconds = 300</code> seconds per call</td></tr>
+      <tr><td><strong>Error taxonomy</strong></td><td>Retryable: <code>timeout</code> · <code>connection_error</code> · <code>internal_error</code> · <code>http_error</code>; non-retryable errors go to the dead-letter queue</td></tr>
+      <tr><td><strong>Queue</strong></td><td>STT and grading jobs run in the background through Hangfire (schema <code>hangfire</code>), retry 30s → 120s → 300s for at most 3 attempts (BR-17)</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    * PlantUML: <a href="./c1_container.puml">c1_container.puml</a> &middot;
+      SVG: <a href="./C1_Container.svg">C1_Container.svg</a> &middot;
+      PNG: <a href="./C1_Container.png">C1_Container.png</a> *
+  </footer>
+</main>
+</body>
+</html>

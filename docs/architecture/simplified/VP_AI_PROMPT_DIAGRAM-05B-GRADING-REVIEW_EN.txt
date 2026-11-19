@@ -1,0 +1,53 @@
+Create a Sequence Diagram in Visual Paradigm that follows this exact specification.
+Title: "AI Scoring & Examiner Review Publish (AIVES)"
+
+LIFELINES (left to right, in exactly this order):
+1. Finish handler  —  participant box
+2. Hangfire (queue: grading)  —  participant box
+3. Back-end Service (Grading)  —  participant box
+4. AI service  —  participant box
+5. Result store  —  participant box
+6. Examiner  —  stick figure (actor)
+7. DB  —  database cylinder
+8. Student  —  stick figure (actor)
+
+PHASES / DIVIDERS (use them as dividers, in this order):
+- Submit (not graded yet)
+- Examiner authorizes AI grading
+- AI scoring (async)
+- Examiner review & publish
+
+MESSAGES (number them exactly as below; -> = synchronous call, --> = reply/return):
+1. Student -> Finish handler : Finish the viva
+2. Finish handler -> Result store : Save submission
+3. Result store -> DB : Persist (PENDING_REVIEW)
+4. Examiner -> Result store : Open waiting submissions
+5. Result store --> Examiner : List of ungraded results
+6. Examiner -> Result store : Authorize AI grading
+7. Result store -> Hangfire (queue: grading) : Enqueue grading job
+8. Hangfire (queue: grading) -> Back-end Service (Grading) : Load grading context
+9. Back-end Service (Grading) -> AI service : Evaluate answers / rubric
+10. AI service --> Back-end Service (Grading) : Score + feedback
+11. Back-end Service (Grading) -> Result store : Store AI score
+12. Result store -> DB : Persist (EVALUATED)
+13. Examiner -> Result store : Open evidence / AI result
+14. Examiner -> Result store : Save official score
+15. Result store -> DB : Status = REVIEWED
+16. Examiner -> Result store : Publish result
+17. Result store -> DB : Status = PUBLISHED
+18. Student -> Result store : View my result
+
+NOTE (attach it over the first and the last lifeline of the note):
+- Examiner .. Back-end Service (Grading): The AI never grades on its own — grading starts only after the examiner authorizes it.
+- Back-end Service (Grading) .. AI service: Internal Backend - AI protocol: POST /ai/evaluate/session, header X-Internal-Token (= AI_SERVICE_SECRET_KEY), base URL http://ai-service:8000, timeout 300s.
+- Hangfire (queue: grading) .. DB: Hangfire queue: jobs stored in the PostgreSQL schema hangfire; the aives-grading-* server runs 1 worker on the grading queue (aives-api-* handles default / answers); retry 30s → 120s → 300s, max 3 attempts (BR-17).
+
+STYLING (match the Visual Paradigm look):
+- Participant boxes: light blue fill #DAE8FC, border #4A7EBB, 1.6 px, bold dark-blue text #1F3864, font size 15.
+- Life lines: thin DASHED vertical guide, color #6C8EBF, 1.4 px.
+- Message arrows: dark gray #333333, 1.6 px; solid for calls, dashed for replies.
+- Prefix every message with its number, e.g. '1: Open viva room'.
+- Title at the top, bold, 20 pt, color #1F3864.
+- Keep the layout compact so it fits one presentation slide.
+
+Do not add any extra lifeline or message. If you need to ask something, keep it short and keep the spec intact.

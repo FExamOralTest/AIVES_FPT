@@ -328,19 +328,47 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
             upload.PartETags = null;
 
             // Nếu client đã có Answer sẵn (upload audio cho Answer cũ) → gắn luôn.
+            var jobId = string.Empty;
             if (request.AnswerId > 0)
             {
+                // Không tin answerId client gửi lên: answer phải thuộc đúng sinh viên,
+                // đúng ca thi và đúng câu hỏi của phiên upload này. Thiếu bước này,
+                // một client có thể gắn audio của mình vào answer của sinh viên khác
+                // khi nhiều bài được nộp đồng thời.
+                var answer = await _answerRepo.GetByIdWithDetailsAsync(request.AnswerId, ct)
+                    ?? throw new KeyNotFoundException($"Answer {request.AnswerId} không tồn tại.");
+
+                if (answer.Result is null)
+                    throw new KeyNotFoundException($"Result cho Answer {request.AnswerId} không tìm thấy.");
+
+                if (answer.Result.StudentId != upload.StudentId)
+                    throw new UnauthorizedAccessException(
+                        "Answer không thuộc sinh viên đã khởi tạo phiên upload.");
+
+                if (answer.Result.SessionId != upload.SessionId)
+                    throw new UnauthorizedAccessException(
+                        "Answer không thuộc ca thi của phiên upload.");
+
+                if (answer.QuestionId != upload.QuestionId)
+                    throw new InvalidOperationException(
+                        "Answer không thuộc câu hỏi của phiên upload.");
+
+                if (answer.Result.Status is SubmissionStatus.CANCELLED or SubmissionStatus.PUBLISHED)
+                    throw new InvalidOperationException(
+                        "Bài thi đã bị huỷ hoặc đã công bố, không thể nhận audio mới.");
+
                 upload.AnswerId = request.AnswerId;
                 await _answerRepo.UpdateAudioUrlAsync(request.AnswerId, objectKey, ct);
 
-                // Enqueue STT job cho Answer này.
-                var answer = await _answerRepo.GetByIdWithDetailsAsync(request.AnswerId, ct);
+                // Enqueue STT job cho Answer này, kèm ownership để worker đối chiếu lại.
                 var metadata = QueueJobContract.Create(
                     request.AnswerId,
-                    answer?.ResultId,
+                    answer.ResultId,
                     objectKey,
-                    attempt: 1);
-                var jobId = _queue.EnqueueAnswerProcessing(metadata);
+                    attempt: 1,
+                    studentId: upload.StudentId,
+                    sessionId: upload.SessionId);
+                jobId = _queue.EnqueueAnswerProcessing(metadata);
                 if (!string.IsNullOrEmpty(jobId))
                     await _answerRepo.SetJobIdAsync(request.AnswerId, jobId, ct);
             }
@@ -357,6 +385,7 @@ public class ChunkedAudioUploadService : IChunkedAudioUploadService
                 AnswerId = upload.AnswerId ?? 0,
                 AudioKey = objectKey,
                 LocalFilePath = upload.LocalFilePath,
+                JobId = string.IsNullOrEmpty(jobId) ? null : jobId,
                 Status = "COMPLETED",
                 CompletedAt = upload.CompletedAt.Value,
                 StorageFallback = uploadResult.UsedFallback,

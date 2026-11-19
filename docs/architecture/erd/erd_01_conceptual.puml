@@ -1,0 +1,111 @@
+@startuml ERD_01_CONCEPTUAL
+'==============================================================
+' AIVES - CONCEPTUAL ERD (Muc Conceptual - Pho bien nghiep ngh)
+' Style: linear art - white boxes, thin strokes, short labels
+' Muc dich: thuc the nghiep ngh + quan he, KHONG khoa/thuoc tinh/kieu du lieu
+' Pham vi: 20 thuc the nghiep ngh
+'   (3 bang noi nhieu-nhieu duoc gop thanh 1 thuc the khai niem:
+'    Session Exam + Slot Template Exam + Session Slot Exam -> Exam Assignment)
+' Nguon: SRS 07/11/2026 + backend/Aives.Domain/Entities
+'==============================================================
+title ERD 1 - CONCEPTUAL ERD (AIVES) - Muc khai niem
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 14
+skinparam ArrowColor #2B2B2B
+skinparam ArrowThickness 1.3
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle normal
+skinparam TitleFontSize 22
+skinparam TitleFontStyle bold
+skinparam linetype ortho
+
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #2B2B2B
+  BorderThickness 1.3
+  FontSize 14
+  FontStyle bold
+  FontColor #2B2B2B
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #D8D8D8
+  BorderThickness 1
+  FontSize 13
+  FontStyle bold
+  FontColor #5A5A5A
+}
+
+package "1 · Danh muc va noi dung" {
+  entity "Nguoi dung\n(User)" as User
+  entity "Mon hoc\n(Course)" as Course
+  entity "Tai lieu hoc\n(Document)" as Doc
+  entity "Cau hoi\n(Question)" as Question
+  entity "Tieu chi cham\n(Rubric)" as Rubric
+  entity "De thi\n(Exam Paper)" as ExamPaper
+  entity "Cau hoi trong de thi\n(Exam Question)" as ExamQuestion
+}
+
+package "2 · To chuc thi" {
+  entity "Ky thi\n(Period)" as Period
+  entity "Ca thi\n(Session)" as Session
+  entity "Mau kip thi\n(Slot Template)" as SlotTpl
+  entity "Kip thi\n(Session Slot)" as Slot
+  entity "Phan cong de thi\n(Exam Assignment)" as Assign
+  entity "Ghi danh ca thi\n(Registration)" as SessionReg
+}
+
+package "3 · Thi va cham diem" {
+  entity "Bai lam\n(Result)" as Result
+  entity "Cau tra loi\n(Answer)" as Answer
+  entity "Ket qua cham AI\n(AI Evaluation)" as AiEval
+  entity "Ban ghi am thanh\n(Audio Upload)" as Audio
+  entity "Yeu cau thi lai\n(Retake)" as Retake
+}
+
+package "4 · Ghi danh va kiem toan" {
+  entity "Ghi danh mon\n(Course Enrollment)" as Enrollment
+  entity "Nhat ky kiem toan\n(Audit Log)" as Audit
+}
+
+' --- Danh muc va noi dung ---
+User ||--o{ Course : "tao"
+User ||--o{ Enrollment : "ghi danh"
+Course ||--o{ Enrollment : "co"
+Course ||--o{ Doc : "chua"
+Doc ||--o{ Question : "sinh cau hoi"
+Question ||--o{ Rubric : "cham theo"
+Course ||--o{ ExamPaper : "so huu"
+ExamPaper ||--o{ ExamQuestion : "chon"
+Question ||--o{ ExamQuestion : "duoc chon"
+
+' --- To chuc thi ---
+Course ||--o{ Period : "to chuc"
+Period ||--o{ Session : "chua"
+Session ||--o{ Slot : "chia"
+ExamPaper ||--o{ SlotTpl : "dinh nghia mau kip"
+SlotTpl ||--o{ Slot : "sinh kip"
+Session ||--o{ Assign : "gan de thi"
+ExamPaper ||--o{ Assign : "dung trong"
+Session ||--o{ SessionReg : "co"
+User ||--o{ SessionReg : "la hoc sinh"
+Assign ||--o{ SessionReg : "phân cong"
+
+' --- Thi va cham diem ---
+Session ||--o{ Result : "sinh"
+User ||--o{ Result : "la nguoi thi"
+Result ||--o{ Answer : "gom"
+Question ||--o{ Answer : "duoc tra loi"
+Answer ||--|| AiEval : "AI cham"
+Answer ||--o| Audio : "ban ghi"
+Session ||--o{ Audio : "tai len trong"
+Result ||--o{ Retake : "cap phep"
+Session ||--o{ Retake : "ca thi lai"
+
+' --- Kiem toan ---
+User ||--o{ Audit : "thuc hien"
+
+@enduml
