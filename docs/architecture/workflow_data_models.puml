@@ -1,0 +1,80 @@
+@startuml WF01_Prepare_And_Schedule
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam class {
+    BackgroundColor #eff6ff
+    BorderColor #2563eb
+    FontColor #1e3a8a
+    FontSize 12
+    FontStyle bold
+}
+
+class "Course" as Course
+class "QuestionBank" as QuestionBank
+class "QuestionRubricCriterion" as Rubric
+class "Exam" as Exam
+class "ExamSession" as ExamSession
+class "SessionEnrollment" as Enrollment
+class "User" as User
+
+Course "1" --> "0..*" QuestionBank : defines approved questions for course
+QuestionBank "1" --> "3..5" Rubric : specifies rubric criteria per question
+Course "1" --> "0..*" Exam : provides exam papers for course
+Exam "1" --> "0..*" ExamSession : schedules exam sessions for paper
+ExamSession "1" --> "0..*" Enrollment : allocates candidate enrollments in session
+User "1" --> "0..*" Enrollment : registers session enrollments per student
+@enduml
+
+@startuml WF02_Complete_Scheduled_Viva
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam class {
+    BackgroundColor #eff6ff
+    BorderColor #2563eb
+    FontColor #1e3a8a
+    FontSize 12
+    FontStyle bold
+}
+
+class "User" as User
+class "ExamSession" as ExamSession
+class "Exam" as Exam
+class "QuestionBank" as QuestionBank
+class "Result" as Result
+class "Answer" as Answer
+
+User "1" --> "0..*" Result : initiates exam results per candidate
+ExamSession "1" --> "0..*" Result : records exam results in session
+Exam "1" --> "0..*" Result : generates exam results for paper
+Result "1" --> "1..*" Answer : collects spoken answers within attempt
+QuestionBank "1" --> "0..*" Answer : evaluates spoken answers per question
+@enduml
+
+@startuml WF03_Review_And_Publish_Result
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam class {
+    BackgroundColor #eff6ff
+    BorderColor #2563eb
+    FontColor #1e3a8a
+    FontSize 12
+    FontStyle bold
+}
+
+class "User" as User
+class "Result" as Result
+class "Answer" as Answer
+class "ExamRetake" as ExamRetake
+class "AuditLog" as AuditLog
+
+User "1" --> "0..*" Result : publishes official results per examiner
+Result "1" --> "1..*" Answer : contains graded answers for review
+Result "1" --> "0..*" ExamRetake : grants retake authorizations for attempt
+User "1" --> "0..*" AuditLog : records audit logs per reviewer
+@enduml

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIVES Architecture - Conceptual Examination Data Model</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            securityLevel: 'loose',
+            theme: 'base',
+            flowchart: {
+                htmlLabels: false,
+                curve: 'linear',
+                nodeSpacing: 50,
+                rankSpacing: 70
+            },
+            themeVariables: {
+                primaryColor: '#eff6ff',
+                primaryTextColor: '#1e3a8a',
+                primaryBorderColor: '#2563eb',
+                lineColor: '#334155',
+                textColor: '#0f172a',
+                mainBkg: '#eff6ff',
+                nodeBorder: '#2563eb',
+                nodeTextColor: '#1e3a8a',
+                edgeLabelBackground: '#ffffff',
+                clusterBkg: '#f8fafc',
+                clusterBorder: '#cbd5e1'
+            }
+        });
+    </script>
+    <style>
+        :root {
+            --bg-page: #f8fafc;
+            --text-color: #0f172a;
+            --primary: #2563eb;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-page);
+            padding: 28px 16px;
+            color: var(--text-color);
+            max-width: 1020px;
+            margin: 0 auto;
+        }
+
+        .header-title {
+            text-align: center;
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.92rem;
+            margin-bottom: 22px;
+        }
+
+        .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 auto 22px auto;
+            background: #e2e8f0;
+            padding: 5px;
+            border-radius: 8px;
+            width: fit-content;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tabs-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .tab-content {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 100%;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .tab-content.active {
+            position: relative;
+            left: 0;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            color: #1e293b;
+            margin-bottom: 12px;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 6px;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 18px 0;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+            font-size: 0.86rem;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f1f5f9;
+            font-weight: 700;
+            color: #334155;
+        }
+    
+        /* ── Floating Top-Right Export Buttons ── */
+        .header-with-export {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+
+        .header-with-export h2,
+        .header-with-export .slide-title-text {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            font-size: 1.12rem;
+            color: #1e293b;
+        }
+
+        .export-buttons-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        .btn-export-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-export-top:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export-top:active {
+            transform: translateY(0);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header-title">📊 AIVES V2.0 — CONCEPTUAL EXAMINATION DATA MODEL</div>
+    <p class="subtitle">Static Association Model: Undirected Lines (No Arrowheads) + Relationship Labels</p>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab(0)">Static Entity Association</button>
+        <button class="tab-btn" onclick="switchTab(1)">Conceptual ER Diagram</button>
+    </div>
+
+    <div class="tabs-wrapper">
+        <div class="tab-content active" id="tab-0">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Conceptual Examination Data Model (Core Static Entities)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <div class="mermaid">
+flowchart TD
+    classDef entity fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:700,font-size:13px;
+
+    COURSE["Course"]:::entity
+    QB["QuestionBank"]:::entity
+    EXAM["Exam"]:::entity
+    SESSION["ExamSession"]:::entity
+    USER["User"]:::entity
+    RESULT["Result"]:::entity
+    ANSWER["Answer"]:::entity
+
+    COURSE ---|"defines approved questions for course"| QB
+    COURSE ---|"provides exam papers for course"| EXAM
+    EXAM ---|"schedules exam sessions for paper"| SESSION
+    SESSION ---|"records exam results in session"| RESULT
+    USER ---|"initiates exam results per candidate"| RESULT
+    RESULT ---|"collects spoken answers within attempt"| ANSWER
+    QB ---|"evaluates spoken answers per question"| ANSWER
+                </div>
+
+                <table>
+                    <tr>
+                        <th>Entity A</th>
+                        <th>Entity B</th>
+                        <th>Static Relationship (<code>Verb + Target Object + Scope</code>)</th>
+                    </tr>
+                    <tr>
+                        <td><code>Course</code></td>
+                        <td><code>QuestionBank</code></td>
+                        <td><strong>defines approved questions for course</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>Course</code></td>
+                        <td><code>Exam</code></td>
+                        <td><strong>provides exam papers for course</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>Exam</code></td>
+                        <td><code>ExamSession</code></td>
+                        <td><strong>schedules exam sessions for paper</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>ExamSession</code></td>
+                        <td><code>Result</code></td>
+                        <td><strong>records exam results in session</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>User</code></td>
+                        <td><code>Result</code></td>
+                        <td><strong>initiates exam results per candidate</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>Result</code></td>
+                        <td><code>Answer</code></td>
+                        <td><strong>collects spoken answers within attempt</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>QuestionBank</code></td>
+                        <td><code>Answer</code></td>
+                        <td><strong>evaluates spoken answers per question</strong></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-1">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Conceptual ER Diagram (Crow's Foot 1 → N)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <div class="mermaid">
+erDiagram
+    Course ||--o{ QuestionBank : "defines approved questions for course"
+    Course ||--o{ Exam : "provides exam papers for course"
+    Exam ||--o{ ExamSession : "schedules exam sessions for paper"
+    ExamSession ||--o{ Result : "records exam results in session"
+    User ||--o{ Result : "initiates exam results per candidate"
+    Result ||--|{ Answer : "collects spoken answers within attempt"
+    QuestionBank ||--o{ Answer : "evaluates spoken answers per question"
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(idx) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            const tabs = [document.getElementById('tab-0'), document.getElementById('tab-1')];
+            buttons.forEach((btn, i) => btn.classList.toggle('active', i === idx));
+            tabs.forEach((t, i) => t.classList.toggle('active', i === idx));
+        }
+    </script>
+<script>
+/**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x & 8x)
+ */
+/**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+
+</script>
+</body>
+</html>

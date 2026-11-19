@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIVES v2.0 — Entity Lifecycle & State Machine Diagrams</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            securityLevel: 'loose',
+            flowchart: {
+                htmlLabels: false,
+                curve: 'linear',
+                nodeSpacing: 50,
+                rankSpacing: 70
+            }
+        });
+    </script>
+    <style>
+        :root {
+            --bg-page: #f8fafc;
+            --text-color: #0f172a;
+            --primary: #2563eb;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 28px 18px;
+            background: var(--bg-page);
+            color: var(--text-color);
+        }
+
+        .header-title {
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.92rem;
+            margin-bottom: 22px;
+        }
+
+        .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 auto 22px auto;
+            background: #e2e8f0;
+            padding: 5px;
+            border-radius: 8px;
+            width: fit-content;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tabs-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .tab-content {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 100%;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .tab-content.active {
+            position: relative;
+            left: 0;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+
+        h2 {
+            font-size: 1.12rem;
+            margin-bottom: 8px;
+            color: #1e293b;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+
+        .desc {
+            font-size: 0.88rem;
+            color: #475569;
+            margin-bottom: 14px;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+            font-size: 0.85rem;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f1f5f9;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        /* ── High-Res Export Toolbar ── */
+        .export-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            padding: 8px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .export-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #475569;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .btn-export:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export:active {
+            transform: translateY(0);
+        }
+    
+        /* ── Floating Top-Right Export Buttons ── */
+        .header-with-export {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+
+        .header-with-export h2,
+        .header-with-export .slide-title-text {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            font-size: 1.12rem;
+            color: #1e293b;
+        }
+
+        .export-buttons-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        .btn-export-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-export-top:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export-top:active {
+            transform: translateY(0);
+        }
+
+
+        /* ── High-Res Export Toolbar ── */
+        .export-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            padding: 8px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .export-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #475569;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .btn-export:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-title">🔄 AIVES v2.0 — Lifecycle &amp; State Machine Diagrams</div>
+    <p class="subtitle">100% synced with <code>Aives.Domain.Enums</code> (<code>SubmissionStatus</code>, <code>AiEvaluationStatus</code>, <code>AnswerStatus</code>, <code>SessionStatus</code>, <code>ExamPeriodStatus</code>, <code>QuestionApprovalStatus</code>)</p>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab(0)">1. Result &amp; AI Grading Lifecycle</button>
+        <button class="tab-btn" onclick="switchTab(1)">2. Answer &amp; Queue Retry Lifecycle</button>
+        <button class="tab-btn" onclick="switchTab(2)">3. ExamPeriod, Exam &amp; Session Lifecycles</button>
+        <button class="tab-btn" onclick="switchTab(3)">4. Question Approval &amp; Retake Lifecycles</button>
+        <button class="tab-btn" onclick="switchTab(4)">5. View All Stacked</button>
+    </div>
+
+    <div class="tabs-wrapper">
+
+        <!-- TAB 0: RESULT & AI EVALUATION LIFECYCLE -->
+        <div class="tab-content active" id="tab-0">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>1. Result Lifecycle (<code>SubmissionStatus</code> + <code>AiEvaluationStatus</code>)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Tracks a student's exam attempt from entering the Viva room through asynchronous Hangfire AI grading, Examiner audit/override, and final publication.</p>
+                
+                <div class="mermaid">
+flowchart LR
+    START(( )):::startNode -->|"Student Starts Viva"| SUB["SUBMITTED<br/>(AiStatus: PENDING)"]:::stateBlue
+
+    SUB -->|"Hangfire Worker Grades"| PR["PENDING_REVIEW<br/>(AiStatus: SUCCEEDED)"]:::statePurple
+    SUB -->|"AI Worker Fails (3x)"| FAIL["PENDING_REVIEW<br/>(AiStatus: FAILED)"]:::stateRed
+    FAIL -->|"Manual Re-queue"| SUB
+
+    PR -->|"Examiner Audits / Overrides"| REV["REVIEWED<br/>(AuditLog Recorded)"]:::stateAmber
+    PR -->|"Examiner Direct Publish"| PUB["PUBLISHED<br/>(Visible to Student)"]:::stateGreen
+    REV -->|"Examiner Publishes"| PUB
+
+    SUB -->|"Session Aborted"| CAN["CANCELLED"]:::stateGray
+    PR -->|"Invalid Attempt"| CAN
+
+    PUB --> ENDNode((( )))
+    CAN --> ENDNode
+
+    classDef startNode fill:#0f172a,stroke:#0f172a
+    classDef stateBlue fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef statePurple fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#581c87,font-weight:bold
+    classDef stateAmber fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+    classDef stateGreen fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef stateRed fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b,font-weight:bold
+    classDef stateGray fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#334155,font-weight:bold
+                </div>
+
+                <table>
+                    <tr>
+                        <th>State (<code>SubmissionStatus</code>)</th>
+                        <th><code>AiEvaluationStatus</code></th>
+                        <th>Trigger &amp; Business Rule</th>
+                    </tr>
+                    <tr>
+                        <td><code>SUBMITTED</code></td>
+                        <td><code>PENDING</code></td>
+                        <td>Student finishes viva (`POST /viva-sessions/{id}/finish`) and Hangfire job is enqueued.</td>
+                    </tr>
+                    <tr>
+                        <td><code>PENDING_REVIEW</code></td>
+                        <td><code>SUCCEEDED</code> / <code>FAILED</code></td>
+                        <td>`SessionGradingService` aggregates `AiScore` across all answers (`BR-12`: hidden from Student).</td>
+                    </tr>
+                    <tr>
+                        <td><code>REVIEWED</code></td>
+                        <td><code>SUCCEEDED</code></td>
+                        <td>Examiner reviews audio/transcript and optionally overrides `FinalScore` (`BR-14`: requires reason + `AuditLog`).</td>
+                    </tr>
+                    <tr>
+                        <td><code>PUBLISHED</code></td>
+                        <td><code>SUCCEEDED</code></td>
+                        <td>Examiner publishes result (`BR-15`: read-only; Student can now view score &amp; feedback).</td>
+                    </tr>
+                    <tr>
+                        <td><code>CANCELLED</code></td>
+                        <td>Any</td>
+                        <td>Attempt invalidated or session cancelled before completion.</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 1: ANSWER & QUEUE RETRY LIFECYCLE -->
+        <div class="tab-content" id="tab-1">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>2. Answer &amp; Hangfire Queue Retry Lifecycle (<code>AnswerStatus</code>)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Models how each spoken answer (`answers` table) is processed asynchronously by Hangfire (`AnswerOrchestrator` / `SessionGradingService`) with automatic retry resilience.</p>
+                
+                <div class="mermaid">
+flowchart LR
+    START(( )):::startNode -->|"Audio Merged & Uploaded to R2"| PROC["PROCESSING<br/>(AttemptCount: 0..3)"]:::stateBlue
+
+    PROC -->|"Faster-Whisper STT + Gemini Rubric OK"| EVAL["EVALUATED<br/>(AiScore & JSONB Saved)"]:::stateGreen
+
+    PROC -->|"Timeout / API Error (Attempt < 3)"| RETRY["Hangfire Auto-Retry<br/>(AttemptCount++)"]:::stateAmber
+    RETRY -->|"Re-dispatch Job"| PROC
+
+    PROC -->|"AttemptCount >= 3 Failed"| ERR["ERROR<br/>(ErrorMessage Logged)"]:::stateRed
+    ERR -->|"Examiner / Admin Clicks Retry"| PROC
+
+    EVAL --> ENDNode((( )))
+
+    classDef startNode fill:#0f172a,stroke:#0f172a
+    classDef stateBlue fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef stateAmber fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+    classDef stateGreen fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef stateRed fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b,font-weight:bold
+                </div>
+
+                <table>
+                    <tr>
+                        <th>State (<code>AnswerStatus</code>)</th>
+                        <th>Columns Updated</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>PROCESSING</code></td>
+                        <td><code>object_key</code>, <code>job_id</code>, <code>attempt_count</code></td>
+                        <td>Audio `.webm` is stored in Cloudflare R2 and queued in Hangfire for AI evaluation.</td>
+                    </tr>
+                    <tr>
+                        <td><code>EVALUATED</code></td>
+                        <td><code>transcript</code>, <code>ai_score</code>, <code>ai_analysis</code> (JSONB)</td>
+                        <td>Python AI Service returns Whisper transcript + per-criterion Gemini rubric breakdown.</td>
+                    </tr>
+                    <tr>
+                        <td><code>ERROR</code></td>
+                        <td><code>error_message</code>, <code>attempt_count = 3</code></td>
+                        <td>Dead-letter state after 3 failed retries; Examiner can still listen to R2 audio and grade manually or trigger retry.</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 2: EXAM PERIOD, EXAM & SESSION LIFECYCLES -->
+        <div class="tab-content" id="tab-2">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>3. ExamPeriod, Exam &amp; ExamSession Lifecycles</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Synchronized lifecycles governing scheduling campaigns (`ExamPeriodStatus`), exam papers (`ExamStatus`), and live examination rooms (`SessionStatus`).</p>
+                
+                <div class="mermaid">
+flowchart TB
+    subgraph EP["🗓️ A. ExamPeriod Lifecycle (ExamPeriodStatus)"]
+        direction LR
+        EP_D["DRAFT"]:::stateGray -->|"Staff Activates"| EP_A["ACTIVE"]:::stateBlue
+        EP_A -->|"Period Ends"| EP_C["COMPLETED"]:::stateGreen
+        EP_D -->|"Cancel"| EP_X["CANCELLED"]:::stateRed
+        EP_A -->|"Cancel"| EP_X
+    end
+
+    subgraph EX["📄 B. Exam Paper Lifecycle (ExamStatus)"]
+        direction LR
+        EX_D["DRAFT"]:::stateGray -->|"Assign to Period/Slot"| EX_S["SCHEDULED"]:::stateAmber
+        EX_S -->|"Window Opens"| EX_O["OPEN"]:::stateBlue
+        EX_O -->|"Window Closes"| EX_CL["CLOSED"]:::stateGreen
+        EX_D -->|"Cancel"| EX_X["CANCELLED"]:::stateRed
+        EX_S -->|"Cancel"| EX_X
+    end
+
+    subgraph ES["🎙️ C. ExamSession Lifecycle (SessionStatus)"]
+        direction LR
+        ES_N["NOT_STARTED"]:::stateGray -->|"StartTime Reached / First Student Joins"| ES_I["IN_PROGRESS"]:::stateBlue
+        ES_I -->|"EndTime Reached / All Finished"| ES_C["COMPLETED"]:::stateGreen
+        ES_N -->|"Staff Cancels"| ES_X["CANCELLED"]:::stateRed
+        ES_I -->|"Emergency Cancel"| ES_X
+    end
+
+    classDef stateBlue fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef stateAmber fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+    classDef stateGreen fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef stateRed fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b,font-weight:bold
+    classDef stateGray fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#334155,font-weight:bold
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: QUESTION APPROVAL & RETAKE LIFECYCLES -->
+        <div class="tab-content" id="tab-3">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>4. Question Approval (<code>QuestionApprovalStatus</code>) &amp; Retake (<code>ExamRetake</code>) Lifecycles</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Governance lifecycles ensuring only teacher-approved questions enter exams (`BR-06`) and Examiner-approved retakes spawn a clean second attempt.</p>
+                
+                <div class="mermaid">
+flowchart TB
+    subgraph QA["❓ A. Question Bank Approval Lifecycle (QuestionApprovalStatus)"]
+        direction LR
+        Q_P["PENDING_REVIEW<br/>(AI Generated from .md)"]:::stateAmber -->|"Staff Edits & Approves"| Q_A["APPROVED<br/>(Eligible for Exams)"]:::stateGreen
+        Q_P -->|"Staff Rejects"| Q_R["REJECTED<br/>(Excluded from Exams)"]:::stateRed
+        Q_R -->|"Staff Revises"| Q_A
+    end
+
+    subgraph RT["🔁 B. Exam Retake Lifecycle (exam_retakes)"]
+        direction LR
+        R_O["Original Result<br/>(Failed / Technical Issue)"]:::stateRed -->|"Examiner Grants Retake"| R_G["RETAKE GRANTED<br/>(AuditLog Recorded)"]:::stateAmber
+        R_G -->|"Student Re-enters Session"| R_I["NEW RESULT: SUBMITTED<br/>(Attempt #2)"]:::stateBlue
+        R_I -->|"AI Grades & Examiner Publishes"| R_P["PUBLISHED<br/>(Retake Completed)"]:::stateGreen
+    end
+
+    classDef stateBlue fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef stateAmber fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+    classDef stateGreen fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef stateRed fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b,font-weight:bold
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchTab(idx) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            const tabs = [
+                document.getElementById('tab-0'),
+                document.getElementById('tab-1'),
+                document.getElementById('tab-2'),
+                document.getElementById('tab-3')
+            ];
+
+            buttons.forEach((btn, i) => btn.classList.toggle('active', i === idx));
+
+            if (idx === 4) {
+                tabs.forEach(t => t.classList.add('active'));
+            } else {
+                tabs.forEach((t, i) => t.classList.toggle('active', i === idx));
+            }
+        }
+
+        /**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x & 8x)
+ */
+/**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+
+
+        /* ── Unified High-Resolution Diagram Exporter ── */
+        /**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+    </script>
+</body>
+</html>
+

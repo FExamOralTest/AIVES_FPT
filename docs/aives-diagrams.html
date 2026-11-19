@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIVES v2.0 — Master Architecture Diagrams Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            securityLevel: 'loose',
+            flowchart: {
+                htmlLabels: false,
+                curve: 'linear',
+                nodeSpacing: 50,
+                rankSpacing: 70
+            }
+        });
+    </script>
+    <style>
+        :root {
+            --bg-page: #f8fafc;
+            --text-color: #0f172a;
+            --primary: #2563eb;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-page);
+            padding: 24px 16px;
+            color: var(--text-color);
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header-title {
+            text-align: center;
+            font-size: 1.45rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.95rem;
+            margin-bottom: 22px;
+        }
+
+        /* ── Master Tab Navigation ── */
+        .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 auto 22px auto;
+            background: #e2e8f0;
+            padding: 6px;
+            border-radius: 10px;
+            width: fit-content;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 9px 18px;
+            border-radius: 7px;
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+
+        .tabs-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .tab-content {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 100%;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .tab-content.active {
+            position: relative;
+            left: 0;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            margin-bottom: 22px;
+        }
+
+        .header-with-export {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+
+        .header-with-export h2 {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            font-size: 1.15rem;
+            color: #1e293b;
+        }
+
+        .export-buttons-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        .btn-export-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-export-top:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export-top:active {
+            transform: translateY(0);
+        }
+
+        .desc {
+            font-size: 0.88rem;
+            color: #475569;
+            margin-bottom: 14px;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 18px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-title">🎓 AIVES v2.0 — MASTER ARCHITECTURE DIAGRAMS</div>
+    <p class="subtitle">Trang tổng hợp toàn bộ sơ đồ kiến trúc — Hỗ trợ xuất ảnh Ultra-HD 4x, 8x và Vector SVG</p>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab(0)">1. C0 System Context</button>
+        <button class="tab-btn" onclick="switchTab(1)">2. C1 Multi-Container (LR)</button>
+        <button class="tab-btn" onclick="switchTab(2)">3. Complete 21-Entity ERD</button>
+        <button class="tab-btn" onclick="switchTab(3)">4. Core 12-Entity ERD</button>
+        <button class="tab-btn" onclick="switchTab(4)">5. Result Lifecycle</button>
+        <button class="tab-btn" onclick="switchTab(5)">6. Answer Queue Retry</button>
+        <button class="tab-btn" onclick="switchTab(6)">7. Seq: Live Viva Exam</button>
+        <button class="tab-btn" onclick="switchTab(7)">8. WF-02 Live Viva</button>
+    </div>
+
+    <div class="tabs-wrapper">
+
+        <!-- TAB 0: C0 CONTEXT -->
+        <div class="tab-content active" id="tab-0">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>1. C0 — System Context Diagram (Left-to-Right)</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <p class="desc">High-level boundary showing the 4 user roles on the left interacting with the AIVES platform and cloud dependencies on the right.</p>
+                <div class="mermaid">
+flowchart LR
+    subgraph ACTORS["👥 System Actors (4 Roles)"]
+        direction TB
+        AD["Admin<br/>(System & Accounts)"]:::actor
+        STF["Staff / Teacher<br/>(Courses, Questions & Slots)"]:::actor
+        ST["Student<br/>(Takes Oral Viva Exam)"]:::actor
+        EX["Examiner<br/>(Reviews & Publishes Grades)"]:::actor
+    end
+
+    SYS["🎓 AIVES v2.0 Platform<br/>AI-Based Interactive Viva Examination System"]:::system
+
+    subgraph EXT["☁️ External Cloud Services"]
+        direction TB
+        R2[("Cloudflare R2<br/>Audio Object Storage")]:::external
+        GEM["Google Gemini API<br/>LLM Rubric Grading & TTS"]:::external
+    end
+
+    AD -->|"Manage Users & Courses [HTTPS]"| SYS
+    STF -->|"Upload .md, Approve Questions, Schedule Sessions [HTTPS]"| SYS
+    ST -->|"Speak Oral Answers & View Final Grades [HTTPS]"| SYS
+    EX -->|"Audit Audio, Override Scores & Publish Results [HTTPS]"| SYS
+
+    SYS -->|"Upload & Stream Audio (.webm) [S3 API / Presigned URL]"| R2
+    SYS -->|"Generate Questions, TTS & Grade Transcripts [HTTPS / REST]"| GEM
+
+    classDef actor fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef system fill:#1e40af,stroke:#1e3a8a,stroke-width:3px,color:#ffffff,font-weight:bold
+    classDef external fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1: C1 MULTI-CONTAINER -->
+        <div class="tab-content" id="tab-1">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>2. C1 — Multi-Container Architecture (Left-to-Right)</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <p class="desc">Actor Workspaces → Backend API &amp; Hangfire Queue → AI Microservice Frame → Cloudflare R2 &amp; Gemini.</p>
+                <div class="mermaid">
+flowchart LR
+    subgraph ROLES["👥 1. Actors (Who)"]
+        direction TB
+        AD["Admin"]:::actor
+        STF["Staff / Teacher"]:::actor
+        STU["Student"]:::actor
+        EXM["Examiner"]:::actor
+    end
+
+    subgraph BOUNDARY["🏢 AIVES v2.0 Multi-Container System Boundary"]
+        direction LR
+
+        subgraph SPA["💻 2. Web App Container (React 19 SPA :5173) — Actor Workspaces"]
+            direction TB
+            W_AD["Admin Workspace<br/>(Users, Roles & Courses)"]:::portal
+            W_STF["Staff Workspace<br/>(Upload .md, Approve Bank, Schedule Slots)"]:::portal
+            W_STU["Student Viva Workspace<br/>(Mic Chunk Recording & Published Grades)"]:::portal
+            W_EXM["Examiner Review Workspace<br/>(R2 Audio Player, Score Override, Publish)"]:::portal
+        end
+
+        subgraph CORE["⚙️ 3. Backend & Queue Containers (.NET 8)"]
+            direction TB
+            API["Backend API Server<br/>(ASP.NET Core 8 :5068)<br/>RBAC, Chunk Merge, R2 Upload"]:::container
+            MQ[["Hangfire Message Queue & Worker<br/>(Async SessionGradingService)<br/>Background Dispatch · Max 3 Retries"]]:::queue
+            DB[("Neon PostgreSQL 16 (:5432)<br/>22 Domain Tables + Hangfire Jobs")]:::db
+        end
+
+        subgraph AIFRAME["🤖 4. AI Microservice Frame (Python FastAPI :8000)"]
+            direction TB
+            AI_GEN["Question & Rubric Generator<br/>(Parses Course .md → 3-5 Criteria)"]:::ai
+            AI_STT["Faster-Whisper STT Engine<br/>(Converts R2 .webm Audio → Transcript)"]:::ai
+            AI_GRD["Rubric Grading & Follow-up Engine<br/>(Scores Transcript per Criterion)"]:::ai
+        end
+    end
+
+    subgraph EXT["☁️ 5. External Cloud Services"]
+        direction TB
+        R2[("Cloudflare R2<br/>(S3 Audio Storage)")]:::external
+        GEM["Google Gemini API<br/>(LLM & Structured JSON)"]:::external
+    end
+
+    AD -->|"HTTPS"| W_AD
+    STF -->|"HTTPS"| W_STF
+    STU -->|"HTTPS"| W_STU
+    EXM -->|"HTTPS"| W_EXM
+
+    W_AD -->|"REST JSON + JWT"| API
+    W_STF -->|"REST JSON + JWT"| API
+    W_STU -->|"Multipart Audio + JWT"| API
+    W_EXM -->|"REST JSON + JWT"| API
+    W_EXM -.->|"Stream Audio [Presigned GET URL]"| R2
+
+    API -->|"Read / Write [TCP:5432 / EF Core]"| DB
+    API -->|"Enqueue ResultId [Hangfire Queue]"| MQ
+    MQ -->|"Save AI Scores [TCP:5432]"| DB
+    API -->|"Upload Merged .webm [S3 PutObject]"| R2
+
+    API -->|"Sync Gen Questions [HTTP:8000 + X-Internal-Token]"| AI_GEN
+    MQ -->|"Async Grade Session [HTTP:8000 + X-Internal-Token]"| AI_STT
+    AI_STT -->|"Pass Transcript"| AI_GRD
+
+    AI_STT -->|"Download Audio [S3 GetObject]"| R2
+    AI_GEN -->|"Prompt Syllabus [HTTPS REST]"| GEM
+    AI_GRD -->|"Evaluate Rubric [HTTPS REST]"| GEM
+
+    classDef actor fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef portal fill:#f8fafc,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a,font-weight:bold
+    classDef container fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef queue fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#581c87,font-weight:bold
+    classDef ai fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef db fill:#e0f2fe,stroke:#0369a1,stroke-width:2px,color:#0c4a6e,font-weight:bold
+    classDef external fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: FULL 21-ENTITY ERD -->
+        <div class="tab-content" id="tab-2">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>3. Complete 21-Entity Database Architecture (ERD)</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <p class="desc">Includes all 21 DbSets from AivesDbContext (all added v2.0 tables highlighted in green).</p>
+                <div class="mermaid">
+flowchart LR
+    classDef core fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:700;
+    classDef added fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:700;
+
+    subgraph D1["📚 1. Course Curriculum & AI Questions"]
+        direction TB
+        COURSE["Course"]:::core
+        MD["MarkdownDocument"]:::core
+        QB["QuestionBank"]:::core
+        QRC["QuestionRubricCriterion"]:::added
+
+        COURSE -->|"stores"| MD
+        COURSE -->|"owns"| QB
+        QB -->|"defines 3-5"| QRC
+    end
+
+    subgraph D2["🗓️ 2. Exam Paper, Period & Scheduling"]
+        direction TB
+        EXAM["Exam"]:::core
+        EQ["ExamQuestion"]:::core
+        EP["ExamPeriod"]:::added
+        EST["ExamSlotTemplate"]:::added
+        ESTE["ExamSlotTemplateExam"]:::added
+        SESSION["ExamSession"]:::core
+        ESE["ExamSessionExam"]:::added
+        ESS["ExamSessionSlot"]:::added
+        ESSE["ExamSessionSlotExam"]:::added
+
+        COURSE -->|"creates"| EXAM
+        EXAM -->|"includes"| EQ
+        COURSE -->|"opens"| EP
+        EP -->|"defines"| EST
+        EST -->|"links"| ESTE
+        EXAM -->|"assigned to"| ESTE
+        EP -->|"schedules"| SESSION
+        SESSION -->|"links"| ESE
+        EXAM -->|"pools"| ESE
+        SESSION -->|"divides"| ESS
+        ESS -->|"links"| ESSE
+        EXAM -->|"pools"| ESSE
+    end
+
+    subgraph D3["🎙️ 3. Execution, Audio Chunks & Grading"]
+        direction TB
+        USER["User"]:::core
+        ENROLL["Enrollment"]:::core
+        SENROLL["SessionEnrollment"]:::core
+        RESULT["Result"]:::core
+        ANSWER["Answer"]:::core
+        MEDIA["MediaUpload"]:::added
+
+        USER -->|"enrolled"| ENROLL
+        COURSE -->|"tracks"| ENROLL
+        SESSION -->|"admits"| SENROLL
+        ESS -->|"assigns"| SENROLL
+        USER -->|"registers"| SENROLL
+        SESSION -->|"records"| RESULT
+        ESS -->|"tracks"| RESULT
+        EXAM -->|"evaluates"| RESULT
+        USER -->|"submits"| RESULT
+        RESULT -->|"contains"| ANSWER
+        QB -->|"grades"| ANSWER
+        RESULT -->|"uploads"| MEDIA
+        USER -->|"records"| MEDIA
+    end
+
+    subgraph D4["🛡️ 4. Governance & Audit"]
+        direction TB
+        RETAKE["ExamRetake"]:::added
+        AUDIT["AuditLog"]:::added
+
+        RESULT -->|"authorizes"| RETAKE
+        RETAKE -->|"retake in"| SESSION
+        USER -->|"granted to"| RETAKE
+        USER -->|"audited in"| AUDIT
+    end
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: CORE 12-ENTITY ERD -->
+        <div class="tab-content" id="tab-3">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>4. Core 12-Entity ERD (Slide Presentation View)</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <div class="mermaid">
+flowchart LR
+    U["User"]:::core -->|"teaches"| C["Course"]:::core
+    C -->|"owns"| QB["QuestionBank"]:::core
+    QB -->|"graded by"| QRC["QuestionRubricCriterion"]:::added
+
+    C -->|"defines"| EXM["Exam"]:::core
+    C -->|"opens"| EP["ExamPeriod"]:::added
+    EP -->|"schedules"| ES["ExamSession"]:::core
+    ES -->|"divides into"| ESS["ExamSessionSlot"]:::added
+
+    U -->|" takes "| RES["Result"]:::core
+    ES -->|"hosts"| RES
+    EXM -->|"assigned to"| RES
+
+    RES -->|"contains"| ANS["Answer"]:::core
+    QB -->|"asked in"| ANS
+    RES -->|"authorizes"| RET["ExamRetake"]:::added
+    U -->|"recorded in"| AUD["AuditLog"]:::added
+
+    classDef core fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef added fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: RESULT LIFECYCLE -->
+        <div class="tab-content" id="tab-4">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>5. Result Lifecycle (SubmissionStatus + AiEvaluationStatus)</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <div class="mermaid">
+flowchart LR
+    START(( )):::startNode -->|"Student Starts Viva"| SUB["SUBMITTED<br/>(AiStatus: PENDING)"]:::stateBlue
+
+    SUB -->|"Hangfire Worker Grades"| PR["PENDING_REVIEW<br/>(AiStatus: SUCCEEDED)"]:::statePurple
+    SUB -->|"AI Worker Fails (3x)"| FAIL["PENDING_REVIEW<br/>(AiStatus: FAILED)"]:::stateRed
+    FAIL -->|"Manual Re-queue"| SUB
+
+    PR -->|"Examiner Audits / Overrides"| REV["REVIEWED<br/>(AuditLog Recorded)"]:::stateAmber
+    PR -->|"Examiner Direct Publish"| PUB["PUBLISHED<br/>(Visible to Student)"]:::stateGreen
+    REV -->|"Examiner Publishes"| PUB
+
+    SUB -->|"Session Aborted"| CAN["CANCELLED"]:::stateGray
+    PR -->|"Invalid Attempt"| CAN
+
+    PUB --> ENDNode((( )))
+    CAN --> ENDNode
+
+    classDef startNode fill:#0f172a,stroke:#0f172a
+    classDef stateBlue fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef statePurple fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#581c87,font-weight:bold
+    classDef stateAmber fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+    classDef stateGreen fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef stateRed fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b,font-weight:bold
+    classDef stateGray fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#334155,font-weight:bold
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: ANSWER RETRY LIFECYCLE -->
+        <div class="tab-content" id="tab-5">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>6. Answer &amp; Hangfire Queue Retry Lifecycle (AnswerStatus)</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <div class="mermaid">
+flowchart LR
+    START(( )):::startNode -->|"Audio Merged & Uploaded to R2"| PROC["PROCESSING<br/>(AttemptCount: 0..3)"]:::stateBlue
+
+    PROC -->|"Faster-Whisper STT + Gemini Rubric OK"| EVAL["EVALUATED<br/>(AiScore & JSONB Saved)"]:::stateGreen
+
+    PROC -->|"Timeout / API Error (Attempt < 3)"| RETRY["Hangfire Auto-Retry<br/>(AttemptCount++)"]:::stateAmber
+    RETRY -->|"Re-dispatch Job"| PROC
+
+    PROC -->|"AttemptCount >= 3 Failed"| ERR["ERROR<br/>(ErrorMessage Logged)"]:::stateRed
+    ERR -->|"Examiner / Admin Clicks Retry"| PROC
+
+    EVAL --> ENDNode((( )))
+
+    classDef startNode fill:#0f172a,stroke:#0f172a
+    classDef stateBlue fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef stateAmber fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+    classDef stateGreen fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef stateRed fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b,font-weight:bold
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 6: SEQUENCE LIVE VIVA -->
+        <div class="tab-content" id="tab-6">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>7. Sequence 3 — Live Viva Exam, Chunked Audio Upload &amp; Queue Dispatch</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Student
+    participant Web as React Web App
+    participant API as ASP.NET Core API
+    participant R2 as Cloudflare R2
+    participant MQ as Hangfire Queue
+    participant DB as PostgreSQL 16
+
+    Student->>Web: Click "Join Viva Session"
+    Web->>API: POST /api/viva-sessions/{id}/start [HTTPS + JWT]
+    API->>DB: Verify session_enrollments & Create Result (ResultId)
+    API-->>Web: Return ResultId + Randomized Questions
+
+    loop For Each Question (Or Early Finish)
+        Web->>Student: Play Question Audio (TTS)
+        Student->>Web: Speak Answer (MediaRecorder 4s Chunks)
+        Web->>API: POST /api/media/chunks [Multipart Audio]
+        Student->>Web: Click "Confirm Answer"
+        Web->>API: POST /api/viva-sessions/submit-answer [ResultId, QuestionId]
+        API->>R2: Merge Chunks & Upload .webm [S3 PutObject]
+        R2-->>API: Confirm ObjectKey (viva/{resultId}/q{id}.webm)
+        API->>DB: Upsert answers (Status = PROCESSING, ObjectKey)
+        API-->>Web: 202 Accepted (Move to Next Question)
+    end
+
+    Student->>Web: Click "Finish Exam"
+    Web->>API: POST /api/viva-sessions/{id}/finish [HTTPS + JWT]
+    API->>DB: Update Result (Status = SUBMITTED, AiStatus = PENDING)
+    API->>MQ: Enqueue SessionGradingService.GradeSessionAsync(ResultId)
+    API-->>Web: 200 OK (Exam Submitted — Grading in Background)
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 7: WF-02 STATIC WORKFLOW -->
+        <div class="tab-content" id="tab-7">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>8. WF-02: Complete a Scheduled Viva (Static Model)</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <div class="mermaid">
+flowchart TD
+    classDef entity fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:700,font-size:13px;
+
+    USER["User"]:::entity
+    SESSION["ExamSession"]:::entity
+    EXAM["Exam"]:::entity
+    QB["QuestionBank"]:::entity
+    RESULT["Result"]:::entity
+    ANSWER["Answer"]:::entity
+
+    USER ---|"initiates exam results"| RESULT
+    SESSION ---|"records session results"| RESULT
+    EXAM ---|"evaluates paper results"| RESULT
+    RESULT ---|"contains spoken answers"| ANSWER
+    QB ---|"grades question answers"| ANSWER
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="export-diagram.js"></script>
+    <script>
+        function switchTab(idx) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            const tabs = [
+                document.getElementById('tab-0'),
+                document.getElementById('tab-1'),
+                document.getElementById('tab-2'),
+                document.getElementById('tab-3'),
+                document.getElementById('tab-4'),
+                document.getElementById('tab-5'),
+                document.getElementById('tab-6'),
+                document.getElementById('tab-7')
+            ];
+
+            buttons.forEach((btn, i) => btn.classList.toggle('active', i === idx));
+            tabs.forEach((t, i) => {
+                if (t) t.classList.toggle('active', i === idx);
+            });
+        }
+    </script>
+</body>
+</html>
+

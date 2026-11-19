@@ -1,178 +1,1049 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sơ đồ C0 C1 - AIVES</title>
+    <title>AIVES v2.0 Architecture — C0 & C1 Diagrams (Left-to-Right)</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            securityLevel: 'loose',
+            flowchart: {
+                htmlLabels: false,
+                curve: 'linear',
+                nodeSpacing: 50,
+                rankSpacing: 70
+            }
+        });
+    </script>
     <style>
+        :root {
+            --bg-page: #f8fafc;
+            --text-color: #0f172a;
+            --primary: #2563eb;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            max-width: 1000px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1320px;
             margin: 0 auto;
-            padding: 20px;
-            background: #f5f7fa;
+            padding: 28px 18px;
+            background: var(--bg-page);
+            color: var(--text-color);
         }
-        h1 { color: #2c3e50; text-align: center; }
-        h2 { color: #34495e; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+
+        .header-title {
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.92rem;
+            margin-bottom: 22px;
+        }
+
+        .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 auto 22px auto;
+            background: #e2e8f0;
+            padding: 5px;
+            border-radius: 8px;
+            width: fit-content;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tabs-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .tab-content {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 100%;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .tab-content.active {
+            position: relative;
+            left: 0;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
         .section {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
         }
-        .explain {
-            background: #e8f4fd;
-            border-left: 4px solid #3498db;
-            padding: 15px;
-            margin: 15px 0;
+
+        h2 {
+            font-size: 1.12rem;
+            margin-bottom: 8px;
+            color: #1e293b;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
         }
+
+        .desc {
+            font-size: 0.88rem;
+            color: #475569;
+            margin-bottom: 14px;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin: 15px 0;
+            margin-top: 14px;
+            font-size: 0.86rem;
         }
+
         th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
             text-align: left;
         }
-        th { background: #3498db; color: white; }
-        .user-box {
-            display: inline-block;
-            background: #27ae60;
-            color: white;
-            padding: 10px 20px;
+
+        th {
+            background: #f1f5f9;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        /* ── High-Res Export Toolbar ── */
+        .export-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            padding: 8px 14px;
+            background: #f8fafc;
             border-radius: 8px;
-            margin: 5px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .export-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #475569;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .btn-export:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export:active {
+            transform: translateY(0);
+        }
+    
+        /* ── Floating Top-Right Export Buttons ── */
+        .header-with-export {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+
+        .header-with-export h2,
+        .header-with-export .slide-title-text {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            font-size: 1.12rem;
+            color: #1e293b;
+        }
+
+        .export-buttons-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        .btn-export-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-export-top:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export-top:active {
+            transform: translateY(0);
+        }
+
+
+        /* ── High-Res Export Toolbar ── */
+        .export-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            padding: 8px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .export-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #475569;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .btn-export:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export:active {
+            transform: translateY(0);
         }
     </style>
 </head>
 <body>
-    <h1>🎓 Sơ đồ C0 và C1 - AIVES</h1>
-    <p style="text-align:center;color:#7f8c8d;">Hệ thống thi Viva có AI hỗ trợ</p>
 
-    <!-- C0 Diagram -->
-    <div class="section">
-        <h2>📊 C0 - Sơ đồ tổng quan</h2>
-        <p><strong>Câu hỏi:</strong> Ai sử dụng hệ thống này?</p>
+    <div class="header-title">🎓 AIVES v2.0 — C0 &amp; C1 Architecture Diagrams (Left-to-Right)</div>
+    <p class="subtitle">Ordered C0 (System Context) → C1 (Left-to-Right Multi-Container + Actor Workspaces + AI Processing Frame + Queue &amp; Protocols)</p>
 
-        <div class="mermaid">
-        graph TD
-            subgraph "🌍 Bên ngoài hệ thống"
-                G["👨‍🏫 Giảng viên"]
-                S["🎓 Sinh viên"]
-                AD["⚙️ Quản trị viên"]
-            end
-
-            subgraph "💻 HỆ THỐNG AIVES"
-                SYS[AIVES Platform]
-            end
-
-            G -->|Tạo đề thi, chấm điểm| SYS
-            S -->|Thi Viva, xem kết quả| SYS
-            AD -->|Quản lý người dùng| SYS
-        </div>
-
-        <div class="explain">
-            <strong>🔍 Giải thích:</strong><br>
-            • <strong>Giảng viên:</strong> Tạo đề thi, theo dõi buổi thi, chấm điểm<br>
-            • <strong>Sinh viên:</strong> Làm bài thi Viva, xem kết quả<br>
-            • <strong>Quản trị viên:</strong> Quản lý tài khoản, khóa học
-        </div>
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab(0)">1. C0 — System Context (LR)</button>
+        <button class="tab-btn" onclick="switchTab(1)">2. C1 — Multi-Container &amp; AI Frame (LR Full)</button>
+        <button class="tab-btn" onclick="switchTab(2)">3. C1 — Compact Slide View (LR)</button>
+        <button class="tab-btn" onclick="switchTab(3)">4. View All Stacked</button>
     </div>
 
-    <!-- C1 Diagram -->
-    <div class="section">
-        <h2>🏗️ C1 - Sơ đồ thành phần</h2>
-        <p><strong>Câu hỏi:</strong> Hệ thống được xây dựng từ những gì?</p>
+    <div class="tabs-wrapper">
 
-        <div class="mermaid">
-        graph LR
-            subgraph "👥 Người dùng"
-                direction TB
-                G["👨‍🏫 Giảng viên"]
-                S["🎓 Sinh viên"]
-                AD["⚙️ Quản trị"]
-            end
+        <!-- TAB 0: C0 SYSTEM CONTEXT -->
+        <div class="tab-content active" id="tab-0">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>1. C0 — System Context Diagram (Left-to-Right)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">High-level boundary showing the 4 user roles on the left interacting with the AIVES v2.0 platform in the center and its 2 external cloud dependencies on the right.</p>
+                
+                <div class="mermaid">
+flowchart LR
+    subgraph ACTORS["👥 System Actors (4 Roles)"]
+        direction TB
+        AD["Admin<br/>(System & Accounts)"]:::actor
+        STF["Staff / Teacher<br/>(Courses, Questions & Slots)"]:::actor
+        ST["Student<br/>(Takes Oral Viva Exam)"]:::actor
+        EX["Examiner<br/>(Reviews & Publishes Grades)"]:::actor
+    end
 
-            subgraph "💻 AIVES System"
-                FE["🌐 Web<br/>Giao diện"]
-                API["⚡ API Server<br/>Xử lý"]
-                DB["💾 Database<br/>Lưu dữ liệu"]
-                AI["🤖 AI Service<br/>Chấm thi tự động"]
-            end
+    SYS["🎓 AIVES v2.0 Platform<br/>AI-Based Interactive Viva Examination System"]:::system
 
-            G --> FE
-            S --> FE
-            AD --> FE
+    subgraph EXT["☁️ External Cloud Services"]
+        direction TB
+        R2[("Cloudflare R2<br/>Audio Object Storage")]:::external
+        GEM["Google Gemini API<br/>LLM Rubric Grading & TTS"]:::external
+    end
 
-            FE -->|1. Gọi API| API
-            API -->|2. Lưu/Lấy dữ liệu| DB
-            API -->|3. Gửi bài chấm| AI
-            AI -->|4. Trả kết quả| API
+    AD -->|"Manage Users & Courses<br/>[HTTPS]"| SYS
+    STF -->|"Upload .md, Approve Questions,<br/>Schedule Sessions [HTTPS]"| SYS
+    ST -->|"Speak Oral Answers &<br/>View Final Grades [HTTPS]"| SYS
+    EX -->|"Audit Audio, Override Scores &<br/>Publish Results [HTTPS]"| SYS
+
+    SYS -->|"Upload & Stream Audio (.webm)<br/>[S3 API / Presigned URL]"| R2
+    SYS -->|"Generate Questions, TTS &<br/>Grade Transcripts [HTTPS / REST]"| GEM
+
+    classDef actor fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef system fill:#1e40af,stroke:#1e3a8a,stroke-width:3px,color:#ffffff,font-weight:bold
+    classDef external fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+                </div>
+            </div>
         </div>
 
-        <div class="explain">
-            <strong>🔍 Giải thích từng thành phần:</strong>
-            <table>
-                <tr>
-                    <th>Thành phần</th>
-                    <th>Chức năng</th>
-                </tr>
-                <tr>
-                    <td><strong>🌐 Web (Giao diện)</strong></td>
-                    <td>Màn hình để người dùng thao tác</td>
-                </tr>
-                <tr>
-                    <td><strong>⚡ API Server</strong></td>
-                    <td>Xử lý logic, điều hướng yêu cầu</td>
-                </tr>
-                <tr>
-                    <td><strong>💾 Database</strong></td>
-                    <td>Lưu trữ thông tin (người dùng, điểm thi...)</td>
-                </tr>
-                <tr>
-                    <td><strong>🤖 AI Service</strong></td>
-                    <td>Tự động chấm điểm bài thi</td>
-                </tr>
-            </table>
+        <!-- TAB 1: C1 MULTI-CONTAINER LEFT-TO-RIGHT -->
+        <div class="tab-content" id="tab-1">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>2. C1 — Multi-Container Architecture (Left-to-Right: Actor Workspaces → Backend &amp; Queue → AI Processing Frame → Cloud)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Flows strictly from <strong>Left to Right</strong>, clearly delineating each <strong>Actor's Operation Workspace</strong> in the React SPA, the <strong>ASP.NET Core API &amp; Hangfire Queue</strong>, the dedicated <strong>AI Microservice Processing Frame</strong>, and <strong>External Cloud Services</strong>.</p>
+                
+                <div class="mermaid">
+flowchart LR
+    subgraph ROLES["👥 1. Actors (Who)"]
+        direction TB
+        AD["Admin"]:::actor
+        STF["Staff / Teacher"]:::actor
+        STU["Student"]:::actor
+        EXM["Examiner"]:::actor
+    end
+
+    subgraph BOUNDARY["🏢 AIVES v2.0 Multi-Container System Boundary"]
+        direction LR
+
+        subgraph SPA["💻 2. Web App Container (React 19 SPA :5173) — Actor Workspaces"]
+            direction TB
+            W_AD["Admin Workspace<br/>(Users, Roles & Courses)"]:::portal
+            W_STF["Staff Workspace<br/>(Upload .md, Approve Bank, Schedule Slots)"]:::portal
+            W_STU["Student Viva Workspace<br/>(Mic Chunk Recording & Published Grades)"]:::portal
+            W_EXM["Examiner Review Workspace<br/>(R2 Audio Player, Score Override, Publish)"]:::portal
+        end
+
+        subgraph CORE["⚙️ 3. Backend & Queue Containers (.NET 8)"]
+            direction TB
+            API["Backend API Server<br/>(ASP.NET Core 8 :5068)<br/>RBAC, Chunk Merge, R2 Upload"]:::container
+            MQ[["Hangfire Message Queue & Worker<br/>(Async SessionGradingService)<br/>Background Dispatch · Max 3 Retries"]]:::queue
+            DB[("Neon PostgreSQL 16 (:5432)<br/>22 Domain Tables + Hangfire Jobs")]:::db
+        end
+
+        subgraph AIFRAME["🤖 4. AI Microservice Frame (Python FastAPI :8000)"]
+            direction TB
+            AI_GEN["Question & Rubric Generator<br/>(Parses Course .md → 3-5 Criteria)"]:::ai
+            AI_STT["Faster-Whisper STT Engine<br/>(Converts R2 .webm Audio → Transcript)"]:::ai
+            AI_GRD["Rubric Grading & Follow-up Engine<br/>(Scores Transcript per Criterion)"]:::ai
+        end
+    end
+
+    subgraph EXT["☁️ 5. External Cloud Services"]
+        direction TB
+        R2[("Cloudflare R2<br/>(S3 Audio Storage)")]:::external
+        GEM["Google Gemini API<br/>(LLM & Structured JSON)"]:::external
+    end
+
+    %% Actor -> Workspace
+    AD -->|"HTTPS"| W_AD
+    STF -->|"HTTPS"| W_STF
+    STU -->|"HTTPS"| W_STU
+    EXM -->|"HTTPS"| W_EXM
+
+    %% Workspace -> Backend API
+    W_AD -->|"REST JSON + JWT"| API
+    W_STF -->|"REST JSON + JWT"| API
+    W_STU -->|"Multipart Audio + JWT"| API
+    W_EXM -->|"REST JSON + JWT"| API
+    W_EXM -.->|"Stream Audio<br/>[Presigned GET URL]"| R2
+
+    %% Backend Core Internal
+    API -->|"Read / Write<br/>[TCP:5432 / EF Core]"| DB
+    API -->|"Enqueue ResultId<br/>[Hangfire Queue]"| MQ
+    MQ -->|"Save AI Scores<br/>[TCP:5432]"| DB
+    API -->|"Upload Merged .webm<br/>[S3 PutObject]"| R2
+
+    %% Backend & Queue -> AI Frame
+    API -->|"Sync Gen Questions<br/>[HTTP:8000 + X-Internal-Token]"| AI_GEN
+    MQ -->|"Async Grade Session<br/>[HTTP:8000 + X-Internal-Token]"| AI_STT
+    AI_STT -->|"Pass Transcript"| AI_GRD
+
+    %% AI Frame -> External Cloud
+    AI_STT -->|"Download Audio<br/>[S3 GetObject]"| R2
+    AI_GEN -->|"Prompt Syllabus<br/>[HTTPS REST]"| GEM
+    AI_GRD -->|"Evaluate Rubric<br/>[HTTPS REST]"| GEM
+
+    classDef actor fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef portal fill:#f8fafc,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a,font-weight:bold
+    classDef container fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef queue fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#581c87,font-weight:bold
+    classDef ai fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef db fill:#e0f2fe,stroke:#0369a1,stroke-width:2px,color:#0c4a6e,font-weight:bold
+    classDef external fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+                </div>
+
+                <table>
+                    <tr>
+                        <th>Left-to-Right Stage</th>
+                        <th>Container / Workspace Frame</th>
+                        <th>Who Operates It &amp; Key Operations</th>
+                        <th>Protocol</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Stage 1 &amp; 2 (Left)</strong></td>
+                        <td><strong>React 19 SPA (4 Role Workspaces)</strong></td>
+                        <td>
+                            • <strong>Admin Workspace</strong>: User accounts, role assignment, course creation.<br/>
+                            • <strong>Staff Workspace</strong>: Upload <code>.md</code>, review/approve AI questions, schedule multi-slot sessions.<br/>
+                            • <strong>Student Workspace</strong>: Live Viva audio recording (4s chunks), submit exam, view published grades.<br/>
+                            • <strong>Examiner Workspace</strong>: Replay student audio from R2, override AI score with reason, grant retake, publish result.
+                        </td>
+                        <td><code>HTTPS</code> + <code>JWT Bearer</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Stage 3 (Center)</strong></td>
+                        <td><strong>ASP.NET Core 8 API + Hangfire Queue + PostgreSQL 16</strong></td>
+                        <td>
+                            • <strong>Backend API</strong>: Validates business rules, merges audio chunks, uploads <code>.webm</code> to R2, enqueues grading job.<br/>
+                            • <strong>Hangfire Worker</strong>: Pulls queued jobs asynchronously (`SessionGradingService`), retries up to 3 times on failure.
+                        </td>
+                        <td><code>TCP:5432</code>, <code>S3 PutObject</code>, Hangfire Job Queue</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Stage 4 (Right-Center)</strong></td>
+                        <td><strong>AI Microservice Frame (Python FastAPI :8000)</strong></td>
+                        <td>
+                            • <strong>Question &amp; Rubric Generator</strong>: Extracts draft questions + 3–5 rubric criteria from course <code>.md</code>.<br/>
+                            • <strong>Faster-Whisper STT Engine</strong>: Downloads student audio from R2 and transcribes speech to text.<br/>
+                            • <strong>Rubric Grading &amp; Follow-up Engine</strong>: Evaluates transcript against rubric criteria via Gemini and returns structured JSON.
+                        </td>
+                        <td><code>HTTP:8000</code> + <code>X-Internal-Token</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Stage 5 (Right)</strong></td>
+                        <td><strong>Cloudflare R2 &amp; Google Gemini API</strong></td>
+                        <td>
+                            • <strong>Cloudflare R2</strong>: Stores student audio files and serves 15-min Presigned URLs to Examiner.<br/>
+                            • <strong>Google Gemini API</strong>: Executes LLM question generation and criterion-level rubric scoring.
+                        </td>
+                        <td><code>HTTPS S3 API</code>, <code>HTTPS Gemini REST</code></td>
+                    </tr>
+                </table>
+            </div>
         </div>
 
-        <div class="explain">
-            <strong>📝 Luồng hoạt động đơn giản:</strong><br>
-            1️⃣ Người dùng thao tác trên Web<br>
-            2️⃣ Web gửi yêu cầu đến API Server<br>
-            3️⃣ API Server lưu/lấy dữ liệu từ Database<br>
-            4️⃣ Khi cần chấm điểm → gửi cho AI → trả kết quả
-        </div>
-    </div>
+        <!-- TAB 2: C1 COMPACT SLIDE VIEW (LR) -->
+        <div class="tab-content" id="tab-2">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>3. C1 — Compact Left-to-Right Slide View</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Streamlined Left-to-Right version ideal for presentation slides while preserving Actor Workspaces, Queue, AI Frame, and Protocols.</p>
+                
+                <div class="mermaid">
+flowchart LR
+    subgraph ACT["👥 4 Roles"]
+        direction TB
+        A1["Admin & Staff"]:::actor
+        A2["Student & Examiner"]:::actor
+    end
 
-    <!-- Summary -->
-    <div class="section">
-        <h2>📋 Tóm tắt</h2>
-        <table>
-            <tr>
-                <th>Sơ đồ</th>
-                <th>Câu hỏi trả lời</th>
-                <th>Độ chi tiết</th>
-            </tr>
-            <tr>
-                <td><strong>C0</strong></td>
-                <td>Ai sử dụng hệ thống?</td>
-                <td>Thấp - Chỉ người dùng</td>
-            </tr>
-            <tr>
-                <td><strong>C1</strong></td>
-                <td>Hệ thống gồm những gì?</td>
-                <td>Trung bình - Thành phần chính</td>
-            </tr>
-        </table>
+    subgraph WEB["💻 React 19 SPA"]
+        direction TB
+        P1["Admin & Staff Portals<br/>(Setup, Bank, Slots)"]:::portal
+        P2["Viva & Examiner Portals<br/>(Mic Chunks, Audit, Publish)"]:::portal
+    end
+
+    subgraph BE["⚙️ Backend & Queue"]
+        direction TB
+        API["ASP.NET Core 8 API"]:::container
+        MQ[["Hangfire Queue<br/>(Async Worker · 3x Retry)"]]:::queue
+        DB[("PostgreSQL 16")]:::db
+    end
+
+    subgraph AI["🤖 Python AI Frame (:8000)"]
+        direction TB
+        STT["Faster-Whisper STT"]:::ai
+        GRD["Question & Rubric Engine"]:::ai
+    end
+
+    subgraph CLOUD["☁️ External Cloud"]
+        direction TB
+        R2[("Cloudflare R2")]:::external
+        GEM["Google Gemini"]:::external
+    end
+
+    A1 -->|"HTTPS"| P1
+    A2 -->|"HTTPS"| P2
+    P1 -->|"REST + JWT"| API
+    P2 -->|"REST + JWT"| API
+    P2 -.->|"Presigned URL"| R2
+
+    API -->|"TCP:5432"| DB
+    API -->|"Enqueue"| MQ
+    API -->|"S3 Put"| R2
+    API -->|"X-Internal-Token"| GRD
+    MQ -->|"X-Internal-Token"| STT
+    STT --> GRD
+    STT -->|"S3 Get"| R2
+    GRD -->|"HTTPS"| GEM
+
+    classDef actor fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef portal fill:#f8fafc,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a,font-weight:bold
+    classDef container fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef queue fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#581c87,font-weight:bold
+    classDef ai fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+    classDef db fill:#e0f2fe,stroke:#0369a1,stroke-width:2px,color:#0c4a6e,font-weight:bold
+    classDef external fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e,font-weight:bold
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+        function switchTab(idx) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            const tabs = [
+                document.getElementById('tab-0'),
+                document.getElementById('tab-1'),
+                document.getElementById('tab-2')
+            ];
+
+            buttons.forEach((btn, i) => btn.classList.toggle('active', i === idx));
+
+            if (idx === 3) {
+                tabs.forEach(t => t.classList.add('active'));
+            } else {
+                tabs.forEach((t, i) => t.classList.toggle('active', i === idx));
+            }
+        }
+
+        /**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x & 8x)
+ */
+/**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+
+
+        /* ── Unified High-Resolution Diagram Exporter ── */
+        /**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
     </script>
 </body>
 </html>

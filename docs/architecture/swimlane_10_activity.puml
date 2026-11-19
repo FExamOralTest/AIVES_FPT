@@ -1,0 +1,210 @@
+@startuml Flow1_Admin_Staff
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ActivityBorderColor #1d4ed8
+skinparam ActivityBackgroundColor #eff6ff
+skinparam ActivityDiamondBorderColor #d97706
+skinparam ActivityDiamondBackgroundColor #fffbeb
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+
+title FLOW 1 — SETUP & ADMINISTRATION (ADMIN & STAFF)
+
+|ADMIN|
+start
+:Manage Users & Roles;
+:Assign Courses;
+
+|STAFF|
+:Upload Materials (.md);
+:Approve Rubric Questions;
+:Schedule Exam Sessions;
+:Enroll Students;
+
+|SYSTEM (Database)|
+:Store Materials & Questions;
+:Initialize Exam Slots;
+stop
+
+legend right
+  |= Colour |= Meaning |
+  |<#eff6ff>| Setup Activities |
+endlegend
+
+@enduml
+
+@startuml Flow2_Student_Exam
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ActivityBorderColor #1d4ed8
+skinparam ActivityBackgroundColor #eff6ff
+skinparam ActivityDiamondBorderColor #d97706
+skinparam ActivityDiamondBackgroundColor #fffbeb
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+
+title FLOW 2 — LIVE VIVA EXAM & AI PROCESSING (STUDENT & SYSTEM)
+
+|STUDENT|
+start
+:Enter Viva Room;
+
+|SYSTEM (Backend + AI + Cloudflare R2 + Hangfire)|
+if (Valid Session?) then (yes)
+else (no)
+  #fef3c7:Retry (400/403);
+  detach
+endif
+
+:Play Question Audio (TTS);
+
+|STUDENT|
+:Speak & Stream Audio;
+
+|SYSTEM (Backend + AI + Cloudflare R2 + Hangfire)|
+:Save to R2 & Run STT;
+:Grade via Rubric (AI);
+
+if (Grading OK?) then (yes)
+else (no)
+  #fef3c7:Flag for Manual Review;
+endif
+
+:Save PENDING_REVIEW;
+
+|STUDENT|
+:Submit Completed Exam;
+stop
+
+legend right
+  |= Colour |= Meaning |
+  |<#eff6ff>| Main Exam Steps |
+  |<#fef3c7>| Error Branches |
+  |<#fffbeb>| Decision Condition |
+endlegend
+
+@enduml
+
+@startuml Flow3_Examiner_Review
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ActivityBorderColor #1d4ed8
+skinparam ActivityBackgroundColor #eff6ff
+skinparam ActivityDiamondBorderColor #d97706
+skinparam ActivityDiamondBackgroundColor #fffbeb
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+
+title FLOW 3 — AUDIT REVIEW & PUBLISHING (EXAMINER & GOVERNANCE)
+
+|EXAMINER|
+start
+:Select Exam Attempt;
+:Listen to R2 Audio;
+:Review AI Rubric Breakdown;
+
+if (Override / Incident?) then (yes)
+  #fef3c7:Override Score / Retake;
+else (no)
+endif
+
+:Publish Final Grade;
+
+|SYSTEM (Backend)|
+if (Ready to Publish?) then (yes)
+else (no)
+  #fef3c7:Error: Incomplete AI (409);
+  detach
+endif
+
+:Lock Result (PUBLISHED);
+
+|STUDENT|
+:View Published Grade;
+stop
+
+legend right
+  |= Colour |= Meaning |
+  |<#eff6ff>| Main Review Activities |
+  |<#fef3c7>| Override & Error Branches |
+  |<#fffbeb>| Decision Condition |
+endlegend
+
+@enduml
+
+@startuml Diagram4_Unified_10_Activities
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ActivityBorderColor #1d4ed8
+skinparam ActivityBackgroundColor #eff6ff
+skinparam ActivityDiamondBorderColor #d97706
+skinparam ActivityDiamondBackgroundColor #fffbeb
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+
+title DIAGRAM 4 - SWIMLANE 10 ACTIVITY (AIVES)
+
+|ADMIN|
+start
+:UC-01 Manage accounts, roles & courses;
+
+|STAFF|
+:UC-02 Upload .md material -> generate & approve AI questions;
+:UC-03 Build exam paper & schedule sessions;
+:UC-04 Enroll students & distribute papers;
+
+|STUDENT|
+:UC-05 Take the exam & record answers;
+
+|SYSTEM (Backend + AI + Hangfire)|
+if (Submission valid?) then (yes)
+else (no)
+  #fef3c7:SUBMIT ERROR - 400/403, student retries;
+endif
+
+:UC-06 AI transcribes speech & grades by rubric (retry 20s/60s/300s);
+
+if (Grading failed?) then (yes)
+  #fef3c7:GRADING ERROR - FAILED, examiner grades manually or re-grades;
+else (no)
+endif
+
+:UC-07 Persist result PENDING REVIEW + audit log;
+
+|EXAMINER|
+:UC-08 Review evidence & assign the official score;
+
+if (Ready to publish?) then (yes)
+else (no)
+  #fef3c7:PUBLISH ERROR - 409, review again then publish;
+endif
+
+if (Incident to handle?) then (yes)
+  :UC-09 Handle incident: re-grade one answer / grant retake;
+else (no)
+endif
+
+|STUDENT|
+:UC-10 View the published result (PUBLISHED);
+stop
+
+legend right
+  |= Colour |= Meaning |
+  |<#eff6ff>| 10 activities (UC-01 .. UC-10) |
+  |<#fef3c7>| 3 error branches (submit / grading / publish) |
+  |<#fffbeb>| Decision condition |
+endlegend
+
+@enduml

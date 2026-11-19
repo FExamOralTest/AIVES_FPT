@@ -1,0 +1,155 @@
+@startuml Sequence_Core_Live_Viva_Exam
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+skinparam SequenceLifeLineBorderColor #2563eb
+skinparam SequenceParticipantBorderColor #2563eb
+skinparam SequenceParticipantBackgroundColor #eff6ff
+skinparam SequenceActorBorderColor #2563eb
+skinparam SequenceActorBackgroundColor #eff6ff
+
+title SEQUENCE 1 — LIVE VIVA EXAM & AI SCORING (CORE FLOW)
+
+autonumber 1
+
+actor "Student" as Student
+participant "Web App\n(React)" as Web
+participant "Backend API\n(ASP.NET Core)" as API
+participant "Cloudflare R2\n(Audio Storage)" as R2
+participant "AI Engine\n(Gemini)" as AI
+
+Student -> Web: Enter Viva Room
+Web -> API: Validate Session
+API --> Web: Question & TTS Audio
+
+Web -> Student: Play Question Audio
+Student -> Web: Speak Voice Answer
+
+Web -> API: Stream Audio Answer
+API -> R2: Store Audio File
+API -> AI: Transcribe & Grade via Rubric
+AI --> API: Score & Feedback Breakdown
+API --> Web: Result Saved (Pending Review)
+
+@enduml
+
+@startuml Sequence_Exam_Setup
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+skinparam SequenceLifeLineBorderColor #2563eb
+skinparam SequenceParticipantBorderColor #2563eb
+skinparam SequenceParticipantBackgroundColor #eff6ff
+skinparam SequenceActorBorderColor #2563eb
+skinparam SequenceActorBackgroundColor #eff6ff
+
+title SEQUENCE 2 — EXAM SETUP & ENROLLMENT (TEACHER & SYSTEM)
+
+autonumber 1
+
+actor "Teacher" as Teacher
+participant "Web App\n(React)" as Web
+participant "Backend API\n(ASP.NET Core)" as API
+participant "Database\n(PostgreSQL)" as DB
+
+Teacher -> Web: Upload Course Material (.md)
+Web -> API: Import Curriculum
+API -> DB: Save Questions & Rubrics
+
+Teacher -> Web: Schedule Exam Session
+Web -> API: Create Multi-Slot Session
+API -> DB: Enroll Students & Assign Slots
+API --> Web: Exam Session Ready
+
+@enduml
+
+@startuml Sequence_Examiner_Review
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+skinparam SequenceLifeLineBorderColor #2563eb
+skinparam SequenceParticipantBorderColor #2563eb
+skinparam SequenceParticipantBackgroundColor #eff6ff
+skinparam SequenceActorBorderColor #2563eb
+skinparam SequenceActorBackgroundColor #eff6ff
+
+title SEQUENCE 3 — AUDIT REVIEW & PUBLISHING (EXAMINER & STUDENT)
+
+autonumber 1
+
+actor "Examiner" as Examiner
+participant "Web App\n(React)" as Web
+participant "Backend API\n(ASP.NET Core)" as API
+participant "Cloudflare R2\n(Audio Storage)" as R2
+actor "Student" as Student
+
+Examiner -> Web: Select Student Attempt
+Web -> API: Request Result & Audio URL
+API -> R2: Generate Secure Presigned URL
+R2 --> Web: Stream Student Voice Recording
+
+Examiner -> Web: Approve or Override Score
+Web -> API: Publish Official Grade
+API --> Web: Result Locked (PUBLISHED)
+
+Student -> Web: View Official Score & Feedback
+
+@enduml
+
+@startuml Sequence_Full_Lifecycle
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+skinparam SequenceLifeLineBorderColor #2563eb
+skinparam SequenceParticipantBorderColor #2563eb
+skinparam SequenceParticipantBackgroundColor #eff6ff
+skinparam SequenceActorBorderColor #2563eb
+skinparam SequenceActorBackgroundColor #eff6ff
+
+title SEQUENCE 4 — FULL END-TO-END SYSTEM LIFECYCLE
+
+autonumber 1
+
+actor "Teacher" as Teacher
+actor "Student" as Student
+participant "Web App" as Web
+participant "Backend API" as API
+participant "Cloudflare R2" as R2
+participant "AI Engine" as AI
+actor "Examiner" as Examiner
+
+== 1. Exam Setup ==
+Teacher -> Web: Create Exam & Schedule Slots
+Web -> API: Save Setup & Enroll Students
+
+== 2. Live Viva Examination ==
+Student -> Web: Enter Room & Answer via Voice
+Web -> API: Stream Audio Answer
+API -> R2: Store Audio File
+API -> AI: Transcribe & Grade via Rubric
+AI --> API: Score & Feedback
+API --> Web: Result Saved (Pending Review)
+
+== 3. Examiner Review & Publish ==
+Examiner -> Web: Listen to Audio & Review Score
+Web -> API: Publish Final Result
+Student -> Web: View Published Grade
+
+@enduml
+

@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIVES V2.0 — Swimlane Diagrams (3 Flows & Diagram 4)</title>
+    <style>
+        :root {
+            --bg-page: #f8fafc;
+            --activity-bg: #eff6ff;
+            --activity-border: #2563eb;
+            --activity-text: #1e3a8a;
+            --error-bg: #fef3c7;
+            --error-border: #d97706;
+            --error-text: #92400e;
+            --diamond-bg: #fffbeb;
+            --diamond-border: #d97706;
+            --line-color: #334155;
+            --header-color: #0f172a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-page);
+            padding: 24px 16px;
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-title {
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--header-color);
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.92rem;
+            margin-bottom: 20px;
+        }
+
+        /* ── Tab Navigation ── */
+        .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 20px;
+            background: #e2e8f0;
+            padding: 5px;
+            border-radius: 8px;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+            color: #0f172a;
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: #2563eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tab-content {
+            display: none;
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .diagram-container {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            overflow-x: auto;
+            padding: 20px 10px;
+            margin-bottom: 16px;
+        }
+
+        svg {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .info-card {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+
+        h2 {
+            font-size: 1.05rem;
+            color: #0f172a;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 0.88rem;
+        }
+
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f1f5f9;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .tag-main {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1e3a8a;
+            border: 1px solid #2563eb;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .tag-alt {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #d97706;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        pre {
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 14px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-top: 8px;
+            font-size: 0.82rem;
+            line-height: 1.45;
+        }
+
+        details {
+            margin-top: 12px;
+        }
+
+        summary {
+            font-weight: 600;
+            cursor: pointer;
+            color: #2563eb;
+            font-size: 0.88rem;
+        }
+    
+        /* ── Top-Right Export Toolbar ── */
+        .diagram-toolbar-top {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+
+        .btn-export-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-export-top:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export-top:active {
+            transform: translateY(0);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header-title">
+        AIVES V2.0 — SWIMLANE WORKFLOW ARCHITECTURE
+    </div>
+    <p class="subtitle">Complete, non-technical swimlane specifications: 3 dedicated split flows + unified 10-activity workflow</p>
+
+    <!-- Navigation Tabs -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab(0)">Flow 1: Admin & Staff</button>
+        <button class="tab-btn" onclick="switchTab(1)">Flow 2: Student Live Exam</button>
+        <button class="tab-btn" onclick="switchTab(2)">Flow 3: Examiner Review</button>
+        <button class="tab-btn" onclick="switchTab(3)">Diagram 4: Full System Flow</button>
+        <button class="tab-btn" onclick="switchTab(4)">View All 3 Flows</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: FLOW 1 - ADMIN & STAFF -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="tab-content active" id="tab-0">
+        <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+        <div class="diagram-container">
+            <svg viewBox="0 0 880 430" width="880" height="430" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrow1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#334155" />
+                    </marker>
+                </defs>
+
+                <!-- Lane Dividers & Headers -->
+                <line x1="260" y1="35" x2="260" y2="400" stroke="#94a3b8" stroke-width="1.2" />
+                <text x="130" y="48" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">ADMIN</text>
+
+                <line x1="570" y1="35" x2="570" y2="400" stroke="#94a3b8" stroke-width="1.2" />
+                <text x="415" y="48" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">STAFF (Teacher)</text>
+
+                <text x="725" y="48" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">SYSTEM (Database)</text>
+
+                <line x1="10" y1="60" x2="870" y2="60" stroke="#cbd5e1" stroke-width="1" />
+
+                <!-- ADMIN LANE -->
+                <circle cx="130" cy="85" r="7" fill="#0f172a" />
+                <line x1="130" y1="92" x2="130" y2="110" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow1)" />
+
+                <rect x="35" y="110" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="130" y="130" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Manage Users & Roles</text>
+
+                <line x1="130" y1="142" x2="130" y2="162" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow1)" />
+
+                <rect x="45" y="162" width="170" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="130" y="182" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Assign Courses</text>
+
+                <!-- Arrow from Admin to Staff -->
+                <path d="M 130,194 L 130,210 L 415,210 L 415,225" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow1)" />
+
+                <!-- STAFF LANE -->
+                <rect x="320" y="225" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="415" y="245" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Upload Materials (.md)</text>
+
+                <line x1="415" y1="257" x2="415" y2="275" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow1)" />
+
+                <rect x="315" y="275" width="200" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="415" y="295" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Approve Rubric Questions</text>
+
+                <line x1="415" y1="307" x2="415" y2="325" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow1)" />
+
+                <rect x="315" y="325" width="200" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="415" y="345" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Schedule Exam Sessions</text>
+
+                <line x1="415" y1="357" x2="415" y2="375" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow1)" />
+
+                <rect x="330" y="375" width="170" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="415" y="395" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Enroll Students</text>
+
+                <!-- Arrow to System -->
+                <path d="M 500,391 L 620,391 L 620,290 L 725,290" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow1)" />
+
+                <!-- SYSTEM LANE -->
+                <rect x="630" y="275" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="725" y="295" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Store Materials & Rubrics</text>
+
+                <line x1="725" y1="307" x2="725" y2="335" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow1)" />
+
+                <rect x="640" y="335" width="170" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="725" y="355" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Initialize Exam Slots</text>
+
+                <line x1="725" y1="367" x2="725" y2="385" stroke="#334155" stroke-width="1.2" />
+                <circle cx="725" cy="392" r="7" fill="none" stroke="#0f172a" stroke-width="1.5" />
+                <circle cx="725" cy="392" r="4.2" fill="#0f172a" />
+
+                <!-- Legend -->
+                <g transform="translate(685, 80)">
+                    <rect x="0" y="0" width="180" height="38" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1" />
+                    <rect x="8" y="14" width="20" height="9" rx="2" fill="#eff6ff" stroke="#2563eb" stroke-width="0.8" />
+                    <text x="34" y="22" font-size="8" fill="#1e293b">Setup Flow Activities</text>
+                </g>
+            </svg>
+        </div>
+
+        <div class="info-card">
+            <h2>Flow 1 Specifications: Exam Setup & Administration</h2>
+            <table>
+                <tr>
+                    <th>Role</th>
+                    <th>Activity</th>
+                    <th>System Behavior</th>
+                </tr>
+                <tr>
+                    <td><strong>Admin</strong></td>
+                    <td>Manage Users & Roles</td>
+                    <td>Creates accounts and grants roles (<code>STAFF</code>, <code>EXAMINER</code>, <code>STUDENT</code>).</td>
+                </tr>
+                <tr>
+                    <td><strong>Admin</strong></td>
+                    <td>Assign Courses</td>
+                    <td>Links teachers/staff to responsible courses.</td>
+                </tr>
+                <tr>
+                    <td><strong>Staff</strong></td>
+                    <td>Upload Materials & Rubrics</td>
+                    <td>Uploads <code>.md</code> curriculum documents and configures rubric criteria for question bank.</td>
+                </tr>
+                <tr>
+                    <td><strong>Staff</strong></td>
+                    <td>Schedule & Enroll</td>
+                    <td>Creates multi-slot exam sessions (<code>session_slots</code>) and assigns student lists.</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: FLOW 2 - STUDENT LIVE EXAM -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="tab-content" id="tab-1">
+        <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+        <div class="diagram-container">
+            <svg viewBox="0 0 880 670" width="880" height="670" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrow2" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#334155" />
+                    </marker>
+                </defs>
+
+                <!-- Lane Dividers & Headers -->
+                <line x1="380" y1="35" x2="380" y2="650" stroke="#94a3b8" stroke-width="1.2" />
+                <text x="190" y="48" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">STUDENT</text>
+                <text x="630" y="48" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">SYSTEM (Backend + AI + Cloudflare R2 + Hangfire)</text>
+                <line x1="10" y1="60" x2="870" y2="60" stroke="#cbd5e1" stroke-width="1" />
+
+                <!-- STUDENT LANE START -->
+                <circle cx="190" cy="85" r="7" fill="#0f172a" />
+                <line x1="190" y1="92" x2="190" y2="110" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+
+                <rect x="95" y="110" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="190" y="130" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Enter Viva Room</text>
+
+                <!-- Arrow to System -->
+                <path d="M 190,142 L 190,165 L 630,165 L 630,180" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+
+                <!-- SYSTEM: Valid Session? -->
+                <polygon points="630,180 690,195 630,210 570,195" fill="#fffbeb" stroke="#d97706" stroke-width="1.2" />
+                <text x="630" y="198" font-size="8.8" font-weight="600" fill="#92400e" text-anchor="middle">Valid Session?</text>
+
+                <!-- Error: No -->
+                <text x="615" y="222" font-size="8" font-weight="700" fill="#dc2626">No</text>
+                <line x1="630" y1="210" x2="630" y2="230" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+                <rect x="555" y="230" width="150" height="26" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+                <text x="630" y="247" font-size="8.5" font-weight="600" fill="#92400e" text-anchor="middle">Retry (400/403)</text>
+
+                <!-- Yes -> Play Audio -->
+                <text x="698" y="190" font-size="8" font-weight="700" fill="#16a34a">Yes</text>
+                <path d="M 690,195 L 750,195 L 750,265 L 630,265 L 630,275" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+
+                <rect x="535" y="275" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="630" y="295" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Play Question Audio (TTS)</text>
+
+                <!-- Student speaks -->
+                <path d="M 535,291 L 190,291 L 190,325" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+
+                <rect x="95" y="325" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="190" y="345" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Speak &amp; Stream Audio</text>
+
+                <!-- Arrow back to System -->
+                <path d="M 190,357 L 190,380 L 630,380 L 630,395" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+
+                <!-- System: Save R2 & STT -->
+                <rect x="535" y="395" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="630" y="415" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Save to R2 &amp; Run STT</text>
+
+                <!-- Straight arrow to Grade via Rubric -->
+                <line x1="630" y1="427" x2="630" y2="455" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+
+                <rect x="535" y="455" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="630" y="475" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Grade via Rubric (AI)</text>
+
+                <line x1="630" y1="487" x2="630" y2="505" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+
+                <!-- Decision: Grading OK? -->
+                <polygon points="630,505 680,519 630,533 580,519" fill="#fffbeb" stroke="#d97706" stroke-width="1.2" />
+                <text x="630" y="522" font-size="8.8" font-weight="600" fill="#92400e" text-anchor="middle">Grading OK?</text>
+
+                <!-- No: Error Flag -->
+                <text x="615" y="542" font-size="8" font-weight="700" fill="#dc2626">No</text>
+                <line x1="630" y1="533" x2="630" y2="548" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+                <rect x="540" y="548" width="180" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+                <text x="630" y="564" font-size="8.3" font-weight="600" fill="#92400e" text-anchor="middle">Flag for Manual Review</text>
+
+                <!-- Yes: Save PENDING_REVIEW -->
+                <text x="688" y="515" font-size="8" font-weight="700" fill="#16a34a">Yes</text>
+                <path d="M 680,519 L 740,519 L 740,585 L 630,585" fill="none" stroke="#334155" stroke-width="1.2" />
+                <line x1="630" y1="572" x2="630" y2="585" stroke="#334155" stroke-width="1.2" />
+
+                <!-- System: Save PENDING_REVIEW -->
+                <rect x="535" y="585" width="190" height="28" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="630" y="603" font-size="9" font-weight="600" fill="#1e3a8a" text-anchor="middle">Save PENDING_REVIEW</text>
+
+                <!-- Arrow to Student submit -->
+                <path d="M 535,599 L 285,599" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow2)" />
+
+                <rect x="95" y="583" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="190" y="603" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Submit Completed Exam</text>
+
+                <line x1="190" y1="615" x2="190" y2="635" stroke="#334155" stroke-width="1.2" />
+                <circle cx="190" cy="642" r="7" fill="none" stroke="#0f172a" stroke-width="1.5" />
+                <circle cx="190" cy="642" r="4.2" fill="#0f172a" />
+
+                <!-- Legend -->
+                <g transform="translate(685, 75)">
+                    <rect x="0" y="0" width="180" height="52" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1" />
+                    <rect x="8" y="10" width="18" height="9" rx="2" fill="#eff6ff" stroke="#2563eb" stroke-width="0.8" />
+                    <text x="32" y="18" font-size="7.5" fill="#1e293b">Main Exam Flow</text>
+                    <rect x="8" y="24" width="18" height="9" rx="2" fill="#fef3c7" stroke="#d97706" stroke-width="0.8" />
+                    <text x="32" y="32" font-size="7.5" fill="#1e293b">Error / Flag Flow</text>
+                    <polygon points="17,44 22,48 17,52 12,48" fill="#fffbeb" stroke="#d97706" stroke-width="0.8" />
+                    <text x="32" y="50" font-size="7.5" fill="#1e293b">Decision Point</text>
+                </g>
+            </svg>
+        </div>
+
+        <div class="info-card">
+            <h2>Flow 2 Specifications: Live Viva Exam &amp; AI Ingestion</h2>
+            <table>
+                <tr>
+                    <th>Actor</th>
+                    <th>Step</th>
+                    <th>Technical Specification</th>
+                </tr>
+                <tr>
+                    <td><strong>Student</strong></td>
+                    <td>Join Viva Room</td>
+                    <td>Submits <code>session_code</code>; system validates student enrollment and exam slot.</td>
+                </tr>
+                <tr>
+                    <td><strong>System</strong></td>
+                    <td>Play Audio &amp; Save R2</td>
+                    <td>Plays TTS question; receives chunked audio, stores on server disk, and pushes single object to Cloudflare R2.</td>
+                </tr>
+                <tr>
+                    <td><strong>System (Queue)</strong></td>
+                    <td>Grade via Rubric</td>
+                    <td>Hangfire async job scores transcript against rubric criteria; saves result as <code>PENDING_REVIEW</code>.</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: FLOW 3 - EXAMINER REVIEW -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="tab-content" id="tab-2">
+        <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+        <div class="diagram-container">
+            <svg viewBox="0 0 880 500" width="880" height="500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrow3" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#334155" />
+                    </marker>
+                </defs>
+
+                <!-- Lane Dividers & Headers -->
+                <line x1="300" y1="35" x2="300" y2="470" stroke="#94a3b8" stroke-width="1.2" />
+                <text x="150" y="48" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">EXAMINER (Reviewer)</text>
+
+                <line x1="600" y1="35" x2="600" y2="470" stroke="#94a3b8" stroke-width="1.2" />
+                <text x="450" y="48" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">SYSTEM (Backend API)</text>
+
+                <text x="740" y="48" font-size="11.5" font-weight="700" fill="#0f172a" text-anchor="middle">STUDENT</text>
+                <line x1="10" y1="60" x2="870" y2="60" stroke="#cbd5e1" stroke-width="1" />
+
+                <!-- EXAMINER LANE START -->
+                <circle cx="150" cy="85" r="7" fill="#0f172a" />
+                <line x1="150" y1="92" x2="150" y2="110" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+
+                <rect x="50" y="110" width="200" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="150" y="130" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Select Exam Attempt</text>
+
+                <line x1="150" y1="142" x2="150" y2="162" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+
+                <rect x="40" y="162" width="220" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="150" y="182" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Review AI & Listen Audio (R2)</text>
+
+                <line x1="150" y1="194" x2="150" y2="215" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+
+                <!-- Decision: Override / Incident? -->
+                <polygon points="150,215 215,229 150,243 85,229" fill="#fffbeb" stroke="#d97706" stroke-width="1.2" />
+                <text x="150" y="232" font-size="8.8" font-weight="600" fill="#92400e" text-anchor="middle">Override / Incident?</text>
+
+                <!-- Alt: Yes -->
+                <text x="135" y="253" font-size="8" font-weight="700" fill="#d97706">Yes</text>
+                <line x1="150" y1="243" x2="150" y2="260" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+                <rect x="50" y="260" width="200" height="28" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+                <text x="150" y="277" font-size="8.5" font-weight="600" fill="#92400e" text-anchor="middle">Override Score / Retake</text>
+
+                <!-- Merge diamond -->
+                <polygon points="150,300 160,306 150,312 140,306" fill="#fffbeb" stroke="#d97706" stroke-width="1" />
+                <line x1="150" y1="288" x2="150" y2="300" stroke="#334155" stroke-width="1.2" />
+
+                <!-- Bypass No -->
+                <text x="223" y="225" font-size="8" font-weight="700" fill="#16a34a">No</text>
+                <path d="M 215,229 L 270,229 L 270,306 L 160,306" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+
+                <line x1="150" y1="312" x2="150" y2="328" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+
+                <!-- Step Publish -->
+                <rect x="55" y="328" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="150" y="348" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">Publish Final Grade</text>
+
+                <!-- Arrow to System -->
+                <path d="M 245,344 L 450,344 L 450,365" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+
+                <!-- SYSTEM: Ready to Publish? -->
+                <polygon points="450,365 510,379 450,393 390,379" fill="#fffbeb" stroke="#d97706" stroke-width="1.2" />
+                <text x="450" y="382" font-size="8.8" font-weight="600" fill="#92400e" text-anchor="middle">Ready to Publish?</text>
+
+                <!-- Error: No -->
+                <text x="435" y="405" font-size="8" font-weight="700" fill="#dc2626">No</text>
+                <line x1="450" y1="393" x2="450" y2="410" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+                <rect x="370" y="410" width="160" height="26" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+                <text x="450" y="427" font-size="8.5" font-weight="600" fill="#92400e" text-anchor="middle">Incomplete AI (409)</text>
+
+                <!-- Yes: Lock Result -->
+                <text x="518" y="375" font-size="8" font-weight="700" fill="#16a34a">Yes</text>
+                <path d="M 510,379 L 570,379 L 570,442 L 450,442 L 450,452" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+
+                <rect x="375" y="452" width="150" height="28" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="450" y="470" font-size="9" font-weight="600" fill="#1e3a8a" text-anchor="middle">Lock Result (PUBLISHED)</text>
+
+                <!-- Arrow to Student -->
+                <path d="M 525,466 L 740,466 L 740,328" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow3)" />
+
+                <!-- Student views result -->
+                <rect x="645" y="296" width="190" height="32" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2" />
+                <text x="740" y="316" font-size="9.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">View Published Grade</text>
+
+                <line x1="740" y1="296" x2="740" y2="275" stroke="#334155" stroke-width="1.2" />
+                <circle cx="740" cy="268" r="7" fill="none" stroke="#0f172a" stroke-width="1.5" />
+                <circle cx="740" cy="268" r="4.2" fill="#0f172a" />
+
+                <!-- Legend -->
+                <g transform="translate(685, 75)">
+                    <rect x="0" y="0" width="180" height="52" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1" />
+                    <rect x="8" y="10" width="18" height="9" rx="2" fill="#eff6ff" stroke="#2563eb" stroke-width="0.8" />
+                    <text x="32" y="18" font-size="7.5" fill="#1e293b">Main Review Flow</text>
+                    <rect x="8" y="24" width="18" height="9" rx="2" fill="#fef3c7" stroke="#d97706" stroke-width="0.8" />
+                    <text x="32" y="32" font-size="7.5" fill="#1e293b">Override / Error Branch</text>
+                    <polygon points="17,44 22,48 17,52 12,48" fill="#fffbeb" stroke="#d97706" stroke-width="0.8" />
+                    <text x="32" y="50" font-size="7.5" fill="#1e293b">Decision Condition</text>
+                </g>
+            </svg>
+        </div>
+
+        <div class="info-card">
+            <h2>Flow 3 Specifications: Examiner Review & Quality Governance</h2>
+            <table>
+                <tr>
+                    <th>Actor</th>
+                    <th>Step</th>
+                    <th>Specification (AIVES v2.0)</th>
+                </tr>
+                <tr>
+                    <td><strong>Examiner</strong></td>
+                    <td>Review AI & Listen Audio</td>
+                    <td>Inspects AI rubric points; listens to original audio via secure Presigned GET URLs (Cloudflare R2).</td>
+                </tr>
+                <tr>
+                    <td><strong>Examiner</strong></td>
+                    <td>Override / Incident</td>
+                    <td>Can override AI score (requires mandatory comment in <code>audit_logs</code>) or grant technical retake (<code>exam_retakes</code>).</td>
+                </tr>
+                <tr>
+                    <td><strong>System</strong></td>
+                    <td>Lock Result (PUBLISHED)</td>
+                    <td>Locks attempt from further changes (immutable lockdown) and enables score visibility for student.</td>
+                </tr>
+                <tr>
+                    <td><strong>Student</strong></td>
+                    <td>View Published Grade</td>
+                    <td>Accesses official scorecard, rubric breakdown, and examiner feedback.</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 4: DIAGRAM 4 - FULL UNIFIED 10-ACTIVITY SWIMLANE -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="tab-content" id="tab-3">
+        <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+        <div class="diagram-container">
+            <svg viewBox="0 0 1020 860" width="1020" height="860" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrow4" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#334155" />
+                    </marker>
+                </defs>
+
+                <!-- Title Header inside SVG -->
+                <text x="510" y="24" font-size="11" font-weight="700" fill="#0f172a" text-anchor="middle" letter-spacing="0.5">DIAGRAM 4 - SWIMLANE 10 ACTIVITY (AIVES)</text>
+
+                <!-- Lane Dividers (4 vertical lines) -->
+                <line x1="180" y1="36" x2="180" y2="840" stroke="#94a3b8" stroke-width="1.1" />
+                <line x1="380" y1="36" x2="380" y2="840" stroke="#94a3b8" stroke-width="1.1" />
+                <line x1="540" y1="36" x2="540" y2="840" stroke="#94a3b8" stroke-width="1.1" />
+                <line x1="790" y1="36" x2="790" y2="840" stroke="#94a3b8" stroke-width="1.1" />
+
+                <!-- Lane Headers -->
+                <text x="90" y="50" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">ADMIN</text>
+                <text x="280" y="50" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">STAFF</text>
+                <text x="460" y="50" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">STUDENT</text>
+                <text x="665" y="50" font-size="10" font-weight="700" fill="#0f172a" text-anchor="middle">SYSTEM (Backend + AI + Hangfire)</text>
+                <text x="895" y="50" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">EXAMINER</text>
+
+                <!-- Top Horizontal Divider -->
+                <line x1="15" y1="62" x2="1005" y2="62" stroke="#cbd5e1" stroke-width="1" />
+
+                <!-- ── 1. ADMIN LANE ── -->
+                <circle cx="90" cy="82" r="6" fill="#0f172a" />
+                <line x1="90" y1="88" x2="90" y2="102" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <rect x="15" y="102" width="150" height="32" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="90" y="117" font-size="7.8" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-01 Manage accounts,</text>
+                <text x="90" y="128" font-size="7.8" font-weight="600" fill="#1e3a8a" text-anchor="middle">roles &amp; courses</text>
+
+                <!-- Arrow from Admin UC-01 to Staff UC-02 -->
+                <path d="M 165,118 L 195,118 L 195,142 L 280,142" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- ── 2. STAFF LANE ── -->
+                <rect x="195" y="142" width="170" height="34" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="280" y="156" font-size="7.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-02 Upload .md material -&gt;</text>
+                <text x="280" y="168" font-size="7.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">generate &amp; approve AI questions</text>
+
+                <line x1="280" y1="176" x2="280" y2="194" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <rect x="200" y="194" width="160" height="32" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="280" y="208" font-size="7.8" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-03 Build exam paper &amp;</text>
+                <text x="280" y="220" font-size="7.8" font-weight="600" fill="#1e3a8a" text-anchor="middle">schedule sessions</text>
+
+                <line x1="280" y1="226" x2="280" y2="244" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <rect x="205" y="244" width="150" height="32" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="280" y="258" font-size="7.8" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-04 Enroll students &amp;</text>
+                <text x="280" y="270" font-size="7.8" font-weight="600" fill="#1e3a8a" text-anchor="middle">distribute papers</text>
+
+                <!-- Arrow from Staff UC-04 to Student UC-05 -->
+                <path d="M 355,260 L 390,260 L 390,296 L 460,296" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- ── 3. STUDENT LANE ── -->
+                <rect x="395" y="296" width="135" height="32" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="462" y="310" font-size="7.8" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-05 Take the exam &amp;</text>
+                <text x="462" y="322" font-size="7.8" font-weight="600" fill="#1e3a8a" text-anchor="middle">record answers</text>
+
+                <!-- Arrow from Student UC-05 to System Diamond -->
+                <path d="M 530,312 L 580,312 L 580,346 L 665,346" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- ── 4. SYSTEM LANE ── -->
+                <!-- Decision: Submission valid? -->
+                <polygon points="665,334 715,346 665,358 615,346" fill="#fffbeb" stroke="#d97706" stroke-width="1.1" />
+                <text x="665" y="349" font-size="7.8" font-weight="600" fill="#92400e" text-anchor="middle">Submission valid?</text>
+
+                <!-- No branch -> SUBMIT ERROR -->
+                <text x="653" y="370" font-size="7.5" font-weight="700" fill="#dc2626">No</text>
+                <line x1="665" y1="358" x2="665" y2="378" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+                <rect x="580" y="378" width="170" height="26" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1.1" />
+                <text x="665" y="395" font-size="7.5" font-weight="600" fill="#92400e" text-anchor="middle">SUBMIT ERROR - 400/403, student retries</text>
+
+                <!-- Yes branch -> UC-06 -->
+                <text x="722" y="342" font-size="7.5" font-weight="700" fill="#16a34a">Yes</text>
+                <path d="M 715,346 L 760,346 L 760,422 L 665,422" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- UC-06 -->
+                <rect x="560" y="422" width="210" height="34" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="665" y="436" font-size="7.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-06 AI transcribes speech &amp;</text>
+                <text x="665" y="448" font-size="7.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">grades by rubric (retry 20s/60s/300s)</text>
+
+                <line x1="665" y1="456" x2="665" y2="476" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- Decision: Grading failed? -->
+                <polygon points="665,476 712,488 665,500 618,488" fill="#fffbeb" stroke="#d97706" stroke-width="1.1" />
+                <text x="665" y="491" font-size="7.8" font-weight="600" fill="#92400e" text-anchor="middle">Grading failed?</text>
+
+                <!-- Yes branch -> GRADING ERROR -->
+                <text x="653" y="512" font-size="7.5" font-weight="700" fill="#dc2626">Yes</text>
+                <line x1="665" y1="500" x2="665" y2="520" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+                <rect x="550" y="520" width="230" height="26" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1.1" />
+                <text x="665" y="536" font-size="7" font-weight="600" fill="#92400e" text-anchor="middle">GRADING ERROR - FAILED, examiner grades manually or re-grades</text>
+
+                <!-- No branch -> UC-07 -->
+                <text x="718" y="484" font-size="7.5" font-weight="700" fill="#16a34a">No</text>
+                <path d="M 712,488 L 765,488 L 765,564 L 665,564" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- UC-07 -->
+                <rect x="565" y="564" width="200" height="30" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="665" y="583" font-size="7.6" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-07 Persist result PENDING REVIEW + audit log</text>
+
+                <!-- Arrow from System UC-07 to Examiner UC-08 -->
+                <path d="M 765,579 L 810,579 L 810,598 L 895,598" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- ── 5. EXAMINER LANE ── -->
+                <!-- UC-08 -->
+                <rect x="810" y="598" width="170" height="32" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="895" y="612" font-size="7.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-08 Review evidence &amp;</text>
+                <text x="895" y="624" font-size="7.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">assign the official score</text>
+
+                <line x1="895" y1="630" x2="895" y2="648" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- Decision: Ready to publish? -->
+                <polygon points="895,648 940,660 895,672 850,660" fill="#fffbeb" stroke="#d97706" stroke-width="1.1" />
+                <text x="895" y="663" font-size="7.8" font-weight="600" fill="#92400e" text-anchor="middle">Ready to publish?</text>
+
+                <!-- No branch -> PUBLISH ERROR -->
+                <text x="883" y="684" font-size="7.5" font-weight="700" fill="#dc2626">No</text>
+                <line x1="895" y1="672" x2="895" y2="690" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+                <rect x="805" y="690" width="180" height="26" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1.1" />
+                <text x="895" y="707" font-size="7.3" font-weight="600" fill="#92400e" text-anchor="middle">PUBLISH ERROR - 409, review again then publish</text>
+
+                <!-- Yes branch -> Decision: Incident to handle? -->
+                <text x="946" y="656" font-size="7.5" font-weight="700" fill="#16a34a">Yes</text>
+                <path d="M 940,660 L 970,660 L 970,732 L 895,732" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- Decision: Incident to handle? -->
+                <polygon points="895,732 940,744 895,756 850,744" fill="#fffbeb" stroke="#d97706" stroke-width="1.1" />
+                <text x="895" y="747" font-size="7.8" font-weight="600" fill="#92400e" text-anchor="middle">Incident to handle?</text>
+
+                <!-- Yes branch -> UC-09 -->
+                <text x="883" y="768" font-size="7.5" font-weight="700" fill="#d97706">Yes</text>
+                <line x1="895" y1="756" x2="895" y2="774" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+                <rect x="800" y="774" width="190" height="26" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="895" y="791" font-size="7" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-09 Handle incident: re-grade one answer / grant retake</text>
+
+                <!-- No branch bypasses UC-09 to bottom junction -->
+                <text x="946" y="740" font-size="7.5" font-weight="700" fill="#16a34a">No</text>
+                <path d="M 940,744 L 975,744 L 975,815 L 895,815" fill="none" stroke="#334155" stroke-width="1.2" />
+
+                <!-- Merge point -->
+                <polygon points="895,810 902,815 895,820 888,815" fill="#fffbeb" stroke="#d97706" stroke-width="1" />
+                <line x1="895" y1="800" x2="895" y2="810" stroke="#334155" stroke-width="1.2" />
+
+                <!-- Arrow from Examiner lane back to Student UC-10 -->
+                <path d="M 888,815 L 462,815 L 462,828" fill="none" stroke="#334155" stroke-width="1.2" marker-end="url(#arrow4)" />
+
+                <!-- ── STUDENT LANE FINALE (UC-10) ── -->
+                <rect x="385" y="828" width="155" height="22" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+                <text x="462" y="843" font-size="7.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">UC-10 View the published result (PUBLISHED)</text>
+
+                <!-- Bullseye End Node -->
+                <circle cx="462" cy="854" r="5" fill="none" stroke="#0f172a" stroke-width="1.4" />
+                <circle cx="462" cy="854" r="3" fill="#0f172a" />
+
+                <!-- ── BOTTOM RIGHT LEGEND ── -->
+                <g transform="translate(835, 12)">
+                    <rect x="0" y="0" width="165" height="52" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1" />
+                    <rect x="6" y="6" width="16" height="8" rx="2" fill="#eff6ff" stroke="#2563eb" stroke-width="0.8" />
+                    <text x="26" y="13" font-size="7.2" fill="#1e293b">10 activities (UC-01 .. UC-10)</text>
+                    <rect x="6" y="20" width="16" height="8" rx="2" fill="#fef3c7" stroke="#d97706" stroke-width="0.8" />
+                    <text x="26" y="27" font-size="7.2" fill="#1e293b">3 error branches (submit/grading/pub)</text>
+                    <polygon points="14,39 18,43 14,47 10,43" fill="#fffbeb" stroke="#d97706" stroke-width="0.8" />
+                    <text x="26" y="44" font-size="7.2" fill="#1e293b">Decision condition</text>
+                </g>
+            </svg>
+        </div>
+
+        <div class="info-card">
+            <h2>Diagram 4 Specifications: 10 Activities & 3 Error Branches</h2>
+            <table>
+                <tr>
+                    <th>UC Code</th>
+                    <th>Actor</th>
+                    <th>Activity & Exception Handling</th>
+                </tr>
+                <tr>
+                    <td><code>UC-01</code></td>
+                    <td>Admin</td>
+                    <td>Manage accounts, roles (Admin/Staff/Examiner/Student) & course assignments.</td>
+                </tr>
+                <tr>
+                    <td><code>UC-02</code></td>
+                    <td>Staff</td>
+                    <td>Upload <code>.md</code> lecture material, trigger AI question & rubric criteria generation.</td>
+                </tr>
+                <tr>
+                    <td><code>UC-03</code></td>
+                    <td>Staff</td>
+                    <td>Build multi-slot exam paper & schedule sessions.</td>
+                </tr>
+                <tr>
+                    <td><code>UC-04</code></td>
+                    <td>Staff</td>
+                    <td>Enroll students into assigned exam slot sessions.</td>
+                </tr>
+                <tr>
+                    <td><code>UC-05</code></td>
+                    <td>Student</td>
+                    <td>Take live viva exam & record audio answers.</td>
+                </tr>
+                <tr>
+                    <td><code>Branch 1</code></td>
+                    <td>System</td>
+                    <td><strong>Submit Error (400/403)</strong>: Student retries if session slot is invalid or unauthorized.</td>
+                </tr>
+                <tr>
+                    <td><code>UC-06</code></td>
+                    <td>System</td>
+                    <td>AI transcribes audio (STT) and grades against rubric (Hangfire retry 20s/60s/300s).</td>
+                </tr>
+                <tr>
+                    <td><code>Branch 2</code></td>
+                    <td>System</td>
+                    <td><strong>Grading Error (FAILED)</strong>: If AI fails after retries, examiner manually grades or re-triggers.</td>
+                </tr>
+                <tr>
+                    <td><code>UC-07</code></td>
+                    <td>System</td>
+                    <td>Persist graded result in <code>PENDING_REVIEW</code> state and record audit log.</td>
+                </tr>
+                <tr>
+                    <td><code>UC-08</code></td>
+                    <td>Examiner</td>
+                    <td>Review student audio evidence (Cloudflare R2) and assign official score.</td>
+                </tr>
+                <tr>
+                    <td><code>Branch 3</code></td>
+                    <td>System</td>
+                    <td><strong>Publish Error (409 Conflict)</strong>: Incomplete evaluation blocks publish; examiner reviews again.</td>
+                </tr>
+                <tr>
+                    <td><code>UC-09</code></td>
+                    <td>Examiner</td>
+                    <td>Handle incident: re-grade one answer or grant technical retake (<code>exam_retakes</code>).</td>
+                </tr>
+                <tr>
+                    <td><code>UC-10</code></td>
+                    <td>Student</td>
+                    <td>View final verified result (<code>PUBLISHED</code> state) with detailed breakdown.</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 5: VIEW ALL 3 FLOWS STACKED -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="tab-content" id="tab-4">
+        <p style="text-align: center; color: #475569; margin-bottom: 12px; font-weight: 600;">
+            Displaying the 3 distinct workflows in sequence from Setup to Live Viva and Final Publishing.
+        </p>
+        <div id="all-flows-container"></div>
+    </div>
+
+    <script>
+        function switchTab(index) {
+            const tabs = document.querySelectorAll('.tab-btn');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach((t, i) => t.classList.toggle('active', i === index));
+            contents.forEach((c, i) => c.classList.toggle('active', i === index));
+
+            if (index === 4) {
+                // Populate all flows
+                const allContainer = document.getElementById('all-flows-container');
+                allContainer.innerHTML = `
+                    <div style="margin-bottom: 24px;">
+                        <h3 style="font-size: 1rem; color: #1e3a8a; margin-bottom: 8px;">Flow 1: Exam Setup (Admin & Staff)</h3>
+                        ${document.querySelector('#tab-0 .diagram-container').outerHTML}
+                    </div>
+                    <div style="margin-bottom: 24px;">
+                        <h3 style="font-size: 1rem; color: #1e3a8a; margin-bottom: 8px;">Flow 2: Live Viva Exam (Student & AI Engine)</h3>
+                        ${document.querySelector('#tab-1 .diagram-container').outerHTML}
+                    </div>
+                    <div style="margin-bottom: 24px;">
+                        <h3 style="font-size: 1rem; color: #1e3a8a; margin-bottom: 8px;">Flow 3: Examiner Review & Publishing</h3>
+                        ${document.querySelector('#tab-2 .diagram-container').outerHTML}
+                    </div>
+                `;
+            }
+        }
+    </script>
+
+<script>
+/**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x & 8x)
+ */
+/**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+
+</script>
+</body>
+</html>

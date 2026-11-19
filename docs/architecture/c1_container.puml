@@ -1,30 +1,64 @@
-@startuml C1_Container
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+@startuml c1_container
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Segoe UI"
+skinparam roundcorner 10
+left to right direction
 
-title C1 - Container Diagram for AIVES (Async Audio & Worker Pipeline)
-
-Person(user, "Users", "Student / Staff / Examiner / Admin")
-
-System_Boundary(aives_core, "AIVES Examination System") {
-    Container(web, "Web Application", "React SPA", "User interface for taking viva exams, management & audit review")
-    Container(backend, "Backend Web API", "ASP.NET Core 8", "Authentication, RBAC, session orchestration & S3 signed URL dispatch")
-    ContainerDb(queue, "Message Queue / Job Storage", "Hangfire / PostgreSQL", "Buffers asynchronous speech-to-text & evaluation tasks")
-    Container(ai_worker, "AI Worker & Inference Service", "Python FastAPI", "Processes Faster-Whisper STT & LLM rubric scoring")
-    ContainerDb(database, "Relational Database", "Neon PostgreSQL", "Stores users, RBAC, exams, answers (status, audio_url) & scores")
+package "1. Actors (Who)" {
+    actor "Admin" as AD #eff6ff
+    actor "Staff / Teacher" as STF #eff6ff
+    actor "Student" as STU #eff6ff
+    actor "Examiner" as EXM #eff6ff
 }
 
-System_Ext(r2, "Cloudflare R2 Storage", "Object Storage (S3 API)", "Secure private bucket storing student audio answers")
-System_Ext(cloud_ai, "Cloud AI Provider", "Gemini / OpenAI API", "Generates rubric scoring & constructive feedback")
+package "AIVES v2.0 Multi-Container System Boundary" {
+    package "2. Web App Container (React 19 SPA :5173) — Actor Workspaces" #dbeafe {
+        component "Admin Workspace\n(Users, Roles & Courses)" as W_AD #f8fafc
+        component "Staff Workspace\n(Upload .md, Approve Bank, Schedule Slots)" as W_STF #f8fafc
+        component "Student Viva Workspace\n(Mic Chunk Recording & Published Grades)" as W_STU #f8fafc
+        component "Examiner Review Workspace\n(R2 Audio Player, Score Override, Publish)" as W_EXM #f8fafc
+    }
 
-Rel(user, web, "Interacts via HTTPS")
-Rel(web, backend, "Dispatches REST API & WebSockets")
-Rel(backend, database, "Reads & Writes domain entities")
-Rel(backend, r2, "Uploads audio recordings & issues presigned URLs")
-Rel(backend, queue, "Enqueues scoring & STT jobs")
-Rel(queue, ai_worker, "Delivers processing jobs")
-Rel(ai_worker, r2, "Fetches student audio files for transcription")
-Rel(ai_worker, cloud_ai, "Invokes LLM for rubric evaluation")
-Rel(ai_worker, database, "Updates transcripts, scores & review status")
-Rel(web, r2, "Examiner streams audio via Presigned GET URLs")
+    package "3. Backend & Queue Containers (.NET 8)" {
+        component "Backend API Server\n(ASP.NET Core 8 :5068)\nRBAC, Chunk Merge, R2 Upload" as API #dbeafe
+        queue "Hangfire Message Queue & Worker\n(Async SessionGradingService)\nMax 3 Retries" as MQ #f3e8ff
+        database "Neon PostgreSQL 16 (:5432)\n22 Domain Tables + Hangfire Jobs" as DB #e0f2fe
+    }
 
+    package "4. AI Microservice Frame (Python FastAPI :8000)" #dcfce7 {
+        component "Question & Rubric Generator\n(Parses Course .md -> 3-5 Criteria)" as AI_GEN #ffffff
+        component "Faster-Whisper STT Engine\n(Converts R2 .webm -> Transcript)" as AI_STT #ffffff
+        component "Rubric Grading & Follow-up Engine\n(Scores Transcript per Criterion)" as AI_GRD #ffffff
+    }
+}
+
+package "5. External Cloud Services" {
+    database "Cloudflare R2\n(S3 Audio Storage)" as R2 #fffbeb
+    cloud "Google Gemini API\n(LLM & Structured JSON)" as GEM #fffbeb
+}
+
+AD --> W_AD : HTTPS
+STF --> W_STF : HTTPS
+STU --> W_STU : HTTPS
+EXM --> W_EXM : HTTPS
+
+W_AD --> API : REST JSON + JWT
+W_STF --> API : REST JSON + JWT
+W_STU --> API : Multipart Audio + JWT
+W_EXM --> API : REST JSON + JWT
+W_EXM ..> R2 : Stream Audio [Presigned GET URL]
+
+API --> DB : Read/Write [TCP:5432]
+API --> MQ : Enqueue ResultId [Hangfire]
+MQ --> DB : Save AI Scores [TCP:5432]
+API --> R2 : Upload Merged .webm [S3 PutObject]
+
+API --> AI_GEN : Sync Gen Questions\n[HTTP:8000 + X-Internal-Token]
+MQ --> AI_STT : Async Grade Session\n[HTTP:8000 + X-Internal-Token]
+AI_STT --> AI_GRD : Pass Transcript
+
+AI_STT --> R2 : Download Audio [S3 GetObject]
+AI_GEN --> GEM : Prompt Syllabus [HTTPS]
+AI_GRD --> GEM : Evaluate Rubric [HTTPS]
 @enduml

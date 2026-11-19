@@ -1,0 +1,44 @@
+@startuml Conceptual_Examination_Data_Model
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI", Arial, sans-serif
+skinparam DefaultFontSize 11
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.2
+
+skinparam class {
+    BackgroundColor #eff6ff
+    BorderColor #2563eb
+    FontColor #1e3a8a
+    FontSize 12
+    FontStyle bold
+}
+
+hide circle
+hide empty members
+
+title CONCEPTUAL EXAMINATION DATA MODEL — AIVES (MINIMAL)
+
+class "Course" as Course
+class "QuestionBank" as Question
+class "Exam" as Exam
+class "ExamSession" as Session
+class "User" as User
+class "Result" as Result
+class "Answer" as Answer
+
+' 1. Academic Preparation
+Course "1" --> "0..*" Question : defines
+Course "1" --> "0..*" Exam : creates
+Exam "1" --> "1..*" Question : includes
+
+' 2. Exam Scheduling
+Exam "1" --> "1..*" Session : held in
+User "1" --> "0..*" Session : attends
+
+' 3. Result & Evaluation
+Session "1" --> "0..*" Result : records
+User "1" --> "0..*" Result : takes
+Result "1" --> "1..*" Answer : contains
+Answer "0..*" --> "1" Question : answers
+
+@enduml

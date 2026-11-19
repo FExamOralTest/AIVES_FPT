@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIVES v2.0 — Complete Entity / ERD Diagrams (21 Entities)</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            securityLevel: 'loose',
+            flowchart: {
+                htmlLabels: false,
+                curve: 'linear',
+                nodeSpacing: 50,
+                rankSpacing: 70
+            }
+        });
+    </script>
+    <style>
+        :root {
+            --bg-page: #f8fafc;
+            --text-color: #0f172a;
+            --primary: #2563eb;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1220px;
+            margin: 0 auto;
+            padding: 28px 18px;
+            background: var(--bg-page);
+            color: var(--text-color);
+        }
+
+        .header-title {
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.92rem;
+            margin-bottom: 22px;
+        }
+
+        .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 auto 22px auto;
+            background: #e2e8f0;
+            padding: 5px;
+            border-radius: 8px;
+            width: fit-content;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tabs-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .tab-content {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 100%;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .tab-content.active {
+            position: relative;
+            left: 0;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+
+        h2 {
+            font-size: 1.12rem;
+            margin-bottom: 8px;
+            color: #1e293b;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+
+        .desc {
+            font-size: 0.88rem;
+            color: #475569;
+            margin-bottom: 14px;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+            font-size: 0.85rem;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f1f5f9;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .badge-new {
+            background: #dcfce7;
+            color: #166534;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+        }
+
+        /* ── High-Res Export Toolbar ── */
+        .export-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            padding: 8px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .export-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #475569;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .btn-export:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export:active {
+            transform: translateY(0);
+        }
+    
+        /* ── Floating Top-Right Export Buttons ── */
+        .header-with-export {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+
+        .header-with-export h2,
+        .header-with-export .slide-title-text {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            font-size: 1.12rem;
+            color: #1e293b;
+        }
+
+        .export-buttons-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        .btn-export-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-export-top:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export-top:active {
+            transform: translateY(0);
+        }
+
+
+        /* ── High-Res Export Toolbar ── */
+        .export-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            padding: 8px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .export-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #475569;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .btn-export:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-title">🗄️ AIVES v2.0 — Complete Entity &amp; ERD Diagrams</div>
+    <p class="subtitle">Full 21-Entity Database Architecture synced 100% with <code>AivesDbContext.cs</code></p>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab(0)">1. Full 21-Entity Architecture Map</button>
+        <button class="tab-btn" onclick="switchTab(1)">2. Core 12-Entity ERD (Slide View)</button>
+        <button class="tab-btn" onclick="switchTab(2)">3. Crow's Foot ER Schema (PK / FK)</button>
+        <button class="tab-btn" onclick="switchTab(3)">4. View All Stacked</button>
+    </div>
+
+    <div class="tabs-wrapper">
+
+        <!-- TAB 0: FULL 21-ENTITY MAP -->
+        <div class="tab-content active" id="tab-0">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>1. Complete 21-Entity Relationship Map (All Tables in <code>AivesDbContext</code>)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Includes all 10 previously missing entities (highlighted in green): <code>ExamPeriod</code>, <code>ExamSlotTemplate</code>, <code>ExamSlotTemplateExam</code>, <code>ExamSessionExam</code>, <code>ExamSessionSlot</code>, <code>ExamSessionSlotExam</code>, <code>QuestionRubricCriterion</code>, <code>MediaUpload</code>, <code>ExamRetake</code>, and <code>AuditLog</code>.</p>
+                
+                <div class="mermaid">
+flowchart LR
+    classDef core fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:700;
+    classDef added fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:700;
+
+    subgraph D1["📚 1. Course Curriculum & AI Questions"]
+        direction TB
+        COURSE["Course"]:::core
+        MD["MarkdownDocument"]:::core
+        QB["QuestionBank"]:::core
+        QRC["QuestionRubricCriterion"]:::added
+
+        COURSE -->|"stores"| MD
+        COURSE -->|"owns"| QB
+        QB -->|"defines 3-5"| QRC
+    end
+
+    subgraph D2["🗓️ 2. Exam Paper, Period & Scheduling"]
+        direction TB
+        EXAM["Exam"]:::core
+        EQ["ExamQuestion"]:::core
+        EP["ExamPeriod"]:::added
+        EST["ExamSlotTemplate"]:::added
+        ESTE["ExamSlotTemplateExam"]:::added
+        SESSION["ExamSession"]:::core
+        ESE["ExamSessionExam"]:::added
+        ESS["ExamSessionSlot"]:::added
+        ESSE["ExamSessionSlotExam"]:::added
+
+        COURSE -->|"creates"| EXAM
+        EXAM -->|"includes"| EQ
+        COURSE -->|"opens"| EP
+        EP -->|"defines"| EST
+        EST -->|"links"| ESTE
+        EXAM -->|"assigned to"| ESTE
+        EP -->|"schedules"| SESSION
+        SESSION -->|"links"| ESE
+        EXAM -->|"pools"| ESE
+        SESSION -->|"divides"| ESS
+        ESS -->|"links"| ESSE
+        EXAM -->|"pools"| ESSE
+    end
+
+    subgraph D3["🎙️ 3. Execution, Audio Chunks & Grading"]
+        direction TB
+        USER["User"]:::core
+        ENROLL["Enrollment"]:::core
+        SENROLL["SessionEnrollment"]:::core
+        RESULT["Result"]:::core
+        ANSWER["Answer"]:::core
+        MEDIA["MediaUpload"]:::added
+
+        USER -->|"enrolled"| ENROLL
+        COURSE -->|"tracks"| ENROLL
+        SESSION -->|"admits"| SENROLL
+        ESS -->|"assigns"| SENROLL
+        USER -->|"registers"| SENROLL
+        SESSION -->|"records"| RESULT
+        ESS -->|"tracks"| RESULT
+        EXAM -->|"evaluates"| RESULT
+        USER -->|"submits"| RESULT
+        RESULT -->|"contains"| ANSWER
+        QB -->|"grades"| ANSWER
+        RESULT -->|"uploads"| MEDIA
+        USER -->|"records"| MEDIA
+    end
+
+    subgraph D4["🛡️ 4. Governance & Audit"]
+        direction TB
+        RETAKE["ExamRetake"]:::added
+        AUDIT["AuditLog"]:::added
+
+        RESULT -->|"authorizes"| RETAKE
+        RETAKE -->|"retake in"| SESSION
+        USER -->|"granted to"| RETAKE
+        USER -->|"audited in"| AUDIT
+    end
+                </div>
+
+                <table>
+                    <tr>
+                        <th>#</th>
+                        <th>Entity Class</th>
+                        <th>PostgreSQL Table</th>
+                        <th>Domain Group &amp; Purpose</th>
+                    </tr>
+                    <tr><td>1</td><td><code>User</code></td><td><code>users</code></td><td>4 roles: <code>ADMIN</code>, <code>STAFF</code>, <code>EXAMINER</code>, <code>STUDENT</code>.</td></tr>
+                    <tr><td>2</td><td><code>Course</code></td><td><code>courses</code></td><td>Academic course unit assigned to a Staff/Teacher.</td></tr>
+                    <tr><td>3</td><td><code>Enrollment</code></td><td><code>enrollments</code></td><td>Student enrollment in a Course.</td></tr>
+                    <tr><td>4</td><td><code>MarkdownDocument</code></td><td><code>markdown_documents</code></td><td>Course <code>CONTENT</code> and <code>LEARNING_OUTCOMES</code> markdown files.</td></tr>
+                    <tr><td>5</td><td><code>QuestionBank</code></td><td><code>question_bank</code></td><td>AI-generated &amp; teacher-approved viva questions + TTS URL.</td></tr>
+                    <tr><td>6</td><td><code>QuestionRubricCriterion</code> <span class="badge-new">ADDED</span></td><td><code>question_rubric_criteria</code></td><td>Structured grading criteria &amp; max points per question.</td></tr>
+                    <tr><td>7</td><td><code>Exam</code></td><td><code>exams</code></td><td>Exam paper definition (duration, threshold, total score).</td></tr>
+                    <tr><td>8</td><td><code>ExamQuestion</code></td><td><code>exam_questions</code></td><td>Join table linking an <code>Exam</code> to ordered <code>QuestionBank</code> items.</td></tr>
+                    <tr><td>9</td><td><code>ExamPeriod</code> <span class="badge-new">ADDED</span></td><td><code>exam_periods</code></td><td>Examination campaign window (<code>DRAFT</code>, <code>ACTIVE</code>, <code>COMPLETED</code>).</td></tr>
+                    <tr><td>10</td><td><code>ExamSlotTemplate</code> <span class="badge-new">ADDED</span></td><td><code>exam_slot_templates</code></td><td>Reusable time-slot blueprint inside an <code>ExamPeriod</code>.</td></tr>
+                    <tr><td>11</td><td><code>ExamSlotTemplateExam</code> <span class="badge-new">ADDED</span></td><td><code>exam_slot_template_exams</code></td><td>Links slot templates to a pool of <code>Exam</code> papers.</td></tr>
+                    <tr><td>12</td><td><code>ExamSession</code></td><td><code>exam_sessions</code></td><td>Scheduled examination room/session with assigned Examiner.</td></tr>
+                    <tr><td>13</td><td><code>ExamSessionExam</code> <span class="badge-new">ADDED</span></td><td><code>exam_session_exams</code></td><td>Pool of <code>Exam</code> papers assigned to an <code>ExamSession</code> for random draw.</td></tr>
+                    <tr><td>14</td><td><code>ExamSessionSlot</code> <span class="badge-new">ADDED</span></td><td><code>exam_session_slots</code></td><td>Concrete time slot inside an <code>ExamSession</code> with capacity limits.</td></tr>
+                    <tr><td>15</td><td><code>ExamSessionSlotExam</code> <span class="badge-new">ADDED</span></td><td><code>exam_session_slot_exams</code></td><td>Links a concrete <code>ExamSessionSlot</code> to its allowed <code>Exam</code> papers.</td></tr>
+                    <tr><td>16</td><td><code>SessionEnrollment</code></td><td><code>session_enrollments</code></td><td>Whitelists a <code>Student</code> into a specific <code>ExamSession</code> and <code>Slot</code>.</td></tr>
+                    <tr><td>17</td><td><code>Result</code></td><td><code>results</code></td><td>Student's exam attempt, AI score, final score, and status lifecycle.</td></tr>
+                    <tr><td>18</td><td><code>Answer</code></td><td><code>answers</code></td><td>Per-question audio R2 key, transcript, follow-up, and AI rubric score.</td></tr>
+                    <tr><td>19</td><td><code>MediaUpload</code> <span class="badge-new">ADDED</span></td><td><code>media_uploads</code></td><td>Tracks chunked/merged audio uploads and Cloudflare R2 object keys.</td></tr>
+                    <tr><td>20</td><td><code>ExamRetake</code> <span class="badge-new">ADDED</span></td><td><code>exam_retakes</code></td><td>Tracks Examiner-granted retake authorization linked to original <code>Result</code>.</td></tr>
+                    <tr><td>21</td><td><code>AuditLog</code> <span class="badge-new">ADDED</span></td><td><code>audit_logs</code></td><td>Immutable JSONB audit trail for score overrides, publishing, and retakes.</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 1: CORE 12-ENTITY SLIDE VIEW -->
+        <div class="tab-content" id="tab-1">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>2. Core 12-Entity ERD (Clean Slide View — Table Names &amp; Relationships Only)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Distills the 21 tables into the 12 primary domain entities (omitting M:N join tables) so non-technical audiences can grasp the full v2.0 data model at a glance.</p>
+                
+                <div class="mermaid">
+flowchart LR
+    U["User"]:::core -->|"teaches"| C["Course"]:::core
+    C -->|"owns"| QB["QuestionBank"]:::core
+    QB -->|"graded by"| QRC["QuestionRubricCriterion"]:::added
+
+    C -->|"defines"| EXM["Exam"]:::core
+    C -->|"opens"| EP["ExamPeriod"]:::added
+    EP -->|"schedules"| ES["ExamSession"]:::core
+    ES -->|"divides into"| ESS["ExamSessionSlot"]:::added
+
+    U -->|" takes "| RES["Result"]:::core
+    ES -->|"hosts"| RES
+    EXM -->|"assigned to"| RES
+
+    RES -->|"contains"| ANS["Answer"]:::core
+    QB -->|"asked in"| ANS
+    RES -->|"authorizes"| RET["ExamRetake"]:::added
+    U -->|"recorded in"| AUD["AuditLog"]:::added
+
+    classDef core fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-weight:bold
+    classDef added fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d,font-weight:bold
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: CROW'S FOOT ER DIAGRAM -->
+        <div class="tab-content" id="tab-2">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>3. Formal Crow's Foot ER Diagram (PK / FK &amp; Core Columns)</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Standard database Entity-Relationship notation showing primary keys, foreign keys, and cardinalities.</p>
+                
+                <div class="mermaid">
+erDiagram
+    USERS ||--o{ COURSES : "teaches"
+    USERS ||--o{ ENROLLMENTS : "enrolls"
+    COURSES ||--o{ ENROLLMENTS : "has"
+    COURSES ||--o{ MARKDOWN_DOCUMENTS : "contains"
+    COURSES ||--o{ QUESTION_BANK : "owns"
+    QUESTION_BANK ||--|{ QUESTION_RUBRIC_CRITERIA : "defines"
+    COURSES ||--o{ EXAMS : "has"
+    EXAMS ||--|{ EXAM_QUESTIONS : "includes"
+    QUESTION_BANK ||--o{ EXAM_QUESTIONS : "used_in"
+    COURSES ||--o{ EXAM_PERIODS : "schedules"
+    EXAM_PERIODS ||--o{ EXAM_SESSIONS : "contains"
+    EXAM_SESSIONS ||--o{ EXAM_SESSION_SLOTS : "divides_into"
+    EXAM_SESSIONS ||--o{ SESSION_ENROLLMENTS : "admits"
+    EXAM_SESSION_SLOTS ||--o{ SESSION_ENROLLMENTS : "assigns"
+    EXAM_SESSIONS ||--o{ RESULTS : "produces"
+    EXAMS ||--o{ RESULTS : "evaluated_by"
+    USERS ||--o{ RESULTS : "attempts"
+    RESULTS ||--|{ ANSWERS : "contains"
+    QUESTION_BANK ||--o{ ANSWERS : "answered_in"
+    RESULTS ||--o{ MEDIA_UPLOADS : "stores_audio"
+    RESULTS ||--o{ EXAM_RETAKES : "grants"
+    USERS ||--o{ AUDIT_LOGS : "triggers"
+
+    USERS {
+        int user_id PK
+        varchar username UK
+        user_role role
+    }
+    COURSES {
+        int course_id PK
+        varchar course_code UK
+        int teacher_id FK
+    }
+    QUESTION_BANK {
+        int question_id PK
+        int course_id FK
+        varchar approval_status
+    }
+    QUESTION_RUBRIC_CRITERIA {
+        int criterion_id PK
+        int question_id FK
+        decimal max_points
+    }
+    EXAMS {
+        int exam_id PK
+        int course_id FK
+        exam_status status
+    }
+    EXAM_PERIODS {
+        int period_id PK
+        int course_id FK
+        exam_period_status status
+    }
+    EXAM_SESSIONS {
+        int session_id PK
+        int period_id FK
+        int examiner_id FK
+        session_status status
+    }
+    EXAM_SESSION_SLOTS {
+        int slot_id PK
+        int session_id FK
+        int capacity
+    }
+    RESULTS {
+        int result_id PK
+        int session_id FK
+        int student_id FK
+        int exam_id FK
+        submission_status status
+        varchar ai_evaluation_status
+    }
+    ANSWERS {
+        int answer_id PK
+        int result_id FK
+        int question_id FK
+        varchar object_key
+        varchar status
+    }
+    EXAM_RETAKES {
+        int retake_id PK
+        int original_result_id FK
+        int student_id FK
+        varchar status
+    }
+    AUDIT_LOGS {
+        bigint log_id PK
+        int user_id FK
+        varchar action
+        jsonb new_value
+    }
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchTab(idx) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            const tabs = [
+                document.getElementById('tab-0'),
+                document.getElementById('tab-1'),
+                document.getElementById('tab-2')
+            ];
+
+            buttons.forEach((btn, i) => btn.classList.toggle('active', i === idx));
+
+            if (idx === 3) {
+                tabs.forEach(t => t.classList.add('active'));
+            } else {
+                tabs.forEach((t, i) => t.classList.toggle('active', i === idx));
+            }
+        }
+
+        /**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x & 8x)
+ */
+/**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+
+
+        /* ── Unified High-Resolution Diagram Exporter ── */
+        /**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+    </script>
+</body>
+</html>
+

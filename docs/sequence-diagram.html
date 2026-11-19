@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIVES v2.0 — Complete Sequence Diagrams</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#eff6ff',
+                primaryTextColor: '#1e3a8a',
+                primaryBorderColor: '#2563eb',
+                lineColor: '#334155',
+                textColor: '#0f172a',
+                mainBkg: '#eff6ff',
+                actorBkg: '#eff6ff',
+                actorBorder: '#2563eb',
+                actorTextColor: '#1e3a8a',
+                actorLineColor: '#94a3b8',
+                signalColor: '#334155',
+                signalTextColor: '#1e293b',
+                labelBoxBkgColor: '#f8fafc',
+                labelBoxBorderColor: '#cbd5e1',
+                labelTextColor: '#0f172a',
+                loopTextColor: '#0f172a',
+                noteBkgColor: '#fffbeb',
+                noteBorderColor: '#d97706',
+                noteTextColor: '#92400e',
+                activationBkgColor: '#dbeafe',
+                activationBorderColor: '#3b82f6',
+                sequenceNumberColor: '#ffffff'
+            }
+        });
+    </script>
+    <style>
+        :root {
+            --bg-page: #f8fafc;
+            --text-color: #0f172a;
+            --primary: #2563eb;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-page);
+            padding: 28px 16px;
+            color: var(--text-color);
+            max-width: 1180px;
+            margin: 0 auto;
+        }
+
+        .header-title {
+            text-align: center;
+            font-size: 1.38rem;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.92rem;
+            margin-bottom: 22px;
+        }
+
+        .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 auto 22px auto;
+            background: #e2e8f0;
+            padding: 5px;
+            border-radius: 8px;
+            width: fit-content;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tabs-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .tab-content {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 100%;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .tab-content.active {
+            position: relative;
+            left: 0;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            margin-bottom: 22px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            color: #1e293b;
+            margin-bottom: 8px;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 6px;
+        }
+
+        .desc {
+            font-size: 0.88rem;
+            color: #475569;
+            margin-bottom: 14px;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+            font-size: 0.85rem;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f1f5f9;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        /* ── High-Res Export Toolbar ── */
+        .export-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            padding: 8px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .export-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #475569;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .btn-export:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export:active {
+            transform: translateY(0);
+        }
+    
+        /* ── Floating Top-Right Export Buttons ── */
+        .header-with-export {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+
+        .header-with-export h2,
+        .header-with-export .slide-title-text {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            font-size: 1.12rem;
+            color: #1e293b;
+        }
+
+        .export-buttons-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        .btn-export-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-export-top:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export-top:active {
+            transform: translateY(0);
+        }
+
+
+        /* ── High-Res Export Toolbar ── */
+        .export-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            padding: 8px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .export-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #475569;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #1e40af;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .btn-export:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn-export:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-title">🎓 AIVES v2.0 — Complete Sequence Diagrams (7 End-to-End Flows)</div>
+    <p class="subtitle">Updated with Multi-Container Boundary, Hangfire Message Queue, Python AI Service (<code>X-Internal-Token</code>), Pre-Exam Slot Check &amp; Retake Lifecycle</p>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab(0)">Seq 1: AI Question Gen</button>
+        <button class="tab-btn" onclick="switchTab(1)">Seq 2: Slot Scheduling</button>
+        <button class="tab-btn" onclick="switchTab(2)">Seq 3: Live Viva &amp; R2</button>
+        <button class="tab-btn" onclick="switchTab(3)">Seq 4: Async Queue &amp; AI</button>
+        <button class="tab-btn" onclick="switchTab(4)">Seq 5: Review &amp; Publish</button>
+        <button class="tab-btn" onclick="switchTab(5)">Seq 6: Pre-Exam Verification</button>
+        <button class="tab-btn" onclick="switchTab(6)">Seq 7: Retake Workflow</button>
+        <button class="tab-btn" onclick="switchTab(7)">View All Stacked</button>
+    </div>
+
+    <div class="tabs-wrapper">
+
+        <!-- SEQ 1: COURSE MATERIAL & AI QUESTION GENERATION -->
+        <div class="tab-content active" id="tab-0">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Sequence 1 — Upload Markdown Materials &amp; AI Question/Rubric Generation</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Staff uploads course `.md` documents, triggers the Python AI Service to generate questions + 3–5 rubric criteria via Gemini, and approves them into the Question Bank.</p>
+                
+                <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Staff as Staff / Teacher
+    participant Web as React Web App
+    participant API as ASP.NET Core API
+    participant AIS as Python AI Service
+    participant GEM as Google Gemini API
+    participant DB as PostgreSQL 16
+
+    Staff->>Web: Upload CONTENT.md & LEARNING_OUTCOMES.md
+    Web->>API: POST /api/courses/{id}/documents [HTTPS + JWT]
+    API->>DB: Save markdown_documents [TCP:5432]
+    API-->>Web: 201 Created
+
+    Staff->>Web: Click "Generate AI Questions & Rubrics"
+    Web->>API: POST /api/questions/generate [HTTPS + JWT]
+    API->>AIS: POST /api/v1/generate-questions [HTTP + X-Internal-Token]
+    AIS->>GEM: Prompt with Course Content & Outcomes [HTTPS]
+    GEM-->>AIS: Structured Questions + 3-5 Rubric Criteria
+    AIS-->>API: Generated Question Drafts (JSON)
+    API->>DB: Insert question_bank (PENDING_REVIEW) + question_rubric_criteria
+    API-->>Web: Display Draft Questions & Rubrics
+
+    Staff->>Web: Review, Edit & Approve Questions
+    Web->>API: PATCH /api/questions/{id}/approve [HTTPS + JWT]
+    API->>DB: Update approval_status = APPROVED + Insert audit_logs
+    API-->>Web: Question Ready for Exams
+                </div>
+            </div>
+        </div>
+
+        <!-- SEQ 2: EXAM PAPER, PERIOD & MULTI-SLOT SCHEDULING -->
+        <div class="tab-content" id="tab-1">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Sequence 2 — Exam Paper, ExamPeriod &amp; Multi-Slot Session Scheduling</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Staff assembles approved questions into Exam papers, configures an ExamPeriod with time slots (`ExamSessionSlot`), assigns an Examiner, and enrolls Students.</p>
+                
+                <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Staff as Staff / Teacher
+    participant Web as React Web App
+    participant API as ASP.NET Core API
+    participant DB as PostgreSQL 16
+
+    Staff->>Web: Create Exam Paper from Approved Questions
+    Web->>API: POST /api/exams [HTTPS + JWT]
+    API->>DB: Insert exams + exam_questions (ValidateAPPROVED)
+    API-->>Web: Exam Created (DRAFT)
+
+    Staff->>Web: Create ExamPeriod & Slot Templates
+    Web->>API: POST /api/exam-periods [HTTPS + JWT]
+    API->>DB: Insert exam_periods + exam_slot_templates
+    API-->>Web: ExamPeriod Created
+
+    Staff->>Web: Schedule ExamSession, Slots & Assign Examiner
+    Web->>API: POST /api/exam-sessions [HTTPS + JWT]
+    API->>DB: Insert exam_sessions + exam_session_slots + exam_session_exams
+    API-->>Web: Session Scheduled (NOT_STARTED)
+
+    Staff->>Web: Enroll Students into Session & Slot
+    Web->>API: POST /api/exam-sessions/{id}/enrollments [HTTPS + JWT]
+    API->>DB: Insert session_enrollments (Check Slot Capacity)
+    API-->>Web: Students Whitelisted for Viva
+                </div>
+            </div>
+        </div>
+
+        <!-- SEQ 3: LIVE VIVA EXAM, CHUNKED AUDIO UPLOAD & ENQUEUE -->
+        <div class="tab-content" id="tab-2">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Sequence 3 — Live Viva Exam, Chunked Audio Upload to R2 &amp; Queue Dispatch</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Student enters the live Viva room, receives randomized exam questions, streams voice chunks that merge to Cloudflare R2, and finishes the session to enqueue background grading.</p>
+                
+                <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Student
+    participant Web as React Web App
+    participant API as ASP.NET Core API
+    participant R2 as Cloudflare R2
+    participant MQ as Hangfire Queue
+    participant DB as PostgreSQL 16
+
+    Student->>Web: Click "Join Viva Session"
+    Web->>API: POST /api/viva-sessions/{id}/start [HTTPS + JWT]
+    API->>DB: Verify session_enrollments & Create Result (ResultId)
+    API-->>Web: Return ResultId + Randomized Questions
+
+    loop For Each Question (Or Early Finish)
+        Web->>Student: Play Question Audio (TTS)
+        Student->>Web: Speak Answer (MediaRecorder 4s Chunks)
+        Web->>API: POST /api/media/chunks [Multipart Audio]
+        Student->>Web: Click "Confirm Answer"
+        Web->>API: POST /api/viva-sessions/submit-answer [ResultId, QuestionId]
+        API->>R2: Merge Chunks & Upload .webm [S3 PutObject]
+        R2-->>API: Confirm ObjectKey (viva/{resultId}/q{id}.webm)
+        API->>DB: Upsert answers (Status = PROCESSING, ObjectKey)
+        API-->>Web: 202 Accepted (Move to Next Question)
+    end
+
+    Student->>Web: Click "Finish Exam"
+    Web->>API: POST /api/viva-sessions/{id}/finish [HTTPS + JWT]
+    API->>DB: Update Result (Status = SUBMITTED, AiStatus = PENDING)
+    API->>MQ: Enqueue SessionGradingService.GradeSessionAsync(ResultId)
+    API-->>Web: 200 OK (Exam Submitted — Grading in Background)
+                </div>
+            </div>
+        </div>
+
+        <!-- SEQ 4: ASYNC HANGFIRE QUEUE WORKER & AI RUBRIC GRADING -->
+        <div class="tab-content" id="tab-3">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Sequence 4 — Async Hangfire Queue Worker, Whisper STT &amp; Gemini Rubric Grading</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Decoupled background worker processes queued exam attempts, downloads audio from Cloudflare R2, transcribes speech via Faster-Whisper, scores against rubrics via Gemini, and handles up to 3 automatic retries.</p>
+                
+                <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant MQ as Hangfire Worker (Backend)
+    participant DB as PostgreSQL 16
+    participant AIS as Python AI Service
+    participant R2 as Cloudflare R2
+    participant GEM as Google Gemini API
+
+    MQ->>DB: Dequeue Job & Load Result + Answers + Rubric Criteria [TCP:5432]
+
+    loop For Each Answer in Result (Or Batch Session Grade)
+        MQ->>AIS: POST /api/v1/grade-session [HTTP:8000 + X-Internal-Token]
+        AIS->>R2: Download Audio (.webm) via ObjectKey [S3 GetObject]
+        R2-->>AIS: Audio Stream
+        AIS->>AIS: Transcribe Audio via Faster-Whisper (STT)
+        AIS->>GEM: Send Transcript + Question + Rubric Criteria [HTTPS]
+        GEM-->>AIS: Criterion Scores + Strengths/Weaknesses (JSON)
+        AIS-->>MQ: Return Transcript, AiScore & Rubric Breakdown
+    end
+
+    alt Evaluation Succeeded
+        MQ->>DB: Update answers (Status = EVALUATED, Transcript, AiScore, JSONB)
+        MQ->>DB: Update results (AiStatus = SUCCEEDED, Status = PENDING_REVIEW)
+    else Transient Error / Timeout (Attempt < 3)
+        MQ->>DB: Increment attempt_count & Re-schedule Job in Hangfire
+    else Permanent Failure (Attempt == 3)
+        MQ->>DB: Update answers (Status = ERROR) & results (AiStatus = FAILED)
+    end
+                </div>
+            </div>
+        </div>
+
+        <!-- SEQ 5: EXAMINER AUDIO AUDIT, SCORE OVERRIDE, RETAKE & PUBLISH -->
+        <div class="tab-content" id="tab-4">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Sequence 5 — Examiner Audio Review, Score Override, Retake Grant &amp; Grade Publication</h2>
+                    <div class="export-buttons-top">
+                    <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                    <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                    <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                </div>
+                </div>
+                <p class="desc">Examiner streams student audio via presigned R2 URL, inspects AI rubric breakdown, optionally overrides the score or grants a retake (both logged in `audit_logs`), and publishes the official result to the Student.</p>
+                
+                <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Examiner
+    actor Student
+    participant Web as React Web App
+    participant API as ASP.NET Core API
+    participant R2 as Cloudflare R2
+    participant DB as PostgreSQL 16
+
+    Examiner->>Web: Open Submission Review Detail
+    Web->>API: GET /api/results/{resultId} [HTTPS + JWT]
+    API->>DB: Load Result, Answers & Rubric JSONB
+    API->>R2: Generate 15-min Presigned GET URL
+    API-->>Web: Return AI Breakdown + Presigned Audio URL
+    Web->>R2: Stream Student Audio Playback [HTTPS]
+
+    opt Examiner Overrides AI Score (BR-14)
+        Examiner->>Web: Enter New FinalScore + Mandatory Reason
+        Web->>API: PATCH /api/results/{resultId}/override [HTTPS + JWT]
+        API->>DB: Update final_score, status = REVIEWED + Insert audit_logs
+    end
+
+    opt Examiner Grants Exam Retake
+        Examiner->>Web: Click "Grant Retake" with Reason
+        Web->>API: POST /api/results/{resultId}/retake [HTTPS + JWT]
+        API->>DB: Insert exam_retakes + Insert audit_logs
+    end
+
+    Examiner->>Web: Click "Publish Official Result" (BR-15)
+    Web->>API: POST /api/results/{resultId}/publish [HTTPS + JWT]
+    API->>DB: Lock Result (status = PUBLISHED) + Insert audit_logs
+    API-->>Web: Result Published
+
+    Student->>Web: Open "My Exam Results"
+    Web->>API: GET /api/student/results [HTTPS + JWT]
+    API->>DB: Query results WHERE status = PUBLISHED
+    API-->>Web: Display Final Score, Transcript & Rubric Feedback
+                </div>
+            </div>
+        <!-- SEQ 6: PRE-EXAM AUTHENTICATION & SLOT VERIFICATION -->
+        <div class="tab-content" id="tab-5">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Sequence 6 — Student Pre-Exam Authentication &amp; Slot Verification</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <p class="desc">Role-based JWT authentication, validation against assigned <code>session_enrollments</code>, and slot time window enforcement before enabling mic.</p>
+                <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Student
+    participant Web as React Web App
+    participant API as ASP.NET Core API
+    participant DB as PostgreSQL 16
+
+    Student->>Web: Enter Credentials & Sign In
+    Web->>API: POST /api/auth/login [HTTPS]
+    API->>DB: Validate user (STUDENT) & Fetch active enrollments
+    API-->>Web: 200 OK + JWT Bearer Token (Claims: UserId, Role)
+
+    Student->>Web: Navigate to Assigned Viva Session
+    Web->>API: GET /api/viva-sessions/{sessionId}/check-eligibility [HTTPS + JWT]
+    API->>DB: Query session_enrollments & exam_session_slots
+    alt Eligible & Slot Window Active
+        API-->>Web: 200 OK (SlotId, StartTime, EndTime, ExaminerName)
+        Web->>Student: Unlock Microphone Testing & "Start Exam" Button
+    else Slot Window Not Reached
+        API-->>Web: 403 Forbidden ("Session slot opens at {StartTime}")
+        Web->>Student: Display Countdown Timer
+    else Not Enrolled in Session
+        API-->>Web: 403 Forbidden ("Student is not enrolled in this viva session")
+        Web->>Student: Display Contact Staff Error
+    end
+                </div>
+            </div>
+        </div>
+
+        <!-- SEQ 7: RETAKE WORKFLOW -->
+        <div class="tab-content" id="tab-6">
+            <div class="section">
+                <div class="header-with-export">
+                    <h2>Sequence 7 — End-to-End Retake Workflow (Grant, Re-allocation &amp; Re-grading)</h2>
+                    <div class="export-buttons-top">
+                        <button class="btn-export-top" onclick="exportDiagram(this, 4)">📥 Tải PNG (4x)</button>
+                        <button class="btn-export-top" onclick="exportDiagram(this, 8)">📥 Tải PNG (8x)</button>
+                        <button class="btn-export-top" onclick="exportSvg(this)">📥 Tải SVG (Vector)</button>
+                    </div>
+                </div>
+                <p class="desc">Examiner retake authorization, slot re-allocation, second viva attempt recording, Hangfire async re-grading, and comparative final review.</p>
+                <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Examiner
+    actor Student
+    participant Web as React Web App
+    participant API as ASP.NET Core API
+    participant MQ as Hangfire Worker
+    participant AIS as Python AI Service
+    participant DB as PostgreSQL 16
+
+    Examiner->>Web: Open Result Detail & Click "Grant Retake"
+    Web->>API: POST /api/results/{resultId}/retake [HTTPS + JWT]
+    API->>DB: Insert exam_retakes (Reason, GrantedBy) + Insert audit_logs
+    API->>DB: Allocate New Slot in exam_session_slots & session_enrollments
+    API-->>Web: 201 Created (Retake Authorized)
+
+    Student->>Web: Open Viva Dashboard (Notified of Retake)
+    Web->>API: GET /api/student/viva-sessions [HTTPS + JWT]
+    API-->>Web: Return Active Retake Session Slot
+    Student->>Web: Join Retake Slot & Speak New Answers
+    Web->>API: POST /api/viva-sessions/{newSessionId}/finish [HTTPS + JWT]
+    API->>DB: Insert new Result (IsRetake = true, Status = SUBMITTED)
+    API->>MQ: Enqueue SessionGradingService(NewResultId)
+
+    MQ->>AIS: POST /api/v1/grade-session [HTTP:8000 + X-Internal-Token]
+    AIS-->>MQ: Return New AI Scores & Transcript
+    MQ->>DB: Update new Result (AiStatus = SUCCEEDED, Status = PENDING_REVIEW)
+    Examiner->>Web: Audit Retake Scores vs Original Attempt
+    Examiner->>Web: Click "Publish Final Retake Result"
+    Web->>API: POST /api/results/{newResultId}/publish [HTTPS + JWT]
+    API->>DB: Lock Result (PUBLISHED) + Insert audit_logs
+    API-->>Web: Retake Result Published
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchTab(idx) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            const tabs = [
+                document.getElementById('tab-0'),
+                document.getElementById('tab-1'),
+                document.getElementById('tab-2'),
+                document.getElementById('tab-3'),
+                document.getElementById('tab-4'),
+                document.getElementById('tab-5'),
+                document.getElementById('tab-6')
+            ];
+
+            buttons.forEach((btn, i) => btn.classList.toggle('active', i === idx));
+
+            if (idx === 7) {
+                tabs.forEach(t => t.classList.add('active'));
+            } else {
+                tabs.forEach((t, i) => t.classList.toggle('active', i === idx));
+            }
+        }
+
+        /**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x & 8x)
+ */
+/**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+
+
+        /* ── Unified High-Resolution Diagram Exporter ── */
+        /**
+ * AIVES High-Resolution Diagram Exporter (PNG 4x, PNG 8x & SVG Vector)
+ */
+function exportDiagram(btn, scale = 4) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet. Please wait a moment.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang xuất...';
+    btn.disabled = true;
+
+    try {
+        const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                        document.querySelector('.header-title');
+        let filename = (heading ? heading.innerText : 'diagram')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aives-diagram';
+        filename += `-${scale}x`;
+
+        let width = 0, height = 0;
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            width = svg.viewBox.baseVal.width;
+            height = svg.viewBox.baseVal.height;
+        } else if (svg.getAttribute('viewBox')) {
+            const parts = svg.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (parts.length === 4) {
+                width = parseFloat(parts[2]);
+                height = parseFloat(parts[3]);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            width = rect.width || 900;
+            height = rect.height || 600;
+        }
+
+        const padding = 20;
+        const targetW = Math.round((width + padding * 2) * scale);
+        const targetH = Math.round((height + padding * 2) * scale);
+
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clone.removeAttribute('style');
+
+        // CRUCIAL FOR HIGH-RES: Set explicit pixel dimensions on SVG clone so browser rasterizes at full target resolution!
+        clone.setAttribute('width', targetW + 'px');
+        clone.setAttribute('height', targetH + 'px');
+        clone.style.width = targetW + 'px';
+        clone.style.height = targetH + 'px';
+
+        // Clean foreignObject and preserve <br> line breaks
+        clone.querySelectorAll('foreignObject').forEach(fo => {
+            const w = parseFloat(fo.getAttribute('width')) || 0;
+            const h = parseFloat(fo.getAttribute('height')) || 0;
+            const x = w / 2;
+
+            const textElem = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElem.setAttribute('x', x);
+            textElem.setAttribute('text-anchor', 'middle');
+            textElem.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            textElem.setAttribute('font-size', '13px');
+            textElem.setAttribute('font-weight', '600');
+            textElem.setAttribute('fill', '#0f172a');
+
+            const labelSpan = fo.querySelector('.nodeLabel') || fo.querySelector('p') || fo.querySelector('span') || fo.firstElementChild;
+            if (labelSpan) {
+                const style = window.getComputedStyle(labelSpan);
+                if (style.color && style.color !== 'rgba(0, 0, 0, 0)') textElem.setAttribute('fill', style.color);
+                if (style.fontWeight) textElem.setAttribute('font-weight', style.fontWeight);
+            }
+
+            // Replace <br> tags with newline delimiter so lines are preserved
+            const htmlWithBreaks = fo.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlWithBreaks;
+            const plainText = (tempDiv.textContent || '').trim();
+            const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length <= 1) {
+                textElem.textContent = lines[0] || '';
+                textElem.setAttribute('y', h / 2);
+                textElem.setAttribute('dominant-baseline', 'central');
+            } else {
+                const fontSize = 13;
+                const lineHeight = fontSize + 4;
+                const startY = (h - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.textContent = line;
+                    tspan.setAttribute('x', x);
+                    tspan.setAttribute('y', startY + idx * lineHeight);
+                    tspan.setAttribute('dominant-baseline', 'central');
+                    textElem.appendChild(tspan);
+                });
+            }
+            fo.parentNode.replaceChild(textElem, fo);
+        });
+
+        let defs = clone.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            clone.insertBefore(defs, clone.firstChild);
+        }
+        const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        fontStyle.textContent = 'text, tspan { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }';
+        defs.appendChild(fontStyle);
+
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        downloadUri(canvas.toDataURL('image/png'), `${filename}.png`);
+                    } else {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        downloadUri(downloadUrl, `${filename}.png`);
+                        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+                    }
+                    URL.revokeObjectURL(blobUrl);
+                    btn.innerHTML = '✅ Đã tải!';
+                    setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 1500);
+                }, 'image/png');
+            } catch (err) {
+                console.error('Canvas export error:', err);
+                alert('Export failed: ' + err.message);
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+
+        img.onerror = () => {
+            alert('Failed to render SVG diagram.');
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            URL.revokeObjectURL(blobUrl);
+        };
+
+        img.src = blobUrl;
+    } catch (err) {
+        console.error('Export exception:', err);
+        alert('Export error: ' + err.message);
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Direct SVG Vector Export (Crisp at any resolution, 0 blur)
+ */
+function exportSvg(btn) {
+    const container = btn.closest('.section') || 
+                      btn.closest('.diagram-container') || 
+                      btn.closest('.diagram-wrapper') || 
+                      btn.closest('.slide-container') || 
+                      btn.parentElement.parentElement;
+    const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+    if (!svg) {
+        alert('Diagram SVG is not ready yet.');
+        return;
+    }
+
+    const heading = (container ? container.querySelector('h2') || container.querySelector('.slide-title') : null) || 
+                    document.querySelector('.header-title');
+    let filename = (heading ? heading.innerText : 'diagram')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aives-diagram';
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadUri(url, `${filename}.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadUri(uri, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = uri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+    </script>
+</body>
+</html>

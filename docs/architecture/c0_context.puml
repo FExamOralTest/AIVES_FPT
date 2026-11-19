@@ -1,24 +1,25 @@
-@startuml C0_System_Context
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+@startuml c0_context
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Segoe UI"
+skinparam roundcorner 10
+left to right direction
 
-title C0 - System Context Diagram for AIVES (Updated)
+actor "Admin\n(System & Accounts)" as AD #eff6ff
+actor "Staff / Teacher\n(Courses, Questions & Slots)" as STF #eff6ff
+actor "Student\n(Takes Oral Viva Exam)" as ST #eff6ff
+actor "Examiner\n(Reviews & Publishes Grades)" as EX #eff6ff
 
-Person(student, "Student", "Takes viva exam & views official published results")
-Person(staff, "Academic Staff", "Manages courses, question banks, exams & proctors sessions")
-Person(examiner, "Examiner (Khảo thí)", "Reviews AI grading, audits audio recordings & publishes final results")
-Person(admin, "Admin", "Manages system users, course assignments & configurations")
+rectangle "AIVES v2.0 Platform\n(AI-Based Interactive Viva Examination System)" as SYS #1e40af;text:ffffff
 
-System(aives, "AIVES Platform", "AI-powered viva examination & assessment governance system")
+database "Cloudflare R2\n(Audio Object Storage)" as R2 #fffbeb
+cloud "Google Gemini API\n(LLM Rubric Grading & TTS)" as GEM #fffbeb
 
-System_Ext(r2, "Cloudflare R2", "S3-compatible object storage for secure student audio recordings")
-System_Ext(ai_brain, "AI LLM Provider", "Gemini / OpenAI for rubric-based scoring & follow-up questions")
+AD --> SYS : Manage Users & Courses [HTTPS]
+STF --> SYS : Upload .md, Approve Questions, Schedule Slots [HTTPS]
+ST --> SYS : Speak Oral Answers & View Final Grades [HTTPS]
+EX --> SYS : Audit Audio, Override Scores & Publish [HTTPS]
 
-Rel(student, aives, "Submits voice answers & checks published grades")
-Rel(staff, aives, "Designs exams & monitors live sessions")
-Rel(examiner, aives, "Audits transcripts, listens to audios & approves/publishes results")
-Rel(admin, aives, "Manages system roles & policies")
-
-Rel(aives, r2, "Stores & streams encrypted audio recordings")
-Rel(aives, ai_brain, "Evaluates transcripts against rubric standards")
-
+SYS --> R2 : Upload & Stream Audio (.webm)\n[S3 API / Presigned URL]
+SYS --> GEM : Generate Questions, TTS & Grade\n[HTTPS / REST JSON]
 @enduml
